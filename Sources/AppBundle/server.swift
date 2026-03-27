@@ -40,7 +40,7 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
         await answerToClient(ans)
     }
     func answerToClient(_ ans: ServerAnswer) async {
-        _ = await connection.writeAtomic(ans)
+        _ = await connection.writeAtomic(ans) // todo. Don't ignore this error
     }
     while true {
         let rawRequest: Data

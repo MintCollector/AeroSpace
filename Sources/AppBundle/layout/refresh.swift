@@ -20,7 +20,7 @@ func scheduleCancellableCompleteRefreshSession(
 func runHeavyCompleteRefreshSession(
     _ event: RefreshSessionEvent,
     layoutWorkspaces shouldLayoutWorkspaces: Bool = true,
-    optimisticallyPreLayoutWorkspaces: Bool = false,
+    optimisticallyPreLayoutWorkspaces: Bool = false, // todo hack. Figure it out and drop it
 ) async throws {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }

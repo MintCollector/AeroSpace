@@ -62,7 +62,7 @@ public func dieT<T>(
                 try await terminationHandler.beforeTermination()
             }
         }
-        semaphore.wait()
+        semaphore.wait() // todo this is deadlock. Fix it!!!
     }
     fatalError("\n" + message)
 }
