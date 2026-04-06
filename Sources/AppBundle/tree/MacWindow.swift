@@ -81,6 +81,20 @@ final class MacWindow: Window {
             return
         }
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
+        let destroyedWorkspaceName = nodeWorkspace?.name
+        let tiledCount: Int? = {
+            guard let ws = nodeWorkspace else { return nil }
+            let allTiled = ws.rootTilingContainer.allLeafWindowsRecursive
+            let selfIsTiled = allTiled.contains(where: { $0.windowId == self.windowId })
+            return allTiled.count - (selfIsTiled ? 1 : 0)
+        }()
+        broadcastEvent(.windowDestroyed(
+            windowId: windowId,
+            workspace: destroyedWorkspaceName,
+            appBundleId: app.rawAppBundleId,
+            appName: app.name,
+            tiledWindowCount: tiledCount,
+        ))
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
         let focus = focus
@@ -255,6 +269,7 @@ func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int
         workspace: window.nodeWorkspace?.name,
         appBundleId: window.app.rawAppBundleId,
         appName: window.app.name,
+        tiledWindowCount: window.nodeWorkspace?.rootTilingContainer.allLeafWindowsRecursive.count,
     ))
     var lastExitCode = Int32ExitCode.succ
     for callback in config.onWindowDetected where await callback.matches(window) {

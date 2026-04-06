@@ -143,6 +143,10 @@ let run_callback_help_generated = """
     USAGE: run-callback [-h|--help] [--for-every-window|--window-id <window-id>] on-window-detected
        OR: run-callback [-h|--help] (on-focus-changed|on-focused-monitor-changed)
     """
+let set_gaps_help_generated = """
+    USAGE: set-gaps [-h|--help] [--workspace <workspace>] [--outer <size>] [--inner <size>]
+       OR: set-gaps [-h|--help] --stdin
+    """
 let split_help_generated = """
     USAGE: split [-h|--help] [--window-id <window-id>] (horizontal|vertical|opposite)
     """
