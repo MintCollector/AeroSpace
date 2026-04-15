@@ -33,6 +33,7 @@ struct WindowWithPrefetchedTitle {
     }
 }
 
+// TODO: Extend WindowWithPrefetchedTitle to lazily resolve rect (Rect?) for window-x/y/width/height format vars
 enum AeroObj {
     case window(WindowWithPrefetchedTitle)
     case workspace(Workspace)
@@ -159,11 +160,13 @@ extension FormatVar {
 
         switch (obj, self) {
             case (.window(let w), .window(let f)):
+                // TODO: Re-add window-x/y/width/height once WindowWithPrefetchedTitle carries lazy rect
                 return switch f {
                     case .windowId: .success(.int(w.window.windowId))
                     case .windowIsFullscreen: .success(.bool(w.window.isFullscreen))
                     case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefeched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
+                    case .windowX, .windowY, .windowWidth, .windowHeight: .failure("window position/size format vars not yet re-implemented after rebase")
                 }
             case (.workspace(let w), .workspace(let f)):
                 return switch f {

@@ -43,6 +43,7 @@ struct ListWindowsCommand: Command {
         if args.outputOnlyCount {
             return .succ(io.out("\(windows.count)"))
         } else {
+            // TODO: Extend resolveWindow to also lazily prefetch rect when format includes window-x/y/width/height
             var _list: [WindowWithPrefetchedTitle] = [] // todo cleanup
             for window in windows {
                 _list.append(try await .resolveWindow(window, for: args.format))
