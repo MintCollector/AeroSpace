@@ -4,28 +4,49 @@ import Foundation
 struct WindowWithPrefetchedTitle {
     let window: Window
     let title: String?
+    let rect: Rect?
 
-    private init(window: Window, title: String?) {
+    private init(window: Window, title: String?, rect: Rect?) {
         self.window = window
         self.title = title
+        self.rect = rect
     }
 
-    static func resolveWindow(_ window: Window, for formatVar: FormatVar, _ cm: CancellationMode) async throws -> Self {
-        try await resolveWindow(window, needsTitle: formatVar == .window(.windowTitle), cm)
+    static func resolveWindow(_ window: Window, for formatVar: FormatVar) async throws -> Self {
+        try await resolveWindow(
+            window,
+            needsTitle: formatVar == .window(.windowTitle),
+            needsRect: [.window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight)].contains(formatVar),
+        )
     }
 
-    static func resolveWindow(_ window: Window, for format: [InterToken<InterVar>], _ cm: CancellationMode) async throws -> Self {
-        let needsTitle = format.contains { $0 == .interVar(.formatVar(.window(.windowTitle))) }
-        return try await resolveWindow(window, needsTitle: needsTitle, cm)
+    private static let rectVarNames: Set<String> = [
+        FormatVar.WindowFormatVar.windowX.rawValue,
+        FormatVar.WindowFormatVar.windowY.rawValue,
+        FormatVar.WindowFormatVar.windowWidth.rawValue,
+        FormatVar.WindowFormatVar.windowHeight.rawValue,
+    ]
+
+    static func resolveWindow(_ window: Window, for format: [StringInterToken], _ cm: CancellationMode = .cancellable) async throws -> Self {
+        var needsTitle = false
+        var needsRect = false
+        for token in format {
+            if case .interVar(let v) = token {
+                if v.rawValue == FormatVar.WindowFormatVar.windowTitle.rawValue { needsTitle = true }
+                if rectVarNames.contains(v.rawValue) { needsRect = true }
+            }
+        }
+        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
     }
 
-    private static func resolveWindow(_ window: Window, needsTitle: Bool, _ cm: CancellationMode) async throws -> Self {
-        let title = needsTitle ? try await window.getTitle(cm) : nil
-        return .init(window: window, title: title)
+    private static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
+        let title: String = try await window.title
+        let rect: Rect? = needsRect ? try await window.getAxRect() : nil
+        return .init(window: window, title: needsTitle ? title : nil, rect: rect)
     }
 
-    static func forTest(window: Window, title: String?) -> Self {
-        .init(window: window, title: title)
+    static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
+        .init(window: window, title: title, rect: rect)
     }
 }
 
@@ -160,6 +181,12 @@ extension FormatVar {
                     case .windowIsFullscreen: .success(.bool(w.window.isFullscreen))
                     case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefetched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
+                    case .windowParentContainerOrientation: toOrientationResult(w: w.window)
+                    case .windowX: .success(.int(w.rect.map { Int($0.topLeftX) } ?? 0))
+                    case .windowY: .success(.int(w.rect.map { Int($0.topLeftY) } ?? 0))
+                    case .windowWidth: .success(.int(w.rect.map { Int($0.width) } ?? 0))
+                    case .windowHeight: .success(.int(w.rect.map { Int($0.height) } ?? 0))
+                    case .windowTreeIndex: .success(.int(w.window.ownIndex ?? 0))
                 }
             case (.workspace(let w), .workspace(let f)):
                 return switch f {
@@ -167,6 +194,7 @@ extension FormatVar {
                     case .workspaceVisible: .success(.bool(w.isVisible))
                     case .workspaceFocused: .success(.bool(focus.workspace == w))
                     case .workspaceRootContainerLayout: .success(.string(toLayoutString(tc: w.rootTilingContainer)))
+                    case .workspaceRootContainerOrientation: .success(.string(toOrientationString(w.rootTilingContainer.orientation)))
                 }
             case (.monitor(let m), .monitor(let f)):
                 return switch f {
@@ -174,6 +202,8 @@ extension FormatVar {
                     case .monitorAppKitNsScreenScreensId: .success(.int(m.monitorAppKitNsScreenScreensId))
                     case .monitorName: .success(.string(m.name))
                     case .monitorIsMain: .success(.bool(m.isMain))
+                    case .monitorWidth: .success(.int(Int(m.width)))
+                    case .monitorHeight: .success(.int(Int(m.height)))
                 }
             case (.app(let a), .app(let f)):
                 return switch f {
@@ -216,6 +246,8 @@ extension PlainInterVar {
             case .tab: .success(.string("\t"))
             case .rightPadding:
                 .failure(.rightPaddingCannotBeExpanded("\(PlainInterVar.rightPadding.rawValue.singleQuoted) interpolation variable cannot be expanded"))
+            case .all:
+                .failure(.rightPaddingCannotBeExpanded("\(PlainInterVar.all.rawValue.singleQuoted) interpolation variable cannot be expanded"))
         }
     }
 }
@@ -232,6 +264,13 @@ extension InterVar {
 func unknownInterpolationVariable(variable: String, _ obj: AeroObj) -> String {
     "Unknown interpolation variable '\(variable)'. " +
         "Possible values:\n\(getAvailableInterVars(for: obj.kind).joined(separator: "\n").prependLines("  "))"
+}
+
+private func toOrientationString(_ orientation: Orientation) -> String {
+    switch orientation {
+        case .h: return "horizontal"
+        case .v: return "vertical"
+    }
 }
 
 private func toLayoutString(tc: TilingContainer) -> String {
@@ -255,5 +294,20 @@ private func toLayoutResult(w: Window) -> Result<Primitive, InterVarExpansionErr
 
         case .rootTilingContainer: .failure(.notPossible("Not possible"))
         case .shimContainerRelation: .failure(.windowParentIllegalRelation("Window cannot have a shim container relation"))
+    }
+}
+
+private func toOrientationResult(w: Window) -> Result<Primitive, String> {
+    guard let parent = w.parent else { return .failure("NULL-PARENT") }
+    return switch getChildParentRelation(child: w, parent: parent) {
+        case .tiling(let tc): .success(.string(toOrientationString(tc.orientation)))
+        case .floatingWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeFullscreenWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeHiddenAppWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeMinimizedWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosPopupWindow: .success(.string("NULL-ORIENTATION"))
+
+        case .rootTilingContainer: .failure("Not possible")
+        case .shimContainerRelation: .failure("Window cannot have a shim container relation")
     }
 }

@@ -19,6 +19,11 @@ final class ListWorkspacesTest: XCTestCase {
         assertEquals(parseCommand("list-workspaces --all --format %{workspace} --count").errorOrNil, "ERROR: Conflicting options: --count, --format")
         assertEquals(parseCommand("list-workspaces --empty").errorOrNil, "Mandatory option is not specified (--all|--focused|--monitor)")
         assertEquals(parseCommand("list-workspaces --all --focused --monitor mouse").errorOrNil, "ERROR: Conflicting options: --all, --focused, --monitor")
+        assertEquals(parseCommand("list-workspaces --all --format '%{all}'").errorOrNil, "'%{all}' format option requires --json flag")
+        assertNotNil(parseCommand("list-workspaces --all --format '%{all}' --json").cmdOrNil)
+        assertEquals(parseCommand("list-workspaces --all --format '%{all} %{workspace}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+        assertEquals(parseCommand("list-workspaces --all --format '%{is-focused} %{all}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+        assertNotNil(parseCommand("list-workspaces --all --format ' %{all} ' --json").cmdOrNil)
     }
 
     func testRunAll() async {
@@ -104,5 +109,43 @@ final class ListWorkspacesTest: XCTestCase {
         ])
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(result.stdout, [expected])
+    }
+
+    func testWorkspaceRootOrientationVariable() {
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.h)
+            let workspace = Workspace.get(byName: name)
+            let workspaces = [AeroObj.workspace(workspace)]
+            assertEquals(
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
+                .success(["horizontal"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.v)
+            let workspace = Workspace.get(byName: name)
+            let workspaces = [AeroObj.workspace(workspace)]
+            assertEquals(
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
+                .success(["vertical"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.h)
+            let workspace = Workspace.get(byName: name)
+            let workspaces = [AeroObj.workspace(workspace)]
+            assertEquals(
+                workspaces.format([
+                    .interVar(.formatVar(.workspace(.workspaceName))),
+                    .literal(" | "),
+                    .interVar(.formatVar(.workspace(.workspaceRootContainerOrientation))),
+                    .literal(" | "),
+                    .interVar(.formatVar(.workspace(.workspaceRootContainerLayout))),
+                ]),
+                .success(["\(name) | horizontal | h_tiles"]),
+            )
+        }
     }
 }

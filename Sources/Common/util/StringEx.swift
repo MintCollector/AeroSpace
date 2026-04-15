@@ -155,6 +155,7 @@ public enum InterToken<T>: Equatable, Sendable where T: Equatable, T: Sendable {
 }
 
 typealias RawStringInterToken = InterToken<String>
+public typealias StringInterToken = InterToken<InterVar>
 
 private enum InterpolationParserState {
     case stringLiteral(currLiteral: String)

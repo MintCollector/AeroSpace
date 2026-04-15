@@ -74,6 +74,8 @@ extension CmdArgs {
                 command = ResizeCommand(args: self as! ResizeCmdArgs)
             case .runCallback:
                 command = RunCallbackCommand(args: self as! RunCallbackCmdArgs)
+            case .setFrame:
+                command = SetFrameCommand(args: self as! SetFrameCmdArgs)
             case .setGaps:
                 command = SetGapsCommand(args: self as! SetGapsCmdArgs)
             case .split:

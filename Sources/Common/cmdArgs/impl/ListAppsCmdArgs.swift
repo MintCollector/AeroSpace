@@ -26,20 +26,32 @@ public struct ListAppsCmdArgs: CmdArgs {
 }
 
 extension ListAppsCmdArgs {
-    public var format: [InterToken<InterVar>] {
-        _format.isEmpty
-            ? [
+    public var format: [StringInterToken] {
+        if _format.isEmpty {
+            return [
                 .interVar(.formatVar(.app(.appPid))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "),
                 .interVar(.formatVar(.app(.appBundleId))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "),
                 .interVar(.formatVar(.app(.appName))),
             ]
-            : _format
+        }
+        if _format.contains(.interVar(.plainInterVar(.all))) {
+            return AeroObjKind.app.getFormatWithAllVariable()
+        }
+        return _format
     }
 }
 
 func parseListAppsCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListAppsCmdArgs> {
     parseSpecificCmdArgs(ListAppsCmdArgs(rawArgs: args), args)
-        .flatMap { if $0.json, let msg = getErrorIfFormatIsIncompatibleWithJson($0._format) { .failure(msg) } else { .cmd($0) } }
+        .flatMap { parsed in
+            if parsed.json, let msg = getErrorIfFormatIsIncompatibleWithJson(parsed._format) {
+                return .failure(msg)
+            }
+            if let msg = getErrorIfAllFormatVariableIsInvalid(json: parsed.json, format: parsed._format) {
+                return .failure(msg)
+            }
+            return .cmd(parsed)
+        }
 }
 
 func getErrorIfFormatIsIncompatibleWithJson(_ format: [InterToken<InterVar>]) -> String? {

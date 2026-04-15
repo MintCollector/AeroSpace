@@ -28,17 +28,29 @@ public struct ListMonitorsCmdArgs: CmdArgs {
 }
 
 extension ListMonitorsCmdArgs {
-    public var format: [InterToken<InterVar>] {
-        _format.isEmpty
-            ? [
+    public var format: [StringInterToken] {
+        if _format.isEmpty {
+            return [
                 .interVar(.formatVar(.monitor(.monitorId_oneBased))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "),
                 .interVar(.formatVar(.monitor(.monitorName))),
             ]
-            : _format
+        }
+        if _format.contains(.interVar(.plainInterVar(.all))) {
+            return AeroObjKind.monitor.getFormatWithAllVariable()
+        }
+        return _format
     }
 }
 
 func parseListMonitorsCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListMonitorsCmdArgs> {
     parseSpecificCmdArgs(ListMonitorsCmdArgs(rawArgs: args), args)
-        .flatMap { if $0.json, let msg = getErrorIfFormatIsIncompatibleWithJson($0._format) { .failure(msg) } else { .cmd($0) } }
+        .flatMap { parsed in
+            if parsed.json, let msg = getErrorIfFormatIsIncompatibleWithJson(parsed._format) {
+                return .failure(msg)
+            }
+            if let msg = getErrorIfAllFormatVariableIsInvalid(json: parsed.json, format: parsed._format) {
+                return .failure(msg)
+            }
+            return .cmd(parsed)
+        }
 }

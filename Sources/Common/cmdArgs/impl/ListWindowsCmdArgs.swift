@@ -50,13 +50,17 @@ public struct ListWindowsCmdArgs: CmdArgs {
 
 extension ListWindowsCmdArgs {
     public var format: [InterToken<InterVar>] {
-        _format.isEmpty
-            ? [
+        if _format.isEmpty {
+            return [
                 .interVar(.formatVar(.window(.windowId))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "),
                 .interVar(.formatVar(.app(.appName))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "),
                 .interVar(.formatVar(.window(.windowTitle))),
             ]
-            : _format
+        }
+        if _format.contains(.interVar(.plainInterVar(.all))) {
+            return AeroObjKind.window.getFormatWithAllVariable()
+        }
+        return _format
     }
 }
 
@@ -75,7 +79,42 @@ func parseListWindowsCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListWindowsCmdArg
         .map { raw in
             raw.allAlias ? raw.copy(\.filteringOptions.monitors, [.all]).copy(\.allAlias, false) : raw // Normalize alias
         }
-        .flatMap { if $0.json, let msg = getErrorIfFormatIsIncompatibleWithJson($0._format) { .failure(msg) } else { .cmd($0) } }
+        .flatMap { parsed in
+            if parsed.json, let msg = getErrorIfFormatIsIncompatibleWithJson(parsed._format) {
+                return .failure(msg)
+            }
+            if let msg = getErrorIfAllFormatVariableIsInvalid(json: parsed.json, format: parsed._format) {
+                return .failure(msg)
+            }
+            return .cmd(parsed)
+        }
+}
+
+func getErrorIfAllFormatVariableIsInvalid(json: Bool, format: [InterToken<InterVar>]) -> String? {
+    let hasAllVariable = format.contains(.interVar(.plainInterVar(.all)))
+
+    if hasAllVariable {
+        // Check if %{all} is mixed with other variables (excluding spaces) first
+        let nonSpaceTokens = format.filter { token in
+            switch token {
+                case .literal(let literal):
+                    return literal.contains(where: { $0 != " " })
+                case .interVar:
+                    return true
+            }
+        }
+
+        if nonSpaceTokens.count > 1 {
+            return "'%{all}' format option must be used alone and cannot be combined with other variables"
+        }
+
+        // Then check if %{all} is used without --json flag
+        if !json {
+            return "'%{all}' format option requires --json flag"
+        }
+    }
+
+    return nil
 }
 
 func formatParser<Root>(
@@ -182,6 +221,11 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case windowTitle = "window-title"
         case windowLayout = "window-layout" // An alias for windowParentContainerLayout
         case windowParentContainerLayout = "window-parent-container-layout"
+        case windowParentContainerOrientation = "window-parent-container-orientation"
+        case windowX = "window-x"
+        case windowY = "window-y"
+        case windowWidth = "window-width"
+        case windowHeight = "window-height"
     }
 
     public enum WorkspaceFormatVar: String, Equatable, CaseIterable, Sendable {
@@ -189,6 +233,7 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case workspaceFocused = "workspace-is-focused"
         case workspaceVisible = "workspace-is-visible"
         case workspaceRootContainerLayout = "workspace-root-container-layout"
+        case workspaceRootContainerOrientation = "workspace-root-container-orientation"
     }
 
     public enum AppFormatVar: String, Equatable, CaseIterable, Sendable {
@@ -204,6 +249,8 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case monitorAppKitNsScreenScreensId = "monitor-appkit-nsscreen-screens-id"
         case monitorName = "monitor-name"
         case monitorIsMain = "monitor-is-main"
+        case monitorWidth = "monitor-width"
+        case monitorHeight = "monitor-height"
     }
 }
 
@@ -211,6 +258,7 @@ public enum PlainInterVar: String, CaseIterable, Sendable, Equatable {
     case rightPadding = "right-padding"
     case newline = "newline"
     case tab = "tab"
+    case all = "all"
 }
 
 public enum InterVar: RawRepresentable, Equatable, CaseIterable, Sendable {
@@ -263,6 +311,18 @@ public enum InterVar: RawRepresentable, Equatable, CaseIterable, Sendable {
 
 public enum AeroObjKind: CaseIterable, Sendable {
     case window, workspace, app, monitor
+
+    public func getFormatWithAllVariable() -> [StringInterToken] {
+        return getAvailableInterVars(for: self)
+            .compactMap { InterVar(rawValue: $0) }
+            .filter { v in
+                v != .plainInterVar(.rightPadding) &&
+                v != .plainInterVar(.newline) &&
+                v != .plainInterVar(.tab) &&
+                v != .plainInterVar(.all)
+            }
+            .map { .interVar($0) }
+    }
 }
 
 public func getAvailableInterVars(for kind: AeroObjKind) -> [String] {

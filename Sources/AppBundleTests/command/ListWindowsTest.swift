@@ -183,4 +183,87 @@ final class ListWindowsTest: XCTestCase {
         assertEquals(mismatching.exitCode.rawValue, 0)
         assertEquals(mismatching.stdout, [])
     }
+
+    func testAllFormatVariable() {
+        // Test that %{all} without --json fails at parsing level
+        assertEquals(parseCommand("list-windows --all --format '%{all}'").errorOrNil, "'%{all}' format option requires --json flag")
+
+        // Test that %{all} with JSON succeeds at parsing level
+        assertNil(parseCommand("list-windows --all --format '%{all}' --json").errorOrNil)
+
+        // Test that %{all} mixed with other variables fails
+        assertEquals(parseCommand("list-windows --all --json --format '%{all} %{window-id}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+        assertEquals(parseCommand("list-windows --all --json --format '%{window-title} %{all}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+        assertEquals(parseCommand("list-windows --all --json --format '%{all}     %{window-title}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+
+        // Test that %{all} with only spaces is allowed
+        assertNil(parseCommand("list-windows --all --format ' %{all} ' --json").errorOrNil)
+    }
+
+    func testOrientationInterpolationVariables() {
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.h)
+            let window = TestWindow.new(id: 1, parent: $0)
+            let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
+            assertEquals(
+                windows.format([.interVar("window-parent-container-orientation")]),
+                .success(["horizontal"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.v)
+            let window = TestWindow.new(id: 2, parent: $0)
+            let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
+            assertEquals(
+                windows.format([.interVar("window-parent-container-orientation")]),
+                .success(["vertical"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.h)
+            let workspace = Workspace.get(byName: name)
+            let workspaces = [AeroObj.workspace(workspace)]
+            assertEquals(
+                workspaces.format([.interVar("workspace-root-container-orientation")]),
+                .success(["horizontal"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.v)
+            let workspace = Workspace.get(byName: name)
+            let workspaces = [AeroObj.workspace(workspace)]
+            assertEquals(
+                workspaces.format([.interVar("workspace-root-container-orientation")]),
+                .success(["vertical"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply { root in
+            root.changeOrientation(.h)
+            let nestedContainer = TilingContainer.newVTiles(parent: root, adaptiveWeight: 1, index: 0)
+            let window = TestWindow.new(id: 3, parent: nestedContainer)
+            let windows = [AeroObj.window(.forTest(window: window, title: "nested"))]
+            assertEquals(
+                windows.format([.interVar("window-parent-container-orientation")]),
+                .success(["vertical"]),
+            )
+        }
+
+        Workspace.get(byName: name).rootTilingContainer.apply {
+            $0.changeOrientation(.h)
+            let window = TestWindow.new(id: 4, parent: $0)
+            let windows = [AeroObj.window(.forTest(window: window, title: "combined"))]
+            assertEquals(
+                windows.format([
+                    .interVar("window-parent-container-orientation"),
+                    .literal(" | "),
+                    .interVar("window-parent-container-layout"),
+                ]),
+                .success(["horizontal | h_tiles"]),
+            )
+        }
+    }
 }
