@@ -199,6 +199,8 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case monitorAppKitNsScreenScreensId = "monitor-appkit-nsscreen-screens-id"
         case monitorName = "monitor-name"
         case monitorIsMain = "monitor-is-main"
+        case monitorWidth = "monitor-width"
+        case monitorHeight = "monitor-height"
     }
 }
 
