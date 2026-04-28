@@ -49,7 +49,8 @@ struct ListWindowsCommand: Command {
                 _list.append(window)
             }
             _list = _list.filter { $0.window.isBound }
-            _list = _list.sortedBy([{ $0.window.app.name ?? "" }, { $0.title ?? "" }])
+            // Preserve tree traversal order so consumers get tiling layout position
+            // _list = _list.sortedBy([{ $0.window.app.name ?? "" }, { $0.title ?? "" }])
 
             let list = _list.map { AeroObj.window($0) }
             if args.json {

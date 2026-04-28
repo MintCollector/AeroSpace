@@ -39,10 +39,21 @@ struct WindowWithPrefetchedTitle {
         return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
     }
 
-    private static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
-        let title: String = try await window.title
-        let rect: Rect? = needsRect ? try await window.getAxRect() : nil
-        return .init(window: window, title: needsTitle ? title : nil, rect: rect)
+    static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
+        let title: String? = needsTitle ? try await window.title : nil
+        let rect: Rect? = needsRect ? try await resolveRect(window) : nil
+        return .init(window: window, title: title, rect: rect)
+    }
+
+    /// Prefer the rect AeroSpace already computed during layout (held in memory) over a
+    /// cross-process AX query. Tiled, non-fullscreen windows always have
+    /// `lastAppliedLayoutPhysicalRect` set, and it equals what was pushed to AX via
+    /// `setAxFrame` (see layoutRecursive). Floating/fullscreen windows have a nil cache and
+    /// fall back to the live AX rect. This is the single rect source for list-windows and
+    /// list-tree; it eliminates the per-poll AX rect walk that stalls the serialized MainActor.
+    static func resolveRect(_ window: Window) async throws -> Rect? {
+        if let cached = window.lastAppliedLayoutPhysicalRect { return cached }
+        return try await window.getAxRect()
     }
 
     static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {

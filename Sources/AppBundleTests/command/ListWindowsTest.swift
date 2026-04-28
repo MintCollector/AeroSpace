@@ -48,6 +48,19 @@ final class ListWindowsTest: XCTestCase {
         }
     }
 
+    func testResolveRectPrefersCachedLayoutRect() async throws {
+        let parent = Workspace.get(byName: name).rootTilingContainer
+        // AX would report this rect; the cached layout rect is deliberately different.
+        let w = TestWindow.new(id: 7, parent: parent, rect: Rect(topLeftX: 1, topLeftY: 2, width: 3, height: 4))
+        w.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 10, topLeftY: 20, width: 30, height: 40)
+        let resolved = try await WindowWithPrefetchedTitle.resolveWindow(w, needsTitle: false, needsRect: true)
+        // Cached layout rect wins; no AX round-trip to getAxRect().
+        assertEquals(resolved.rect?.topLeftX, 10)
+        assertEquals(resolved.rect?.topLeftY, 20)
+        assertEquals(resolved.rect?.width, 30)
+        assertEquals(resolved.rect?.height, 40)
+    }
+
     func testFormat() {
         Workspace.get(byName: name).rootTilingContainer.apply {
             let windows = [
