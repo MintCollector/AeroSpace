@@ -55,14 +55,53 @@ enum RaycastInterceptor {
             return false
         }
 
-        log.warning("[RaycastInterceptor] INTERCEPTING: \(bundleId ?? "nil", privacy: .public) | bundleURL: \(nsApp.bundleURL?.path ?? "nil", privacy: .public)")
-        if let bundleURL = nsApp.bundleURL {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            process.arguments = ["-n", bundleURL.path]
-            try? process.run()
+        let cfg = raycastConfig
+        let modifierHeld = NSEvent.modifierFlags.contains(cfg.modifier)
+        let onAllowlist = bundleId.map { cfg.newWindowApps.contains($0) } ?? false
+
+        log.warning("[RaycastInterceptor] INTERCEPTING: \(bundleId ?? "nil", privacy: .public) | modifier=\(modifierHeld, privacy: .public) allowlist=\(onAllowlist, privacy: .public)")
+
+        if onAllowlist && modifierHeld {
+            openNewWindow(nsApp)
+        } else if onAllowlist || cfg.defaultBehavior == .move {
+            moveWindowHere(nsApp)
+        } else {
+            return false
         }
         return true
+    }
+
+    @MainActor
+    private static func openNewWindow(_ nsApp: NSRunningApplication) {
+        guard let bundleURL = nsApp.bundleURL else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-n", bundleURL.path]
+        try? process.run()
+    }
+
+    @MainActor
+    private static func moveWindowHere(_ nsApp: NSRunningApplication) {
+        guard let macApp = MacApp.allAppsMap[nsApp.processIdentifier] else {
+            log.warning("[RaycastInterceptor] no MacApp for pid=\(nsApp.processIdentifier)")
+            return
+        }
+        let window: MacWindow? = {
+            if let id = macApp.lastNativeFocusedWindowId, let w = MacWindow.allWindowsMap[id] { return w }
+            return MacWindow.allWindows.first { $0.macApp.pid == nsApp.processIdentifier }
+        }()
+        guard let window else {
+            log.warning("[RaycastInterceptor] no window found for \(nsApp.bundleIdentifier ?? "nil", privacy: .public)")
+            return
+        }
+        let targetWorkspace = focus.workspace
+        if window.nodeWorkspace != targetWorkspace {
+            let targetContainer: NonLeafTreeNodeObject = window.isFloating ? targetWorkspace : targetWorkspace.rootTilingContainer
+            window.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        }
+        _ = window.focusWindow()
+        window.nativeFocus()
+        scheduleCancellableCompleteRefreshSession(.globalObserver("RaycastMoveWindow"))
     }
 }
 
