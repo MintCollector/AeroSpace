@@ -45,7 +45,7 @@ struct Config: ConvenienceCopyable {
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var accordionPadding: Int = 30
-    var maxWindowWidth: DynamicConfigValue<Int>? = nil
+    var maxWindowWidth: [Int: Int]? = nil
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
     var persistentWorkspaces: OrderedSet<String> = []
     var execOnWorkspaceChange: [String] = [] // todo deprecate

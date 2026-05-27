@@ -115,8 +115,24 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, errors in
-        let value = parseDynamicValue(raw, ofType: Int.self, 0, backtrace, &errors)
-        return .some(value)
+        guard let rawTable = raw.asDictOrNil else {
+            errors += [expectedActualTypeError(expected: .table, actual: raw.tomlType, backtrace)]
+            return .some([:])
+        }
+        var result: [Int: Int] = [:]
+        for (key, value) in rawTable {
+            let keyBacktrace = backtrace + .key(key)
+            guard let intKey = Int(key) else {
+                errors += [.semantic(keyBacktrace, "Key '\(key)' must be a valid integer (column count)")]
+                continue
+            }
+            guard let intValue = value.asIntOrNil else {
+                errors += [expectedActualTypeError(expected: .int, actual: value.tomlType, keyBacktrace)]
+                continue
+            }
+            result[intKey] = intValue
+        }
+        return .some(result)
     },
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),

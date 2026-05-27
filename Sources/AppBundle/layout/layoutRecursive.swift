@@ -70,7 +70,7 @@ private struct LayoutContext {
         self.workspace = workspace
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: workspace.workspaceMonitor)
-        self.maxWindowWidth = config.maxWindowWidth.map { CGFloat($0.getValue(for: workspace.workspaceMonitor)) }
+        self.maxWindowWidth = nil
     }
 }
 
