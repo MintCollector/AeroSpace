@@ -1,74 +1,143 @@
-# Raycast Activation Interceptor
+# Raycast Activation Interceptor + Extension
 
 ## Problem
 
-When Raycast activates an application that already has a window on another workspace, AeroSpace follows the macOS focus change and yanks the user to that workspace. The desired behavior is to stay on the current workspace and open a new window of the activated app.
+When Raycast activates an application that already has a window on another workspace, AeroSpace follows the macOS focus change and yanks the user to that workspace. The desired behavior is to stay on the current workspace — either by moving the existing window here or opening a new one.
 
-## Design
+Modifier keys can't differentiate these actions because Raycast consumes all modifier keys for its own shortcuts.
 
-### Detection
+## Solution: Two-Component Architecture
 
-Track the last two `didActivateApplicationNotification` bundle IDs to detect Raycast-driven activations:
+1. **AeroSpace RaycastInterceptor** (Swift) — detects Raycast-driven activations via AXObserver. For non-extension apps, silently moves the window to the current workspace. For extension apps, launches a Raycast extension via deeplink with all window data.
 
-- `previousActivatedBundleId` — the bundle ID from the last activation
-- `preRaycastBundleId` — what was focused before Raycast opened
+2. **AeroSpace Raycast Extension** (TypeScript) — receives app context via deeplink. Presents a list: "New window" at the top, then each existing window with title and workspace. Enter on a window moves it here. Enter on "New window" runs `open -n`. Secondary actions via Cmd+K.
 
-When a non-Raycast app activates and the previous activation was Raycast (`com.raycast.macos`):
-- If the target equals `preRaycastBundleId` → Raycast was dismissed (Escape), do nothing special
-- Otherwise → Raycast-driven activation, intercept it
+## Detection
 
-### Interception
+AXObserver on Raycast's PID watches for `kAXWindowCreatedNotification` and `kAXUIElementDestroyedNotification`. When the panel opens, we snapshot the currently-focused app's bundle ID (`panelOpenBundleId`). When the panel closes, we record the timestamp (`panelClosedAt`).
 
-On a Raycast-driven activation:
-1. Fire `open -n <bundlePath>` to spawn a new instance of the target app
-2. Suppress the normal refresh session (return early from `onNotif`)
+In `GlobalObserver.onNotif`, when `didActivateApplicationNotification` fires, `handleActivation` checks if `panelClosedAt` is within 200ms. If so, this is a Raycast-driven activation.
 
-By not calling `scheduleCancellableCompleteRefreshSession`, AeroSpace never calls `updateFocusCache` for this activation, so focus stays on the current workspace. The new window appears via `kAXWindowCreatedNotification` and gets tiled on the current workspace through the normal flow.
+Dismissal detection: if the activated app matches `panelOpenBundleId`, the user pressed Escape — pass through to normal behavior.
 
-### Behavior by app type
+## Config
 
-- **Multi-instance apps** (terminals, browsers): `open -n` spawns a real new window
-- **Single-instance apps** (Slack, Spotify): `open -n` just focuses the existing window — same as today, harmless
+`~/.config/aerospace/raycast.toml`:
 
-### Edge cases
+```toml
+# What happens for apps NOT in extension-apps when activated via Raycast
+# "move" = move existing window to current workspace
+# "focus" = normal stock behavior (switch to window's workspace)
+default-behavior = "move"
 
-- **App not running**: `open -n` launches it. Raycast may have also launched it, resulting in two instances briefly, but harmless since the fresh launch has no windows yet.
-- **Raycast dismissed without picking**: Detected by comparing target to `preRaycastBundleId`. Normal focus behavior.
-- **Other launchers (Spotlight, Alfred)**: Not affected — only `com.raycast.macos` triggers interception.
-- **Brief workspace flicker**: macOS may visually switch before our code runs. The suppressed refresh session prevents AeroSpace from reinforcing the switch, and the new window appearing snaps back.
+# Apps that route to the Raycast extension for action selection
+extension-apps = [
+    "net.kovidgoyal.kitty",
+    "com.mitchellh.ghostty",
+    "com.google.Chrome",
+    "net.imput.helium",
+]
+```
 
-## Files
+Reloaded when the main AeroSpace config reloads.
 
-### New: `Sources/AppBundle/RaycastInterceptor.swift`
+## Routing Logic
 
-Contains all state and logic:
-- `handleActivation(_ nsApp: NSRunningApplication) -> Bool` — returns true if intercepted
-- Private state tracking (`previousActivatedBundleId`, `preRaycastBundleId`)
-- Private `open -n` launcher
+```
+if bundleId in extension-apps → launch deeplink with window data
+else if default-behavior == move → moveWindowHere() silently
+else → return false (pass through)
+```
 
-### Modified: `Sources/AppBundle/GlobalObserver.swift`
+| Scenario | Action |
+|---|---|
+| Raycast + extension app | Launch Raycast extension via deeplink |
+| Raycast + non-extension app, default=move | Move existing window to current workspace |
+| Raycast + non-extension app, default=focus | Normal stock behavior (switch to workspace) |
+| Raycast dismissed (Escape) | Normal stock behavior |
+| Non-Raycast activation (Dock, Cmd+Tab) | Always normal stock behavior |
 
-~4 lines in `onNotif`: extract `NSRunningApplication` from the notification, call `RaycastInterceptor.handleActivation`, return early if it returns true.
+## Deeplink Handoff
 
-## Implementation Plan
+The interceptor serializes window data into a Raycast deeplink:
 
-### Step 1: Create `RaycastInterceptor.swift`
+```
+raycast://extensions/aerospace/window-action?context=<url-encoded-json>
+```
 
-Create the new file with:
-- `enum RaycastInterceptor` with private state
-- `handleActivation` method implementing detection logic
-- Private method to launch `open -n`
+JSON payload:
+```json
+{
+  "bundleId": "net.kovidgoyal.kitty",
+  "appName": "kitty",
+  "bundlePath": "/Applications/kitty.app",
+  "windows": [
+    {"id": 1234, "title": "~/code — zsh", "workspace": "3"},
+    {"id": 1235, "title": "~/notes — vim", "workspace": "1"}
+  ]
+}
+```
 
-**Test**: Verify it compiles. No unit test needed — this is pure integration with macOS notifications.
+Built from `MacApp.allAppsMap` and `MacWindow.allWindows` in the interceptor — no CLI roundtrip needed. Opened via `NSWorkspace.shared.open(url)`.
 
-### Step 2: Wire into `GlobalObserver.onNotif`
+## Raycast Extension
 
-In `onNotif`, when the notification is `didActivateApplicationNotification`:
-1. Extract `NSRunningApplication` from `notification.userInfo`
-2. Call `RaycastInterceptor.handleActivation(nsApp)`
-3. If it returns `true`, return early (skip `scheduleCancellableCompleteRefreshSession`)
+### UI
 
-**Test**: Build, install, verify:
-- Open Raycast → pick app on another workspace → new window appears on current workspace
-- Open Raycast → Escape → previous app stays focused, no new window
-- Click an app in the Dock → normal focus behavior, no interception
+```
+┌─────────────────────────────────────┐
+│ kitty                               │
+├─────────────────────────────────────┤
+│ ✦ New window                        │
+│   ~/code — zsh         workspace 3  │
+│   ~/notes — vim        workspace 1  │
+└─────────────────────────────────────┘
+```
+
+### Actions
+
+- **Enter** on "New window" → `open -n <bundlePath>`
+- **Enter** on a window → `aerospace move-node-to-workspace --window-id <id> <current> && aerospace focus --window-id <id>`
+- **Cmd+K** on a window → action panel:
+  - "Focus on its workspace" → `aerospace workspace <workspace-name>`
+  - "Close window" → `aerospace close --window-id <id>`
+
+Gets current workspace from `aerospace list-workspaces --focused` at launch (one CLI call).
+
+### Project Structure
+
+```
+extensions/raycast/aerospace/
+  package.json          # Raycast extension manifest + dependencies
+  src/
+    window-action.tsx   # Single command — receives deeplink, renders list
+```
+
+Single dependency: `@raycast/api`.
+
+## Files (Swift Side)
+
+### `Sources/AppBundle/RaycastInterceptor.swift`
+
+- AXObserver setup and lifecycle
+- Panel state tracking (`panelClosedAt`, `panelOpenBundleId`)
+- `handleActivation` routing logic (extension-apps check, action dispatch)
+- `moveWindowHere` action (tree manipulation)
+- `launchExtension` action (build JSON, open deeplink)
+
+### `Sources/AppBundle/config/RaycastConfig.swift`
+
+- `RaycastConfig` struct with `defaultBehavior` and `extensionApps`
+- `loadRaycastConfig()` TOML parser
+
+### `Sources/AppBundle/GlobalObserver.swift`
+
+One-line call to `RaycastInterceptor.handleActivation` in `onNotif`.
+
+### `Sources/AppBundle/initAppBundle.swift`
+
+`loadRaycastConfig()` + `RaycastInterceptor.install()` at startup.
+
+### `Sources/AppBundle/command/impl/ReloadConfigCommand.swift`
+
+`loadRaycastConfig()` on config reload.

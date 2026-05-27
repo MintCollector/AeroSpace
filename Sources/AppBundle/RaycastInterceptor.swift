@@ -5,7 +5,7 @@ private let log = Logger(subsystem: "bobko.aerospace", category: "RaycastInterce
 
 enum RaycastInterceptor {
     private static let raycastBundleId = "com.raycast.macos"
-    private static let interceptWindow: TimeInterval = 0.05
+    private static let interceptWindow: TimeInterval = 0.2
 
     @MainActor static var panelClosedAt: Date? = nil
     @MainActor static var panelOpenBundleId: String? = nil
@@ -43,6 +43,10 @@ enum RaycastInterceptor {
     @MainActor
     static func handleActivation(_ nsApp: NSRunningApplication) -> Bool {
         let bundleId = nsApp.bundleIdentifier
+        if let closedAt = panelClosedAt {
+            let delta = Date().timeIntervalSince(closedAt)
+            log.warning("[RaycastInterceptor] handleActivation: \(bundleId ?? "nil", privacy: .public) delta=\(String(format: "%.3f", delta), privacy: .public)s")
+        }
         guard let closedAt = panelClosedAt,
               Date().timeIntervalSince(closedAt) < interceptWindow else {
             return false
