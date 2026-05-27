@@ -21,14 +21,14 @@ struct ListTreeCommand: Command {
         .monitor(.monitorName), .monitor(.monitorIsMain), .monitor(.monitorWidth), .monitor(.monitorHeight),
     ]
 
-    func run(_ env: CmdEnv, _ io: CmdIo) async throws -> BinaryExitCode {
+    func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         // Resolve a node's fields through the shared formatter, keyed by FormatVar.rawValue.
         func fields(_ obj: AeroObj, _ vars: [FormatVar]) -> Result<[String: Primitive], String> {
             var dict: [String: Primitive] = [:]
             for v in vars {
                 switch v.expandFormatVar(obj: obj) {
                     case .success(let p): dict[v.rawValue] = p
-                    case .failure(let e): return .failure(e)
+                    case .failure(let e): return .failure(e.description)
                 }
             }
             return .success(dict)
@@ -49,7 +49,12 @@ struct ListTreeCommand: Command {
                 // Preserve allLeafWindowsRecursive order — the helper derives window-tree-index from it.
                 var windowNodes: [JsonTreeNode] = []
                 for window in workspace.allLeafWindowsRecursive where window.isBound {
-                    let resolved = try await WindowWithPrefetchedTitle.resolveWindow(window, fromSnapshot: snap)
+                    let resolved: WindowWithPrefetchedTitle
+                    do {
+                        resolved = try await WindowWithPrefetchedTitle.resolveWindow(window, fromSnapshot: snap)
+                    } catch {
+                        return .fail(io.err("Failed to resolve window: \(error)"))
+                    }
                     switch fields(.window(resolved), Self.windowVars) {
                         case .success(let f): windowNodes.append(JsonTreeNode(fields: f, childrenKey: nil, children: nil))
                         case .failure(let e): return .fail(io.err(e))
@@ -71,7 +76,7 @@ struct ListTreeCommand: Command {
         guard let json = JSONEncoder.aeroSpaceDefault.encodeToString(root) else {
             return .fail(io.err("Failed to encode tree to JSON"))
         }
-        return io.out(json)
+        return .succ(io.out(json))
     }
 }
 

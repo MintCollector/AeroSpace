@@ -40,7 +40,7 @@ struct WindowWithPrefetchedTitle {
     }
 
     static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
-        let title: String? = needsTitle ? try await window.title : nil
+        let title: String? = needsTitle ? try await window.getTitle(.cancellable) : nil
         let rect: Rect? = needsRect ? try await resolveRect(window) : nil
         return .init(window: window, title: title, rect: rect)
     }
@@ -53,13 +53,13 @@ struct WindowWithPrefetchedTitle {
     ///   ones on hidden workspaces parked off-screen) → else snapshot bounds → else AX `getAxRect()`.
     static func resolveWindow(_ window: Window, fromSnapshot snap: [UInt32: CgWindowInfo]) async throws -> Self {
         let info = snap[window.windowId]
-        let title: String? = if let snapTitle = info?.title { snapTitle } else { try await window.title }
+        let title: String? = if let snapTitle = info?.title { snapTitle } else { try await window.getTitle(.cancellable) }
         let rect: Rect? = if let cached = window.lastAppliedLayoutPhysicalRect {
             cached
         } else if let snapRect = info?.rect {
             snapRect
         } else {
-            try await window.getAxRect()
+            try await window.getAxRect(.cancellable)
         }
         return .init(window: window, title: title, rect: rect)
     }
@@ -72,7 +72,7 @@ struct WindowWithPrefetchedTitle {
     /// list-tree; it eliminates the per-poll AX rect walk that stalls the serialized MainActor.
     static func resolveRect(_ window: Window) async throws -> Rect? {
         if let cached = window.lastAppliedLayoutPhysicalRect { return cached }
-        return try await window.getAxRect()
+        return try await window.getAxRect(.cancellable)
     }
 
     static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
@@ -327,8 +327,8 @@ private func toLayoutResult(w: Window) -> Result<Primitive, InterVarExpansionErr
     }
 }
 
-private func toOrientationResult(w: Window) -> Result<Primitive, String> {
-    guard let parent = w.parent else { return .failure("NULL-PARENT") }
+private func toOrientationResult(w: Window) -> Result<Primitive, InterVarExpansionError> {
+    guard let parent = w.parent else { return .failure(.nullParent("NULL-PARENT")) }
     return switch getChildParentRelation(child: w, parent: parent) {
         case .tiling(let tc): .success(.string(toOrientationString(tc.orientation)))
         case .floatingWindow: .success(.string("NULL-ORIENTATION"))
@@ -337,7 +337,7 @@ private func toOrientationResult(w: Window) -> Result<Primitive, String> {
         case .macosNativeMinimizedWindow: .success(.string("NULL-ORIENTATION"))
         case .macosPopupWindow: .success(.string("NULL-ORIENTATION"))
 
-        case .rootTilingContainer: .failure("Not possible")
-        case .shimContainerRelation: .failure("Window cannot have a shim container relation")
+        case .rootTilingContainer: .failure(.notPossible("Not possible"))
+        case .shimContainerRelation: .failure(.windowParentIllegalRelation("Window cannot have a shim container relation"))
     }
 }

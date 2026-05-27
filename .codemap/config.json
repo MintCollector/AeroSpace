@@ -1,0 +1,14 @@
+{
+  "only": [
+    "swift",
+    "json5",
+    "adoc",
+    "sh",
+    "yml"
+  ],
+  "budgets": {},
+  "routing": {
+    "retrieval": {}
+  },
+  "drift": {}
+}

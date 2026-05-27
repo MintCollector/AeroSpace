@@ -19,15 +19,17 @@ struct WorkspaceCommand: Command {
         let workspaceName: String
         switch args.target.val {
             case .relative(let nextPrev):
-                let workspace = getNextPrevWorkspace(
+                let workspaceResult = getNextPrevWorkspace(
                     current: focusedWs,
                     isNext: nextPrev == .next,
                     wrapAround: args.wrapAround,
                     stdin: args.useStdin ? io.readStdin() : nil,
                     target: target,
                 )
-                guard let workspace else { return .fail(io.err("Can't resolve next or prev workspace")) }
-                workspaceName = workspace.name
+                switch workspaceResult {
+                    case .success(let ws): workspaceName = ws.name
+                    case .failure(let err): return .fail(io.err(err))
+                }
             case .direct(let name):
                 workspaceName = name.raw
                 if args.viewToggle {

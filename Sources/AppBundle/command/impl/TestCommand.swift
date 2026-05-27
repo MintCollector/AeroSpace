@@ -11,7 +11,7 @@ struct TestCommand: Command {
         let lhs: Result<Primitive, InterVarExpansionError>
         switch target.windowOrNil {
             case let window?:
-                guard let window = try? await WindowWithPrefetchedTitle.resolveWindow(window, for: args.lhs.val, .nonCancellable) else { return .fail(io.err(bugPrompt())) }
+                guard let window = try? await WindowWithPrefetchedTitle.resolveWindow(window, for: args.lhs.val) else { return .fail(io.err(bugPrompt())) }
                 lhs = args.lhs.val.expandFormatVar(obj: .window(window))
             case nil:
                 lhs = args.lhs.val.expandFormatVar(obj: .workspace(target.workspace))

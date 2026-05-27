@@ -181,7 +181,7 @@ final class ResizeCommandTest: XCTestCase {
         let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
-        let rect = try await window.getAxRect().orDie()
+        let rect = try await window.getAxRect(.nonCancellable).orDie()
         // newX = max(0, 100 - 100/2) = 50, newY unchanged, width grows by 100.
         assertEquals(rect.topLeftX, 50)
         assertEquals(rect.topLeftY, 100)
@@ -194,7 +194,7 @@ final class ResizeCommandTest: XCTestCase {
         let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
-        let rect = try await window.getAxRect().orDie()
+        let rect = try await window.getAxRect(.nonCancellable).orDie()
         assertEquals(rect.topLeftX, 100)
         assertEquals(rect.topLeftY, 50)
         assertEquals(rect.width, 200)
@@ -206,7 +206,7 @@ final class ResizeCommandTest: XCTestCase {
         let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .set(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
-        let rect = try await window.getAxRect().orDie()
+        let rect = try await window.getAxRect(.nonCancellable).orDie()
         // diff = 100 - 200 = -100, diffSize = (-100, 0). newX = max(0, 100 - (-100)/2) = 150.
         assertEquals(rect.topLeftX, 150)
         assertEquals(rect.topLeftY, 100)
@@ -221,7 +221,7 @@ final class ResizeCommandTest: XCTestCase {
         let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
-        let rect = try await window.getAxRect().orDie()
+        let rect = try await window.getAxRect(.nonCancellable).orDie()
         // 1800 + 100 + 50 = 1950 > 1920 -> newX = max(0, 1920 - 100 - 100) = 1720.
         assertEquals(rect.topLeftX, 1720)
         assertEquals(rect.width, 200)
@@ -235,7 +235,7 @@ final class ResizeCommandTest: XCTestCase {
         let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
-        let rect = try await window.getAxRect().orDie()
+        let rect = try await window.getAxRect(.nonCancellable).orDie()
         // 1000 + 100 + 50 = 1150 > 1080 -> newY = max(0, 1080 - 100 - 100) = 880.
         // newX is unaffected (width fits), so it stays recentered at 100.
         assertEquals(rect.topLeftX, 100)

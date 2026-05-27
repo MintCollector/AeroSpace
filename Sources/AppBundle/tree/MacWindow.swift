@@ -59,6 +59,14 @@ final class MacWindow: Window {
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
+        let parentKind: String = switch data.parent {
+            case is TilingContainer: "tiling"
+            case is FloatingWindowsContainer: "floating"
+            case is MacosPopupWindowsContainer: "popup"
+            default: String(describing: type(of: data.parent))
+        }
+        let ws = data.parent.nodeWorkspace?.name ?? "?"
+        focusLog("[getOrRegister] NEW window id=\(windowId) app=\(macApp.name ?? "?") bundle=\(macApp.rawAppBundleId ?? "?") → \(parentKind) on ws '\(ws)'")
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         window.isAwaitingOnWindowDetected = true
         allWindowsMap[windowId] = window
@@ -104,10 +112,10 @@ final class MacWindow: Window {
         macApp.nativeTabWindowIdChanged(from: oldWindowId, to: newWindowId)
         windowId = newWindowId
         MacWindow.allWindowsMap[newWindowId] = self
-        if let rect = try await macApp.getAxRect(newWindowId) {
+        if let rect = try await macApp.getAxRect(newWindowId, .cancellable) {
             lastFloatingSize = rect.size
         }
-        try await debugWindowsIfRecording(self)
+        try await debugWindowsIfRecording(self, .cancellable)
     }
 
     // var description: String {
@@ -218,7 +226,7 @@ final class MacWindow: Window {
         guard let workspace = nodeWorkspace else { return false }
         let workspaceRect = workspace.workspaceMonitor.rect
         let visibleRect = workspace.workspaceMonitor.visibleRect
-        guard let windowRect = try await getAxRect() else { return false }
+        guard let windowRect = try await getAxRect(.cancellable) else { return false }
         // Check again after the suspension point above. Another hideInCorner/unhideFromCorner
         // cycle may have already saved the correct position while this AX read was awaiting.
         guard !screenSleepWakeInProgress else { return false }

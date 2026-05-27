@@ -3,7 +3,6 @@ public struct SetGapsCmdArgs: CmdArgs {
     fileprivate init(rawArgs: StrArrSlice) { self.commonState = .init(rawArgs) }
     public static let parser: CmdParser<Self> = .init(
         kind: .setGaps,
-        allowInConfig: true,
         help: set_gaps_help_generated,
         flags: [
             "--workspace": workspaceSubArgParser(),

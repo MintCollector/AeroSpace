@@ -5,11 +5,11 @@ struct ResizeCommand: Command {
     let args: ResizeCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
-    func run(_ env: CmdEnv, _ io: CmdIo) async throws -> BinaryExitCode {
+    func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
 
         if let window = target.windowOrNil, window.isFloating {
-            guard let rect = try await window.getAxRect() else { return .fail }
+            guard let rect = try? await window.getAxRect(.cancellable) else { return .fail }
             let size = rect.size
             let topLeftCorner = rect.topLeftCorner
             let monitorRect = target.workspace.workspaceMonitor.rect

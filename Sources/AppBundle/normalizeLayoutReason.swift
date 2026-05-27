@@ -15,6 +15,7 @@ private func validateStillPopups() async throws {
         if popup.isExplicitlyUnmanaged { continue }
         let windowLevel = getWindowLevel(for: popup.windowId)
         if try await popup.isWindowHeuristic(windowLevel, .cancellable) {
+            focusLog("[validate-popups] reclassifying popup → window: id=\(popup.windowId) app=\(popup.app.name ?? "?") bundle=\(popup.app.rawAppBundleId ?? "?") → ws '\(focus.workspace.name)'")
             try await popup.relayoutWindow(on: focus.workspace, .cancellable)
             await tryOnWindowDetected(popup)
         }

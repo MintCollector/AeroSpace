@@ -3,7 +3,6 @@ public struct ListTreeCmdArgs: CmdArgs {
     public init(rawArgs: StrArrSlice) { self.commonState = .init(rawArgs) }
     public static let parser: CmdParser<Self> = .init(
         kind: .listTree,
-        allowInConfig: false,
         help: list_tree_help_generated,
         flags: [:],
         posArgs: [],

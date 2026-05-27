@@ -3,10 +3,9 @@ public struct SetFrameCmdArgs: CmdArgs {
     fileprivate init(rawArgs: StrArrSlice) { self.commonState = .init(rawArgs) }
     public static let parser: CmdParser<Self> = .init(
         kind: .setFrame,
-        allowInConfig: true,
         help: set_frame_help_generated,
         flags: [
-            "--window-id": optionalWindowIdFlag(),
+            "--window-id": windowIdSubArgParser(),
             "--x": ArgParser(\.rawX, parseSingleFrameValue),
             "--y": ArgParser(\.rawY, parseSingleFrameValue),
             "--width": ArgParser(\.rawWidth, parseSingleFrameValue),

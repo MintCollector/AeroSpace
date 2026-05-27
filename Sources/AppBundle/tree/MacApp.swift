@@ -185,7 +185,7 @@ final class MacApp: AbstractApp {
     /// Raise the window to the top of this app's z-order without activating the app (unlike nativeFocus).
     @MainActor func nativeRaise(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
-        _ = withWindowAsync(windowId) { window, job in
+        _ = withWindowAsync(windowId, .cancellable) { window, job in
             AXUIElementPerformAction(window, kAXRaiseAction as CFString)
         }
     }
@@ -229,7 +229,7 @@ final class MacApp: AbstractApp {
     }
 
     func nativeTabGroup(containing windowId: UInt32) async throws -> NativeTabWindowGroup? {
-        try await thread?.runInLoop { [windows] job in
+        try await thread?.runInLoop(.cancellable) { [windows] job in
             try job.checkCancellation()
             return windows.threadGuardedOrNil?.nativeTabGroups().first { $0.memberWindowIds.contains(windowId) }
         }

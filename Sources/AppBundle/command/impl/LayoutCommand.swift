@@ -91,7 +91,7 @@ struct LayoutCommand: Command {
             case .unmanaged:
                 guard let window = target.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
                 window.isExplicitlyUnmanaged = true
-                window.bind(to: target.workspace.macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                window.bind(to: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
                 return .succ
             case .sticky:
                 guard let window = target.windowOrNil,
