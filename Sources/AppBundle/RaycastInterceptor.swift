@@ -43,10 +43,6 @@ enum RaycastInterceptor {
     @MainActor
     static func handleActivation(_ nsApp: NSRunningApplication) -> Bool {
         let bundleId = nsApp.bundleIdentifier
-        if let closedAt = panelClosedAt {
-            let delta = Date().timeIntervalSince(closedAt)
-            log.warning("[RaycastInterceptor] handleActivation: \(bundleId ?? "nil", privacy: .public) delta=\(String(format: "%.3f", delta), privacy: .public)s")
-        }
         guard let closedAt = panelClosedAt,
               Date().timeIntervalSince(closedAt) < interceptWindow else {
             return false
@@ -60,14 +56,13 @@ enum RaycastInterceptor {
         }
 
         let cfg = raycastConfig
-        let modifierHeld = NSEvent.modifierFlags.contains(cfg.modifier)
-        let onAllowlist = bundleId.map { cfg.newWindowApps.contains($0) } ?? false
+        let onExtensionList = bundleId.map { cfg.extensionApps.contains($0) } ?? false
 
-        log.warning("[RaycastInterceptor] INTERCEPTING: \(bundleId ?? "nil", privacy: .public) | modifier=\(modifierHeld, privacy: .public) allowlist=\(onAllowlist, privacy: .public)")
+        log.warning("[RaycastInterceptor] INTERCEPTING: \(bundleId ?? "nil", privacy: .public) | extensionApp=\(onExtensionList, privacy: .public)")
 
-        if onAllowlist && modifierHeld {
-            openNewWindow(nsApp)
-        } else if onAllowlist || cfg.defaultBehavior == .move {
+        if onExtensionList {
+            launchExtension(nsApp)
+        } else if cfg.defaultBehavior == .move {
             moveWindowHere(nsApp)
         } else {
             return false
@@ -76,12 +71,42 @@ enum RaycastInterceptor {
     }
 
     @MainActor
-    private static func openNewWindow(_ nsApp: NSRunningApplication) {
-        guard let bundleURL = nsApp.bundleURL else { return }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-n", bundleURL.path]
-        try? process.run()
+    private static func launchExtension(_ nsApp: NSRunningApplication) {
+        let pid = nsApp.processIdentifier
+        let bundleId = nsApp.bundleIdentifier ?? ""
+        let appName = nsApp.localizedName ?? ""
+        let bundlePath = nsApp.bundleURL?.path ?? ""
+        let windows = MacWindow.allWindows.filter { $0.macApp.pid == pid }
+
+        Task { @MainActor in
+            var windowData: [[String: Any]] = []
+            for window in windows {
+                let title = (try? await window.title) ?? ""
+                let workspace = window.nodeWorkspace?.name ?? ""
+                windowData.append([
+                    "id": window.windowId,
+                    "title": title,
+                    "workspace": workspace,
+                ])
+            }
+
+            let payload: [String: Any] = [
+                "bundleId": bundleId,
+                "appName": appName,
+                "bundlePath": bundlePath,
+                "windows": windowData,
+            ]
+
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
+                  let jsonString = String(data: jsonData, encoding: .utf8),
+                  let encoded = jsonString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                  let url = URL(string: "raycast://extensions/aerospace/aerospace/window-action?launchContext=\(encoded)") else {
+                log.warning("[RaycastInterceptor] failed to build deeplink")
+                return
+            }
+            log.warning("[RaycastInterceptor] launching extension for \(bundleId, privacy: .public)")
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @MainActor

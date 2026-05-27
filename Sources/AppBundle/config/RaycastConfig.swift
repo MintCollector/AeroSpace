@@ -6,9 +6,8 @@ enum RaycastDefaultBehavior: String {
 }
 
 struct RaycastConfig {
-    var modifier: NSEvent.ModifierFlags = .shift
     var defaultBehavior: RaycastDefaultBehavior = .move
-    var newWindowApps: Set<String> = []
+    var extensionApps: Set<String> = []
 }
 
 @MainActor var raycastConfig = RaycastConfig()
@@ -26,20 +25,17 @@ func loadRaycastConfig() {
     }
 
     var cfg = RaycastConfig()
-    if let mod = try? table.string(forKey: "modifier"), let flags = modifiersMap[mod] {
-        cfg.modifier = flags
-    }
     if let behavior = try? table.string(forKey: "default-behavior"), let b = RaycastDefaultBehavior(rawValue: behavior) {
         cfg.defaultBehavior = b
     }
-    if let apps = try? table.array(forKey: "new-window-apps") {
+    if let apps = try? table.array(forKey: "extension-apps") {
         var set = Set<String>()
         for i in 0..<apps.count {
             if let s = try? apps.string(atIndex: i) {
                 set.insert(s)
             }
         }
-        cfg.newWindowApps = set
+        cfg.extensionApps = set
     }
     raycastConfig = cfg
 }
