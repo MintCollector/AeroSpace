@@ -33,9 +33,15 @@ extension TreeNode {
                         lastAppliedLayoutPhysicalRect = nil
                         window.layoutFullscreen(context)
                     } else {
-                        lastAppliedLayoutPhysicalRect = physicalRect
+                        var finalWidth = width
+                        var finalPoint = point
+                        if let maxWidth = context.maxWindowWidth, maxWidth > 0, width > maxWidth {
+                            finalPoint = CGPoint(x: point.x + (width - maxWidth) / 2, y: point.y)
+                            finalWidth = maxWidth
+                        }
+                        lastAppliedLayoutPhysicalRect = Rect(topLeftX: finalPoint.x, topLeftY: finalPoint.y, width: finalWidth, height: height)
                         window.isFullscreen = false
-                        window.setAxFrame(point, CGSize(width: width, height: height))
+                        window.setAxFrame(finalPoint, CGSize(width: finalWidth, height: height))
                     }
                 }
             case .tilingContainer(let container):
@@ -57,12 +63,14 @@ extension TreeNode {
 private struct LayoutContext {
     let workspace: Workspace
     let resolvedGaps: ResolvedGaps
+    let maxWindowWidth: CGFloat?
 
     @MainActor
     init(_ workspace: Workspace) {
         self.workspace = workspace
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: workspace.workspaceMonitor)
+        self.maxWindowWidth = config.maxWindowWidth.map { CGFloat($0.getValue(for: workspace.workspaceMonitor)) }
     }
 }
 

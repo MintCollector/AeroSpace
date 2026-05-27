@@ -114,6 +114,10 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
+    "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, errors in
+        let value = parseDynamicValue(raw, ofType: Int.self, 0, backtrace, &errors)
+        return .some(value)
+    },
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),
