@@ -5,7 +5,7 @@ private let log = Logger(subsystem: "bobko.aerospace", category: "RaycastInterce
 
 enum RaycastInterceptor {
     private static let raycastBundleId = "com.raycast.macos"
-    private static let interceptWindow: TimeInterval = 0.5
+    private static let interceptWindow: TimeInterval = 0.05
 
     @MainActor static var panelClosedAt: Date? = nil
     @MainActor static var panelOpenBundleId: String? = nil
