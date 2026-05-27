@@ -167,6 +167,7 @@ extension FormatVar {
                     case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefeched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
                     case .windowX, .windowY, .windowWidth, .windowHeight: .failure("window position/size format vars not yet re-implemented after rebase")
+                    case .windowTreeIndex: .success(.int(w.window.ownIndex ?? 0))
                 }
             case (.workspace(let w), .workspace(let f)):
                 return switch f {
