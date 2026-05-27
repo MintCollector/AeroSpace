@@ -6,15 +6,14 @@ struct SetGapsCommand: Command {
     let args: SetGapsCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = false
 
-    func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+    func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode {
         if args.useStdin {
             return runBatch(io)
         }
         return runSingle(args.workspaceName?.raw, io)
     }
 
-    /// Single workspace: `set-gaps [--workspace ws] --outer-left-right N --outer-top-bottom N --inner N`
-    @MainActor private func runSingle(_ wsName: String?, _ io: CmdIo) -> Bool {
+    @MainActor private func runSingle(_ wsName: String?, _ io: CmdIo) -> BinaryExitCode {
         let currentGaps: Gaps
         if let wsName {
             currentGaps = config.workspaceGaps[wsName] ?? config.gaps
@@ -47,16 +46,14 @@ struct SetGapsCommand: Command {
         } else {
             config.gaps = newGaps
         }
-        return true
+        return .succ
     }
 
-    /// Batch: `set-gaps --stdin` with JSON on stdin
-    /// Format: {"workspace": {"inner": N, "outerLeftRight": N, "outerTopBottom": N}, ...}
-    @MainActor private func runBatch(_ io: CmdIo) -> Bool {
+    @MainActor private func runBatch(_ io: CmdIo) -> BinaryExitCode {
         let raw = io.readStdin()
         guard let data = raw.data(using: .utf8),
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Int]] else {
-            return io.err("Invalid JSON on stdin. Expected: {\"workspace\": {\"inner\": N, \"outerLeftRight\": N, \"outerTopBottom\": N}, ...}")
+            return .fail(io.err("Invalid JSON on stdin. Expected: {\"workspace\": {\"inner\": N, \"outerLeftRight\": N, \"outerTopBottom\": N}, ...}"))
         }
 
         for (wsName, gaps) in dict {
@@ -79,6 +76,6 @@ struct SetGapsCommand: Command {
             }
             config.workspaceGaps[wsName] = newGaps
         }
-        return true
+        return .succ
     }
 }

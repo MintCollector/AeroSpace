@@ -5,7 +5,7 @@ struct ListTreeCommand: Command {
     let args: ListTreeCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = false
 
-    func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
+    func run(_ env: CmdEnv, _ io: CmdIo) async throws -> BinaryExitCode {
         let focusedWorkspace = focus.workspace
         var monitorNodes: [MonitorNode] = []
 
@@ -60,9 +60,9 @@ struct ListTreeCommand: Command {
         }
 
         guard let json = JSONEncoder.aeroSpaceDefault.encodeToString(monitorNodes) else {
-            return io.err("Failed to encode tree to JSON")
+            return .fail(io.err("Failed to encode tree to JSON"))
         }
-        return io.out(json)
+        return .succ(io.out(json))
     }
 }
 
