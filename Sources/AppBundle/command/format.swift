@@ -3,37 +3,52 @@ import Common
 struct WindowWithPrefetchedTitle {
     let window: Window
     let title: String?
+    let rect: Rect?
 
-    private init(window: Window, title: String?) {
+    private init(window: Window, title: String?, rect: Rect?) {
         self.window = window
         self.title = title
+        self.rect = rect
     }
 
     static func resolveWindow(_ window: Window, for formatVar: FormatVar) async throws -> Self {
-        try await resolveWindow(window, needsTitle: formatVar == .window(.windowTitle))
+        try await resolveWindow(
+            window,
+            needsTitle: formatVar == .window(.windowTitle),
+            needsRect: [.window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight)].contains(formatVar),
+        )
     }
+
+    private static let rectVarNames: Set<String> = [
+        FormatVar.WindowFormatVar.windowX.rawValue,
+        FormatVar.WindowFormatVar.windowY.rawValue,
+        FormatVar.WindowFormatVar.windowWidth.rawValue,
+        FormatVar.WindowFormatVar.windowHeight.rawValue,
+    ]
 
     static func resolveWindow(_ window: Window, for format: [StringInterToken]) async throws -> Self {
-        let needsTitle = format.contains(where: {
-            switch $0 {
-                case .interVar(let v): v == FormatVar.WindowFormatVar.windowTitle.rawValue
-                case .literal: false
+        var needsTitle = false
+        var needsRect = false
+        for token in format {
+            if case .interVar(let v) = token {
+                if v == FormatVar.WindowFormatVar.windowTitle.rawValue { needsTitle = true }
+                if rectVarNames.contains(v) { needsRect = true }
             }
-        })
-        return try await resolveWindow(window, needsTitle: needsTitle)
+        }
+        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
     }
 
-    private static func resolveWindow(_ window: Window, needsTitle: Bool) async throws -> Self {
+    private static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
         let title: String = try await window.title
-        return .init(window: window, title: needsTitle ? title : nil)
+        let rect: Rect? = needsRect ? try await window.getAxRect() : nil
+        return .init(window: window, title: needsTitle ? title : nil, rect: rect)
     }
 
-    static func forTest(window: Window, title: String?) -> Self {
-        .init(window: window, title: title)
+    static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
+        .init(window: window, title: title, rect: rect)
     }
 }
 
-// TODO: Extend WindowWithPrefetchedTitle to lazily resolve rect (Rect?) for window-x/y/width/height format vars
 enum AeroObj {
     case window(WindowWithPrefetchedTitle)
     case workspace(Workspace)
@@ -160,13 +175,15 @@ extension FormatVar {
 
         switch (obj, self) {
             case (.window(let w), .window(let f)):
-                // TODO: Re-add window-x/y/width/height once WindowWithPrefetchedTitle carries lazy rect
                 return switch f {
                     case .windowId: .success(.int(w.window.windowId))
                     case .windowIsFullscreen: .success(.bool(w.window.isFullscreen))
                     case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefeched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
-                    case .windowX, .windowY, .windowWidth, .windowHeight: .failure("window position/size format vars not yet re-implemented after rebase")
+                    case .windowX: .success(.int(w.rect.map { Int($0.topLeftX) } ?? 0))
+                    case .windowY: .success(.int(w.rect.map { Int($0.topLeftY) } ?? 0))
+                    case .windowWidth: .success(.int(w.rect.map { Int($0.width) } ?? 0))
+                    case .windowHeight: .success(.int(w.rect.map { Int($0.height) } ?? 0))
                     case .windowTreeIndex: .success(.int(w.window.ownIndex ?? 0))
                 }
             case (.workspace(let w), .workspace(let f)):
