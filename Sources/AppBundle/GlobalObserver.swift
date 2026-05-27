@@ -5,13 +5,15 @@ enum GlobalObserver {
     private static func onNotif(_ notification: Notification) {
         // Third line of defence against lock screen window. See: closedWindowsCache
         // Second and third lines of defence are technically needed only to avoid potential flickering
-        if (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == lockScreenAppBundleId {
+        let nsApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        if nsApp?.bundleIdentifier == lockScreenAppBundleId {
             return
         }
         let notifName = notification.name.rawValue
         Task { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
+                if let nsApp, RaycastInterceptor.handleActivation(nsApp) { return }
                 scheduleCancellableCompleteRefreshSession(.globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
             } else {
                 scheduleCancellableCompleteRefreshSession(.globalObserver(notifName))
