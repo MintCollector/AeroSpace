@@ -14,7 +14,7 @@ release:
 
 install: release
 	osascript -e 'tell application "AeroSpace" to quit' 2>/dev/null || true
-	pkill -x AeroSpace 2>/dev/null || true
+	pkill -f AeroSpace 2>/dev/null || true
 	sleep 1
 	rm -rf /Applications/AeroSpace.app
 	cp -r .release/AeroSpace.app /Applications/AeroSpace.app

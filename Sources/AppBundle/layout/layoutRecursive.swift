@@ -33,15 +33,9 @@ extension TreeNode {
                         lastAppliedLayoutPhysicalRect = nil
                         window.layoutFullscreen(context)
                     } else {
-                        var finalWidth = width
-                        var finalPoint = point
-                        if let maxWidth = context.maxWindowWidth, maxWidth > 0, width > maxWidth {
-                            finalPoint = CGPoint(x: point.x + (width - maxWidth) / 2, y: point.y)
-                            finalWidth = maxWidth
-                        }
-                        lastAppliedLayoutPhysicalRect = Rect(topLeftX: finalPoint.x, topLeftY: finalPoint.y, width: finalWidth, height: height)
+                        lastAppliedLayoutPhysicalRect = Rect(topLeftX: point.x, topLeftY: point.y, width: width, height: height)
                         window.isFullscreen = false
-                        window.setAxFrame(finalPoint, CGSize(width: finalWidth, height: height))
+                        window.setAxFrame(point, CGSize(width: width, height: height))
                     }
                 }
             case .tilingContainer(let container):
