@@ -35,7 +35,7 @@ extension TreeNode {
                         lastAppliedLayoutPhysicalRect = nil
                         window.layoutFullscreen(context)
                     } else {
-                        lastAppliedLayoutPhysicalRect = physicalRect
+                        lastAppliedLayoutPhysicalRect = Rect(topLeftX: point.x, topLeftY: point.y, width: width, height: height)
                         window.isFullscreen = false
                         window.setAxFrame(point, CGSize(width: width, height: height))
                     }
@@ -59,12 +59,17 @@ extension TreeNode {
 private struct LayoutContext {
     let workspace: Workspace
     let resolvedGaps: ResolvedGaps
+    let maxWindowWidth: CGFloat?
 
     @MainActor
     init(_ workspace: Workspace) {
         self.workspace = workspace
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: workspace.workspaceMonitor)
+
+        let root = workspace.rootTilingContainer
+        let columnCount = (root.layout == .accordion || root.orientation == .v) ? 1 : root.children.count
+        self.maxWindowWidth = config.maxWindowWidth?.resolve(columnCount: columnCount)
     }
 }
 
@@ -115,18 +120,31 @@ extension TilingContainer {
             .div(children.count) else { return }
 
         let lastIndex = children.indices.last
+        let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
+
+        // Center clamped children as a group so excess space goes to outer edges
+        if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0 {
+            var totalOccupied: CGFloat = 0
+            for (i, child) in children.enumerated() {
+                let adjustedWeight = CGFloat(child.getWeight(orientation) + delta)
+                let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
+                totalOccupied += min(adjustedWeight, maxWidth + gap)
+            }
+            point = CGPoint(x: point.x + (width - totalOccupied) / 2, y: point.y)
+        }
+
         for (i, child) in children.enumerated() {
             child.setWeight(orientation, child.getWeight(orientation) + delta)
-            let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
-            // Gaps. Consider 4 cases:
-            // 1. Multiple children. Layout first child
-            // 2. Multiple children. Layout last child
-            // 3. Multiple children. Layout child in the middle
-            // 4. Single child   let rawGap = gaps.inner.get(orientation).toDouble()
             let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
+
+            var childWidth = orientation == .h ? child.hWeight - gap : width
+            if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0, childWidth > maxWidth {
+                childWidth = maxWidth
+            }
+
             try await child.layoutRecursive(
                 i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
-                width: orientation == .h ? child.hWeight - gap : width,
+                width: childWidth,
                 height: orientation == .v ? child.vWeight - gap : height,
                 virtual: Rect(
                     topLeftX: virtualPoint.x,
@@ -137,7 +155,11 @@ extension TilingContainer {
                 context,
             )
             virtualPoint = orientation == .h ? virtualPoint.addingXOffset(child.hWeight) : virtualPoint.addingYOffset(child.vWeight)
-            point = orientation == .h ? point.addingXOffset(child.hWeight) : point.addingYOffset(child.vWeight)
+            if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0 {
+                point = point.addingXOffset(min(child.hWeight, maxWidth + gap))
+            } else {
+                point = orientation == .h ? point.addingXOffset(child.hWeight) : point.addingYOffset(child.vWeight)
+            }
         }
     }
 

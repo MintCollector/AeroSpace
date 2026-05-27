@@ -146,6 +146,29 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
+    "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, ctx in
+        if let intValue = raw.asIntOrNil {
+            return .uniform(intValue)
+        }
+        guard let rawTable = raw.asDictOrNil else {
+            ctx.errors.append(expectedActualTypeDiagnostic(expected: .table, actual: raw.tomlType, backtrace))
+            return .perColumnCount([:])
+        }
+        var result: [Int: Int] = [:]
+        for (key, value) in rawTable {
+            let keyBacktrace = backtrace + .key(key)
+            guard let intKey = Int(key) else {
+                ctx.errors.append(.init(keyBacktrace, "Key '\(key)' must be a valid integer (column count)"))
+                continue
+            }
+            guard let intValue = value.asIntOrNil else {
+                ctx.errors.append(expectedActualTypeDiagnostic(expected: .int, actual: value.tomlType, keyBacktrace))
+                continue
+            }
+            result[intKey] = intValue
+        }
+        return .perColumnCount(result)
+    },
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),

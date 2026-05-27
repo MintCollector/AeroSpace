@@ -32,6 +32,18 @@ var defaultConfigUrl: URL {
 @MainActor var config: Config = defaultConfig // todo move to Ctx?
 @MainActor var configUrl: URL = defaultConfigUrl
 
+enum MaxWindowWidth: Equatable {
+    case uniform(Int)
+    case perColumnCount([Int: Int])
+
+    func resolve(columnCount: Int) -> CGFloat? {
+        switch self {
+        case .uniform(let w): return CGFloat(w)
+        case .perColumnCount(let dict): return dict[columnCount].map { CGFloat($0) }
+        }
+    }
+}
+
 struct Config: ConvenienceMutable {
     var configVersion: ConfigVersion = ._1
     var _afterLoginCommand: [any Command] = []
@@ -45,6 +57,7 @@ struct Config: ConvenienceMutable {
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var accordionPadding: Int = 30
+    var maxWindowWidth: MaxWindowWidth? = nil
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
     var persistentWorkspaces: OrderedSet<String> = []
     var execOnWorkspaceChange: [String] = [] // todo deprecate
