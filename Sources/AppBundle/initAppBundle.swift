@@ -28,6 +28,7 @@ import Foundation
         checkAccessibilityPermissions()
         startUnixSocketServer()
         GlobalObserver.initObserver()
+        RaycastInterceptor.install()
         Workspace.garbageCollectUnusedWorkspaces() // init workspaces
         _ = Workspace.all.first?.focusWorkspace()
         await runHeavyCompleteRefreshSession(
