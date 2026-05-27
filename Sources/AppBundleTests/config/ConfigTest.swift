@@ -454,29 +454,36 @@ final class ConfigTest: XCTestCase {
         ])
     }
 
-    func testParseMaxWindowWidth() {
+    func testParseMaxWindowWidthTable() {
         let (config, errors) = parseConfig("""
-            max-window-width = 2560
+            [max-window-width]
+            1 = 3840
+            2 = 1920
             """)
         assertEquals(errors, [])
-        assertEquals(config.maxWindowWidth, .constant(2560))
-    }
-
-    func testParseMaxWindowWidthPerMonitor() {
-        let (config, errors) = parseConfig("""
-            max-window-width = [{ monitor."main" = 2560 }, { monitor.2 = 1920 }, 3840]
-            """)
-        assertEquals(errors, [])
-        assertEquals(config.maxWindowWidth, .perMonitor(
-            [PerMonitorValue(description: .main, value: 2560), PerMonitorValue(description: .sequenceNumber(2), value: 1920)],
-            default: 3840
-        ))
+        assertEquals(config.maxWindowWidth, [1: 3840, 2: 1920])
     }
 
     func testMaxWindowWidthDefaultNil() {
         let (config, errors) = parseConfig("")
         assertEquals(errors, [])
         assertEquals(config.maxWindowWidth, nil)
+    }
+
+    func testParseMaxWindowWidthInvalidKey() {
+        let (_, errors) = parseConfig("""
+            [max-window-width]
+            foo = 3840
+            """)
+        assertEquals(errors, ["max-window-width.foo: Key 'foo' must be a valid integer (column count)"])
+    }
+
+    func testParseMaxWindowWidthInvalidValue() {
+        let (_, errors) = parseConfig("""
+            [max-window-width]
+            1 = "big"
+            """)
+        assertEquals(errors, ["max-window-width.1: Expected type is 'int'. But actual type is 'string'"])
     }
 
     func testParseKeyMapping() {
