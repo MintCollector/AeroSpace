@@ -2,7 +2,7 @@ import { List, Action, ActionPanel, showToast, Toast, LaunchProps, closeMainWind
 import { execSync } from "child_process";
 import { useState, useEffect } from "react";
 
-const AEROSPACE = "/opt/homebrew/bin/aerospace";
+const AEROSPACE = "aerospace";
 
 interface WindowInfo {
   id: number;
