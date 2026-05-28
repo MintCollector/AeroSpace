@@ -1,10 +1,9 @@
-# makefile is used to make :make command in vim work out of the box
-.PHONY: build release install test format swift-test
+.PHONY: build build-release deploy deploy-quick install test swift-test format lint check clean
 
-build-debug.sh:
-	./build-debug.sh
+build:
+	swift build --arch arm64
 
-release:
+build-release:
 	./generate.sh --ignore-xcodeproj --ignore-cmd-help --ignore-shell-parser
 	swift build -c release --arch arm64 --product aerospace
 	xcodebuild clean build -scheme AeroSpace -destination "generic/platform=macOS" -configuration Release -derivedDataPath .xcode-build CODE_SIGN_IDENTITY="Apple Development: jedwards108@protonmail.com (8AFQ4VXB2J)" CODE_SIGN_STYLE=Manual
@@ -12,23 +11,33 @@ release:
 	cp -r ".xcode-build/Build/Products/Release/AeroSpace.app" .release
 	cp -r .build/arm64-apple-macosx/release/aerospace .release
 
-install: release
+deploy: build-release install
+
+deploy-quick: install
+
+install:
 	osascript -e 'tell application "AeroSpace" to quit' 2>/dev/null || true
-	pkill -f /Applications/AeroSpace.app/Contents/MacOS/AeroSpace 2>/dev/null || true
+	pkill -x AeroSpace 2>/dev/null || true
 	sleep 1
 	rm -rf /Applications/AeroSpace.app
 	cp -r .release/AeroSpace.app /Applications/AeroSpace.app
 	cp .release/aerospace /opt/homebrew/bin/aerospace
 	open /Applications/AeroSpace.app
 
-test.sh:
+test:
 	./test.sh
 
-swift-test.sh:
+swift-test:
 	./swift-test.sh
 
-format.sh:
+format:
 	./format.sh
 
-lint.sh:
+lint:
 	./lint.sh
+
+check:
+	swift build --arch arm64
+
+clean:
+	rm -rf .release .xcode-build .build
