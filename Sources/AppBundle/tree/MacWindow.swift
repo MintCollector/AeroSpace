@@ -98,6 +98,7 @@ final class MacWindow: Window {
             appName: app.name,
             tiledWindowCount: tiledCount,
         ))
+        lastWindowDestroyedDate = .now
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
         let focus = focus
@@ -135,7 +136,9 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
-        garbageCollect(skipClosedWindowsCache: true)
+        // Don't eagerly GC — the close may be intercepted (e.g., "save changes?" dialog).
+        // The refresh cycle handles GC once the window is confirmed dead via
+        // kAXUIElementDestroyedNotification or the scheduled heavy refresh.
         macApp.closeAndUnregisterAxWindow(windowId)
     }
 

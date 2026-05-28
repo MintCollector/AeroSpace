@@ -22,7 +22,9 @@ struct LayoutCommand: Command {
                         let msg = "Can't change layout for macOS minimized, fullscreen windows or windows or hidden apps. " +
                             "This behavior is subject to change"
                         return .fail(io.err(msg))
-                    case .unbound, .macosPopupWindowsContainer:
+                    case .macosPopupWindowsContainer(let it):
+                        node = .macosPopupWindowsContainer(it)
+                    case .unbound:
                         return .fail(io.err(bugPrompt()))
                 }
             case nil:
@@ -71,6 +73,14 @@ struct LayoutCommand: Command {
                             return .fail(io.err(bugPrompt()))
                         }
                         return .succ
+                    case .macosPopupWindowsContainer:
+                        guard let workspace = target.workspace as Workspace? else { return .fail(io.err(bugPrompt())) }
+                        do {
+                            try await window.relayoutWindow(on: workspace, .nonCancellable, forceTile: true)
+                        } catch {
+                            return .fail(io.err(bugPrompt()))
+                        }
+                        return .succ
                 }
             case .floating:
                 guard let window = target.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
@@ -106,6 +116,8 @@ struct LayoutCommand: Command {
     switch node {
         case .floatingWindowsContainer:
             return .fail(io.err("The window is non-tiling"))
+        case .macosPopupWindowsContainer:
+            return .fail(io.err("The window is unmanaged"))
         case .tilingContainer(let parent):
             let targetOrientation = targetOrientation ?? parent.orientation
             let targetLayout = targetLayout ?? parent.layout

@@ -55,6 +55,7 @@ enum TilingContainerParentCases {
 enum ConventionalWindowParentCases {
     case tilingContainer(TilingContainer)
     case floatingWindowsContainer(FloatingWindowsContainer)
+    case macosPopupWindowsContainer(MacosPopupWindowsContainer)
 
     var tilingContainerOrNil: TilingContainer? {
         switch self {
@@ -66,6 +67,13 @@ enum ConventionalWindowParentCases {
     var floatingWindowsContainerOrNil: FloatingWindowsContainer? {
         switch self {
             case .floatingWindowsContainer(let it): it
+            default: nil
+        }
+    }
+
+    var macosPopupWindowsContainerOrNil: MacosPopupWindowsContainer? {
+        switch self {
+            case .macosPopupWindowsContainer(let it): it
             default: nil
         }
     }
