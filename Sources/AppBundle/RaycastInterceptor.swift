@@ -10,6 +10,7 @@ enum RaycastInterceptor {
     @MainActor static var panelClosedAt: Date? = nil
     @MainActor static var panelOpenBundleId: String? = nil
     @MainActor private static var observerRetain: AnyObject? = nil
+    @MainActor static var suppressUntil: Date? = nil
 
     @MainActor
     static func install() {
@@ -43,6 +44,10 @@ enum RaycastInterceptor {
     @MainActor
     static func handleActivation(_ nsApp: NSRunningApplication) -> Bool {
         let bundleId = nsApp.bundleIdentifier
+        if let closedAt = panelClosedAt {
+            let delta = Date().timeIntervalSince(closedAt)
+            log.warning("[RaycastInterceptor] handleActivation: \(bundleId ?? "nil", privacy: .public) delta=\(String(format: "%.3f", delta), privacy: .public)s window=\(interceptWindow, privacy: .public)s")
+        }
         guard let closedAt = panelClosedAt,
               Date().timeIntervalSince(closedAt) < interceptWindow else {
             return false
@@ -105,6 +110,7 @@ enum RaycastInterceptor {
                 return
             }
             log.warning("[RaycastInterceptor] launching extension for \(bundleId, privacy: .public)")
+            suppressUntil = Date().addingTimeInterval(1.0)
             NSWorkspace.shared.open(url)
         }
     }
@@ -137,6 +143,10 @@ enum RaycastInterceptor {
 private func raycastAXCallback(_: AXObserver, _: AXUIElement, notification: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notification as String
     Task { @MainActor in
+        if let suppress = RaycastInterceptor.suppressUntil, Date() < suppress {
+            log.warning("[RaycastInterceptor] suppressed AX event (deeplink cooldown)")
+            return
+        }
         if notif == kAXWindowCreatedNotification {
             RaycastInterceptor.panelOpenBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
             log.warning("[RaycastInterceptor] panel opened, pre-raycast app: \(RaycastInterceptor.panelOpenBundleId ?? "nil", privacy: .public)")
