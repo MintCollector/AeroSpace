@@ -94,6 +94,7 @@ final class MacWindow: Window {
             appName: app.name,
             tiledWindowCount: tiledCount,
         ))
+        lastWindowDestroyedDate = .now
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
         let focus = focus
