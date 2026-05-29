@@ -49,6 +49,10 @@ struct LayoutCommand: Command {
                 window.bindAsFloatingWindow(to: workspace)
                 if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
                 return .succ
+            case .unmanaged:
+                window.isExplicitlyUnmanaged = true
+                window.bind(to: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                return .succ
         }
     }
 }
@@ -81,6 +85,7 @@ extension Window {
             case .v_tiles:     (parent as? TilingContainer).map { $0.layout == .tiles && $0.orientation == .v } == true
             case .tiling:      parent is TilingContainer
             case .floating:    parent is Workspace
+            case .unmanaged:   parent is MacosPopupWindowsContainer
         }
     }
 }
