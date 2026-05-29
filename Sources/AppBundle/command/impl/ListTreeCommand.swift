@@ -37,7 +37,8 @@ struct ListTreeCommand: Command {
                         app_bundle_path: window.app.bundlePath
                     ))
                 }
-                windowNodes.sort { ($0.app_name, $0.window_title) < ($1.app_name, $1.window_title) }
+                // Preserve tree traversal order so consumers get tiling layout position
+                // windowNodes.sort { ($0.app_name, $0.window_title) < ($1.app_name, $1.window_title) }
 
                 workspaceNodes.append(WorkspaceNode(
                     workspace: workspace.name,
