@@ -50,6 +50,7 @@ struct LayoutCommand: Command {
                 if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
                 return .succ
             case .unmanaged:
+                window.isExplicitlyUnmanaged = true
                 window.bind(to: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
                 return .succ
         }
