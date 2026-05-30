@@ -145,6 +145,11 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
+    "focused-window-border": Parser(\.focusedWindowBorder, parseBool),
+    "focused-window-border-color": Parser(\.focusedWindowBorderColor, parseString),
+    "focused-window-border-width": Parser(\.focusedWindowBorderWidth, parseInt),
+    "focused-window-border-opacity": Parser(\.focusedWindowBorderOpacity, parseInt),
+    "focused-window-border-radius": Parser(\.focusedWindowBorderRadius, parseInt),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, ctx in
         if let intValue = raw.asIntOrNil {
