@@ -150,6 +150,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "focused-window-border-width": Parser(\.focusedWindowBorderWidth, parseInt),
     "focused-window-border-opacity": Parser(\.focusedWindowBorderOpacity, parseInt),
     "focused-window-border-radius": Parser(\.focusedWindowBorderRadius, parseInt),
+    "focused-window-border-inset": Parser(\.focusedWindowBorderInset, parseInt),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, ctx in
         if let intValue = raw.asIntOrNil {
