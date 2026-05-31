@@ -127,7 +127,9 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
-        garbageCollect(skipClosedWindowsCache: true)
+        // Don't eagerly GC — the close may be intercepted (e.g., "save changes?" dialog).
+        // The refresh cycle handles GC once the window is confirmed dead via
+        // kAXUIElementDestroyedNotification or the scheduled heavy refresh.
         macApp.closeAndUnregisterAxWindow(windowId)
     }
 
