@@ -90,9 +90,9 @@ let list_windows_help_generated = """
     USAGE: list-windows [-h|--help] (--workspace <workspace>...|--monitor <monitor>...)
                         [--monitor <monitor>...] [--workspace <workspace>...]
                         [--pid <pid>] [--app-bundle-id <app-bundle-id>] [--format <output-format>]
-                        [--count] [--json]
-       OR: list-windows [-h|--help] --all [--format <output-format>] [--count] [--json]
-       OR: list-windows [-h|--help] --focused [--format <output-format>] [--count] [--json]
+                        [--count] [--json] [--sort <sort-option>...]
+       OR: list-windows [-h|--help] --all [--format <output-format>] [--count] [--json] [--sort <sort-option>...]
+       OR: list-windows [-h|--help] --focused [--format <output-format>] [--count] [--json] [--sort <sort-option>...]
     """
 let list_workspaces_help_generated = """
     USAGE: list-workspaces [-h|--help] --monitor <monitor>... [--visible [no]] [--empty [no]] [--format <output-format>] [--count] [--json]
@@ -163,7 +163,7 @@ let subscribe_help_generated = """
     USAGE: subscribe [-h|--help] [--all] [--no-send-initial] [<event>...]
     """
 let summon_workspace_help_generated = """
-    USAGE: summon-workspace [-h|--help] [--fail-if-noop] [--] <workspace>
+    USAGE: summon-workspace [-h|--help] [--fail-if-noop] [--when-visible (focus|swap)] <workspace>
     """
 let swap_help_generated = """
     USAGE: swap [-h|--help] [--window-id <window-id>] [--swap-focus]
@@ -194,4 +194,5 @@ let workspace_back_and_forth_help_generated = """
 let workspace_help_generated = """
     USAGE: workspace [-h|--help] [--auto-back-and-forth] [--fail-if-noop] [--] <workspace-name>
        OR: workspace [-h|--help] [--wrap-around] [--stdin|--no-stdin] (next|prev)
+       OR: workspace [-h|--help] --view-toggle <workspace-name>
     """

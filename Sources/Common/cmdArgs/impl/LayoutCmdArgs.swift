@@ -17,10 +17,14 @@ public struct LayoutCmdArgs: CmdArgs {
     )
 
     public var toggleBetween: Lateinit<[LayoutDescription]> = .uninitialized
+    public var root: Bool = false
+    public var failIfNoop: Bool = false
 
-    public init(rawArgs: [String], toggleBetween: [LayoutDescription]) {
+    public init(rawArgs: [String], toggleBetween: [LayoutDescription], root: Bool = false, failIfNoop: Bool = false) {
         self.commonState = .init(rawArgs.slice)
         self.toggleBetween = .initialized(toggleBetween)
+        self.root = root
+        self.failIfNoop = failIfNoop
     }
 
     public enum LayoutDescription: String, CaseIterable, Equatable, Sendable {
@@ -31,9 +35,6 @@ public struct LayoutCmdArgs: CmdArgs {
         case unmanaged
         case sticky
     }
-
-    public var root: Bool = false
-    public var failIfNoop: Bool = false
 }
 
 public let layoutCommandRootFlagIncompatibilityMsg = "layout command: --root and tiling|floating are incompatible"
@@ -70,7 +71,7 @@ func parseLayoutCmdArgs(_ args: StrArrSlice) -> ParsedCmd<LayoutCmdArgs> {
                     case .floating, .tiling: false
                     case .accordion, .h_accordion, .h_tiles,
                          .horizontal, .tiles, .v_accordion, .v_tiles,
-                         .vertical: true
+                         .vertical, .unmanaged, .sticky: true
                 }
             }
         }

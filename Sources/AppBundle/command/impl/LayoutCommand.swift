@@ -99,7 +99,7 @@ struct LayoutCommand: Command {
                 if macWindow.isSticky {
                     macWindow.isSticky = false
                 } else {
-                    guard window.parent is Workspace else { return .fail }
+                    guard node.floatingWindowsContainerOrNil != nil else { return .fail }
                     macWindow.isSticky = true
                 }
                 return .succ

@@ -8,6 +8,7 @@ public struct WorkspaceCmdArgs: CmdArgs {
             "--auto-back-and-forth": ArgParser(\._autoBackAndForth, constSubArgParserFun(true)),
             "--wrap-around": ArgParser(\._wrapAround, constSubArgParserFun(true)),
             "--fail-if-noop": trueBoolFlag(\.failIfNoop),
+            "--view-toggle": trueBoolFlag(\.viewToggle),
 
             "--stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(true)),
             "--no-stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(false)),
@@ -18,6 +19,9 @@ public struct WorkspaceCmdArgs: CmdArgs {
         ],
         conflictingOptions: [
             ["--stdin", "--no-stdin"],
+            ["--view-toggle", "--auto-back-and-forth"],
+            ["--view-toggle", "--wrap-around"],
+            ["--view-toggle", "--fail-if-noop"],
         ],
     )
 
@@ -25,6 +29,7 @@ public struct WorkspaceCmdArgs: CmdArgs {
     public var _autoBackAndForth: Bool?
     public var failIfNoop: Bool = false
     public var _wrapAround: Bool?
+    public var viewToggle: Bool = false
 }
 
 func parseWorkspaceCmdArgs(_ args: StrArrSlice) -> ParsedCmd<WorkspaceCmdArgs> {
@@ -34,6 +39,10 @@ func parseWorkspaceCmdArgs(_ args: StrArrSlice) -> ParsedCmd<WorkspaceCmdArgs> {
         .filterNot("--fail-if-noop is incompatible with \(NextPrev.unionLiteral)") { $0.failIfNoop && $0.target.val.isRelatve }
         .filterNot("--fail-if-noop is incompatible with --auto-back-and-forth") { $0.autoBackAndForth && $0.failIfNoop }
         .filter("--stdin and --no-stdin require using \(NextPrev.unionLiteral) argument") { ($0.commonState.explicitStdinFlag != nil).implies($0.target.val.isRelatve) }
+        .filterNot("--view-toggle is incompatible with \(NextPrev.unionLiteral)") { $0.viewToggle && $0.target.val.isRelatve }
+        .filterNot("--view-toggle is incompatible with --auto-back-and-forth") { $0.viewToggle && $0._autoBackAndForth != nil }
+        .filterNot("--view-toggle is incompatible with --wrap-around") { $0.viewToggle && $0._wrapAround != nil }
+        .filterNot("--view-toggle is incompatible with --fail-if-noop") { $0.viewToggle && $0.failIfNoop }
 }
 
 extension WorkspaceCmdArgs {

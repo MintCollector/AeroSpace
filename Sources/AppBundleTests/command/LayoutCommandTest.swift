@@ -107,6 +107,68 @@ final class LayoutCommandTest: XCTestCase {
         assertEquals(workspace.rootTilingContainer.layout, .tiles)
     }
 
+    // MARK: - Root flag tests
+
+    func testRoot_togglesTilesToAccordion_preservesNestedStructure() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1).apply {
+                    TestWindow.new(id: 1, parent: $0)
+                    TestWindow.new(id: 2, parent: $0)
+                }
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+        // Orientation preserved (descriptor list `[tiles, accordion]` only mutates layout); root stays h.
+        assertEquals(workspace.layoutDescription, .workspace([
+            .h_accordion([
+                .h_tiles([.window(1), .window(2)]),
+            ]),
+        ]))
+    }
+
+    func testRoot_togglesAccordionToTiles() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                $0.layout = .accordion
+                TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1).apply {
+                    TestWindow.new(id: 1, parent: $0)
+                    TestWindow.new(id: 2, parent: $0)
+                }
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+    }
+
+    func testRoot_togglesOrientationOnly() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TestWindow.new(id: 1, parent: $0)
+                TestWindow.new(id: 2, parent: $0)
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+        assertEquals(workspace.rootTilingContainer.orientation, .h)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.horizontal, .vertical], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+
+        assertEquals(workspace.rootTilingContainer.orientation, .v)
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+    }
+
     func testEmptyWorkspace_changeLayout() async {
         let workspace = Workspace.get(byName: name)
         assertTrue(workspace.isEffectivelyEmpty)
@@ -128,6 +190,35 @@ final class LayoutCommandTest: XCTestCase {
         assertEquals(workspace.rootTilingContainer.layout, .tiles)
         assertEquals(workspace.rootTilingContainer.orientation, .h)
     }
+
+    func testRoot_ensureTilesAndToggleOrientation_fromTiles() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TestWindow.new(id: 1, parent: $0)
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .horizontal, .vertical], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+        assertEquals(workspace.rootTilingContainer.orientation, .v)
+    }
+
+    func testRoot_ensureTilesAndToggleOrientation_fromAccordion() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                $0.layout = .accordion
+                TestWindow.new(id: 1, parent: $0)
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .horizontal, .vertical], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+
 
     func testEmptyWorkspace_floating_fails() async {
         let workspace = Workspace.get(byName: name)
@@ -261,6 +352,19 @@ final class LayoutCommandTest: XCTestCase {
         assertEquals(workspace.rootTilingContainer.orientation, .h)
     }
 
+    func testRoot_compoundDescriptor_setsBothFields() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TestWindow.new(id: 1, parent: $0)
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.h_accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+
+
     func testRoot_floatingFocusedWindow_changesRootTilingContainer() async {
         let workspace = Workspace.get(byName: name)
         workspace.floatingWindowsContainer.apply {
@@ -346,5 +450,122 @@ final class LayoutCommandTest: XCTestCase {
         let result = await parseCommand("layout --root h_tiles").cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(root.layoutDescription, .h_tiles([.window(1), .window(2)]))
+    }
+
+    // MARK: - Edge cases
+
+    func testRoot_succeedsOnEmptyWorkspace() async {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(workspace.focusWorkspace(), true)
+        assertEquals(workspace.isEffectivelyEmpty, true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+    }
+
+    func testRoot_succeedsOnFloatingOnlyWorkspace() async {
+        let workspace = Workspace.get(byName: name)
+        workspace.floatingWindowsContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+        assertEquals(workspace.floatingWindows.count, 1)
+    }
+
+    func testRoot_overridesFocusOnNestedSubContainer() async {
+        var nestedAccordion: TilingContainer!
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TilingContainer(parent: $0, adaptiveWeight: 1, .h, .accordion, index: INDEX_BIND_LAST).apply {
+                    nestedAccordion = $0
+                    assertEquals(TestWindow.new(id: 1, parent: $0).focusWindow(), true)
+                }
+            }
+        }
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+        assertEquals(nestedAccordion.layout, .accordion)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+        assertEquals(nestedAccordion.layout, .accordion) // unchanged
+    }
+
+    // MARK: - Error paths
+
+    func testParse_rootRejectsFloatingDescriptor() {
+        assertEquals(
+            parseCommand("layout --root floating").errorOrNil,
+            "layout command: --root and tiling|floating are incompatible",
+        )
+    }
+
+    func testParse_rootRejectsTilingDescriptor() {
+        assertEquals(
+            parseCommand("layout --root tiling").errorOrNil,
+            "layout command: --root and tiling|floating are incompatible",
+        )
+    }
+
+    func testParse_rootRejectsTilingInToggleList() {
+        assertEquals(
+            parseCommand("layout --root tiling accordion").errorOrNil,
+            "layout command: --root and tiling|floating are incompatible",
+        )
+    }
+
+    // MARK: - Integration with normalization
+
+    func testRoot_oppositeOrientationNormalizationRenormalizesDescendants() async {
+        config.enableNormalizationOppositeOrientationForNestedContainers = true
+        var nestedTilesV: TilingContainer!
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tiles, index: INDEX_BIND_LAST).apply {
+                    nestedTilesV = $0
+                    TestWindow.new(id: 1, parent: $0)
+                    TestWindow.new(id: 2, parent: $0)
+                }
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+        assertEquals(workspace.rootTilingContainer.orientation, .h)
+        assertEquals(nestedTilesV.orientation, .v)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.horizontal, .vertical], root: true))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(workspace.rootTilingContainer.orientation, .v)
+        assertEquals(nestedTilesV.orientation, .h)
+    }
+
+    func testRoot_flattenNormalizationDiscardsRootToggle_whenSingleNestedContainer() async {
+        let workspace = Workspace.get(byName: name).apply {
+            $0.rootTilingContainer.apply {
+                TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1).apply {
+                    TestWindow.new(id: 1, parent: $0)
+                }
+            }
+        }
+        assertEquals(workspace.focusWorkspace(), true)
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+
+        await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .accordion], root: true))
+            .run(.defaultEnv, .emptyStdin)
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+
+        config.enableNormalizationFlattenContainers = true
+        workspace.normalizeContainers()
+
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+        assertEquals(workspace.rootTilingContainer.orientation, .h)
     }
 }
