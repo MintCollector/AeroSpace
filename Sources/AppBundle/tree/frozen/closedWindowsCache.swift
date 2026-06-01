@@ -71,7 +71,7 @@ struct FrozenWorkspace: Sendable {
         let prevRoot = workspace.rootTilingContainer // Save prevRoot into a variable to avoid it being garbage collected earlier than needed
         let potentialOrphans = prevRoot.allLeafWindowsRecursive
         prevRoot.unbindFromParent()
-        restoreTreeRecursive(frozenContainer: frozenWorkspace.rootTilingNode, parent: workspace, index: INDEX_BIND_LAST)
+        restoreTreeRecursive(frozenContainer: frozenWorkspace.rootTilingNode, parent: workspace, index: INDEX_BIND_LAST, lookup: { MacWindow.get(byId: $0) })
         for window in (potentialOrphans - workspace.rootTilingContainer.allLeafWindowsRecursive) {
             try await window.relayoutWindow(on: workspace, .cancellable, forceTile: true)
         }
@@ -87,7 +87,12 @@ struct FrozenWorkspace: Sendable {
 
 @discardableResult
 @MainActor
-private func restoreTreeRecursive(frozenContainer: FrozenContainer, parent: NonLeafTreeNodeObject, index: Int) -> Bool {
+func restoreTreeRecursive(
+    frozenContainer: FrozenContainer,
+    parent: NonLeafTreeNodeObject,
+    index: Int,
+    lookup: (UInt32) -> Window?,
+) -> Bool {
     let container = TilingContainer(
         parent: parent,
         adaptiveWeight: frozenContainer.weight,
@@ -96,16 +101,27 @@ private func restoreTreeRecursive(frozenContainer: FrozenContainer, parent: NonL
         index: index,
     )
 
-    for (index, child) in frozenContainer.children.enumerated() {
+    // boundIndex advances only on an actual bind. Windows that aren't alive yet (staggered
+    // reappearance after unlock/relaunch) are skipped, not aborted on — the frozen cache isn't
+    // consumed, so a late window slots into its remembered spot when restore re-runs on its
+    // registration. Reusing the frozen enumerated index after a skip would insert past `count`
+    // (bind() does a raw, unclamped Array.insert), so we track the real bound count instead.
+    var boundIndex = 0
+    for child in frozenContainer.children {
         switch child {
             case .window(let w):
-                // Stop the loop if can't find the window, because otherwise all the subsequent windows will have incorrect index
-                guard let window = MacWindow.get(byId: w.id) else { return false }
-                window.bind(to: container, adaptiveWeight: w.weight, index: index)
+                guard let window = lookup(w.id) else { continue }
+                window.bind(to: container, adaptiveWeight: w.weight, index: boundIndex)
+                boundIndex += 1
             case .container(let c):
-                // There is no reason to continue
-                if !restoreTreeRecursive(frozenContainer: c, parent: container, index: index) { return false }
+                if restoreTreeRecursive(frozenContainer: c, parent: container, index: boundIndex, lookup: lookup) {
+                    boundIndex += 1
+                }
         }
+    }
+    if boundIndex == 0 {
+        container.unbindFromParent() // nothing restored under here — don't leave an empty container
+        return false
     }
     return true
 }

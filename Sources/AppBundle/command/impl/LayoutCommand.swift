@@ -78,6 +78,21 @@ struct LayoutCommand: Command {
                 window.bindAsFloatingWindow(to: workspace)
                 if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
                 return .succ
+            case .unmanaged:
+                guard let window = target.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
+                window.isExplicitlyUnmanaged = true
+                window.bind(to: target.workspace.macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                return .succ
+            case .sticky:
+                guard let window = target.windowOrNil,
+                      let macWindow = window as? MacWindow else { return .fail }
+                if macWindow.isSticky {
+                    macWindow.isSticky = false
+                } else {
+                    guard window.parent is Workspace else { return .fail }
+                    macWindow.isSticky = true
+                }
+                return .succ
         }
     }
 }
@@ -113,6 +128,8 @@ extension ConventionalWindowParentCases {
             case .v_tiles:     tilingContainerOrNil.map { $0.layout == .tiles && $0.orientation == .v } == true
             case .tiling:      tilingContainerOrNil != nil
             case .floating:    floatingWindowsContainerOrNil != nil
+            case .unmanaged:   macosPopupWindowsContainerOrNil != nil
+            case .sticky:      floatingWindowsContainerOrNil != nil && (self as? MacWindow)?.isSticky == true
         }
     }
 }

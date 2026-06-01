@@ -9,6 +9,7 @@ func scheduleCancellableCompleteRefreshSession(
     _ event: RefreshSessionEvent,
     optimisticallyPreLayoutWorkspaces: Bool = false,
 ) {
+    if screenSleepWakeInProgress { return }
     activeRefreshTask?.cancel()
     activeRefreshTask = Task.startUnstructured { @MainActor in
         try checkCancellation()
@@ -21,6 +22,12 @@ func scheduleCancellableCompleteRefreshSession(
 }
 
 @MainActor
+func cancelCancellableCompleteRefreshSession() {
+    activeRefreshTask?.cancel()
+    activeRefreshTask = nil
+}
+
+@MainActor
 func runHeavyCompleteRefreshSession(
     _ event: RefreshSessionEvent,
     assumeCancellable: Bool,
@@ -30,6 +37,7 @@ func runHeavyCompleteRefreshSession(
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
+    if screenSleepWakeInProgress { return }
     let res = await Result {
         try await $refreshSessionEvent.withValue(event) {
             let nativeFocused = try await getNativeFocusedWindow(.cancellable)
@@ -123,17 +131,33 @@ func refreshModel_nonCancellable() async {
 private func refresh() async throws {
     // Garbage collect terminated apps and windows before working with all windows
     let mapping = try await MacApp.refreshAllAndGetAliveWindowIds(frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
-    let aliveWindowIds = mapping.values.flatMap(id).toSet()
+    for (app, result) in mapping {
+        for group in result.nativeTabGroups {
+            try await MacWindow.reconcileNativeTabGroup(group, macApp: app)
+        }
+    }
+    let aliveWindowIds = mapping.values.flatMap(\.aliveWindowIds).toSet()
+    let inactiveNativeTabWindowIds = mapping.values.flatMap { $0.nativeTabGroups.flatMap(\.inactiveWindowIds) }.toSet()
 
     for window in MacWindow.allWindows {
         if !aliveWindowIds.contains(window.windowId) {
-            window.garbageCollect(skipClosedWindowsCache: false)
+            if inactiveNativeTabWindowIds.contains(window.windowId) {
+                window.discardNativeTabSidecar()
+            } else {
+                window.garbageCollect(skipClosedWindowsCache: false)
+            }
         }
     }
-    for (app, windowIds) in mapping {
-        for windowId in windowIds {
-            try await MacWindow.getOrRegister(windowId: windowId, macApp: app)
-        }
+    // Register windows in spatial (left→right, top→bottom) order so the fallback placement path
+    // (windows with no closed-windows-cache record) lands deterministically instead of in Swift
+    // dictionary key order. The cache-restore path overrides this when it has a record. The sort is
+    // global across all apps because a workspace's windows interleave by screen position, not by app.
+    let cgSnapshot = readCgWindowSnapshot()
+    let toRegister = mapping.flatMap { app, result in
+        result.aliveWindowIds.map { (app: app, windowId: $0, groups: result.nativeTabGroups) }
+    }
+    for entry in sortedForRegistration(toRegister, rectOf: { cgSnapshot[$0.windowId]?.rect }) {
+        try await MacWindow.getOrRegister(windowId: entry.windowId, macApp: entry.app, nativeTabGroups: entry.groups)
     }
 
     // Garbage collect workspaces after apps, because workspaces contain apps.
@@ -154,6 +178,7 @@ enum OptimalHideCorner {
 
 @MainActor
 private func layoutWorkspaces() async throws {
+    if screenSleepWakeInProgress { return }
     if !TrayMenuModel.shared.isEnabled {
         for workspace in Workspace.all {
             workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
@@ -192,11 +217,29 @@ private func layoutWorkspaces() async throws {
         let workspace = monitor.activeWorkspace
         workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
         try await workspace.layoutWorkspace()
+        // On workspace switch, raise floating windows above the tiled windows so they're visible on
+        // arrival. Sorted ascending by lastFocusedAt so the most-recently-used float ends up topmost.
+        // The focused window is raised on top of these afterwards by the caller (syncFocusToMacOs).
+        if workspacesNeedingFloatingRaise.remove(workspace.name) != nil {
+            for window in workspace.floatingWindows.sorted(by: { $0.lastFocusedAt < $1.lastFocusedAt }) {
+                window.nativeRaise()
+            }
+        }
     }
+    // unhide sticky windows from non-visible workspaces
+    for workspace in Workspace.all where !workspace.isVisible {
+        for window in workspace.allLeafWindowsRecursive {
+            let macWindow = window as! MacWindow
+            if macWindow.isSticky { macWindow.unhideFromCorner() }
+        }
+    }
+    // hide non-sticky windows from non-visible workspaces
     for workspace in Workspace.all where !workspace.isVisible {
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
         for window in workspace.allLeafWindowsRecursive {
-            try await (window as! MacWindow).hideInCorner(corner) // todo as!
+            let macWindow = window as! MacWindow
+            if macWindow.isSticky { continue }
+            try await macWindow.hideInCorner(corner) // todo as!
         }
     }
 }
