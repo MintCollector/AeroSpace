@@ -338,6 +338,9 @@ extension WindowDetectedCallback {
         if let appIds = matcher.appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {
             return false
         }
+        if let regex = matcher.appIdRegexSubstring, !(window.app.rawAppBundleId ?? "").contains(caseInsensitiveRegex: regex) {
+            return false
+        }
         if let regex = matcher.appNameRegexSubstring, !(window.app.name ?? "").contains(caseInsensitiveRegex: regex) {
             return false
         }

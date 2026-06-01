@@ -26,6 +26,7 @@ struct WindowDetectedCallback: ConvenienceCopyable, Equatable {
 
 struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
     var appIds: [String]?
+    var appIdRegexSubstring: CaseInsensitiveRegex?
     var appNameRegexSubstring: CaseInsensitiveRegex?
     var windowTitleRegexSubstring: CaseInsensitiveRegex?
     var workspace: String?
@@ -39,12 +40,14 @@ struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
 
     init(
         appIds: [String]? = nil,
+        appIdRegexSubstring: CaseInsensitiveRegex? = nil,
         appNameRegexSubstring: CaseInsensitiveRegex? = nil,
         windowTitleRegexSubstring: CaseInsensitiveRegex? = nil,
         workspace: String? = nil,
         duringAeroSpaceStartup: Bool? = nil,
     ) {
         self.appIds = appIds
+        self.appIdRegexSubstring = appIdRegexSubstring
         self.appNameRegexSubstring = appNameRegexSubstring
         self.windowTitleRegexSubstring = windowTitleRegexSubstring
         self.workspace = workspace
@@ -54,12 +57,14 @@ struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
     // Backward compatibility initializer with old single appId parameter
     init(
         appId: String?,
+        appIdRegexSubstring: CaseInsensitiveRegex? = nil,
         appNameRegexSubstring: CaseInsensitiveRegex? = nil,
         windowTitleRegexSubstring: CaseInsensitiveRegex? = nil,
         workspace: String? = nil,
         duringAeroSpaceStartup: Bool? = nil,
     ) {
         self.appIds = appId.map { [$0] }
+        self.appIdRegexSubstring = appIdRegexSubstring
         self.appNameRegexSubstring = appNameRegexSubstring
         self.windowTitleRegexSubstring = windowTitleRegexSubstring
         self.workspace = workspace
@@ -74,6 +79,9 @@ struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
             } else {
                 resultParts.append("appIds=\(appIds)")
             }
+        }
+        if let appIdRegexSubstring {
+            resultParts.append("appIdRegexSubstring=\"\(appIdRegexSubstring.origin)\"")
         }
         if let appNameRegexSubstring {
             resultParts.append("appNameRegexSubstring=\"\(appNameRegexSubstring.origin)\"")
@@ -100,8 +108,9 @@ private let windowDetectedParser: [String: any ParserProtocol<WindowDetectedCall
 private let matcherParsers: [String: any ParserProtocol<WindowDetectedCallbackMatcher>] = [
     "app-id": Parser(\.appIds, upcast(parseAppIds)),
     "workspace": Parser(\.workspace, upcast(parseString)),
-    "app-name-regex-substring": Parser(\.appNameRegexSubstring, upcast(parseCasInsensitiveRegex)),
-    "window-title-regex-substring": Parser(\.windowTitleRegexSubstring, upcast(parseCasInsensitiveRegex)),
+    "app-id-regex-substring": Parser(\.appIdRegexSubstring, upcast(parseCaseInsensitiveRegex)),
+    "app-name-regex-substring": Parser(\.appNameRegexSubstring, upcast(parseCaseInsensitiveRegex)),
+    "window-title-regex-substring": Parser(\.windowTitleRegexSubstring, upcast(parseCaseInsensitiveRegex)),
     "during-aerospace-startup": Parser(\.duringAeroSpaceStartup, upcast(parseBool)),
 ]
 
@@ -120,7 +129,7 @@ func parseOnWindowDetectedArray(_ raw: Json, _ backtrace: ConfigBacktrace, _ err
     }
 }
 
-private func parseCasInsensitiveRegex(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<CaseInsensitiveRegex> {
+private func parseCaseInsensitiveRegex(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<CaseInsensitiveRegex> {
     parseString(raw, backtrace).flatMap { CaseInsensitiveRegex.new($0).toParsedConfig(backtrace) }
 }
 
