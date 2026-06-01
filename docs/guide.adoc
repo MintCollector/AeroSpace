@@ -541,13 +541,15 @@ You can use `on-window-detected` config option to run commands every time a new 
 
 [source,toml]
 ----
-on-window-detected = [
-    {
-        if = 'test %{app-bundle-id} = com.apple.systempreferences',
-        check-further-callbacks = true,
-        run = ['layout floating', 'move-node-to-workspace S'],  # The callback itself
-    },
-]
+[[on-window-detected]]
+    if.app-id = 'com.apple.systempreferences'  # Can also be an array: ['app1.id', 'app2.id']
+    if.app-id-regex-substring = '^com\.apple\..+$'
+    if.app-name-regex-substring = 'settings'
+    if.window-title-regex-substring = 'substring'
+    if.workspace = 'workspace-name'
+    if.during-aerospace-startup = true
+    check-further-callbacks = true
+    run = ['layout floating', 'move-node-to-workspace S']  # The callback itself
 ----
 
 `on-window-detected` is an ordered list of callback objects.
@@ -593,20 +595,22 @@ Examples of automations:
 +
 [source,toml]
 ----
-on-window-detected = [
-    {
-        if = 'test %{app-bundle-id} = org.alacritty',
-        run = 'move-node-to-workspace T', # mnemonics T - Terminal
-    },
-    {
-        if = 'test %{app-bundle-id} = com.google.Chrome || test %{app-bundle-id} = org.mozilla.firefox',
-        run = 'move-node-to-workspace W', # mnemonics W - Web browser
-    },
-    {
-        if = 'test %{app-bundle-id} = com.jetbrains.intellij',
-        run = 'move-node-to-workspace I', # mnemonics I - IDE
-    }
-]
+[[on-window-detected]]
+    if.app-id = 'org.alacritty'
+    run = 'move-node-to-workspace T' # mnemonics T - Terminal
+
+[[on-window-detected]]
+    if.app-id = 'com.google.Chrome'
+    run = 'move-node-to-workspace W' # mnemonics W - Web browser
+
+[[on-window-detected]]
+    if.app-id = 'com.jetbrains.intellij'
+    run = 'move-node-to-workspace I' # mnemonics I - IDE
+
+# You can also use an array to match multiple app IDs with a single rule
+[[on-window-detected]]
+    if.app-id = ['org.mozilla.firefox', 'com.google.Chrome', 'com.brave.Browser']
+    run = 'move-node-to-workspace W' # All web browsers to workspace W
 ----
 * Make all windows float by default
 +

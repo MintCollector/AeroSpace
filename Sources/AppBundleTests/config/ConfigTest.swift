@@ -350,6 +350,7 @@ final class ConfigTest: XCTestCase {
                     run = ['move-node-to-workspace T'],
                 },
                 { if = '', run = ''}, # 7
+                { if.app-id-regex-substring = '^com\\.apple\\..+$', if.app-name-regex-substring = 'settings', run = [] }, # 8
             ]
             """,
         )
@@ -397,6 +398,13 @@ final class ConfigTest: XCTestCase {
                 matcher: .command(.cmd(TestCommand(args: matcher6Args))),
                 rawRun: .cmd(MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "T"))),
             ),
+            WindowDetectedCallback( // 8
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(
+                    appIdRegexSubstring: CaseInsensitiveRegex.new("^com\\.apple\\..+$").getOrNil(),
+                    appNameRegexSubstring: CaseInsensitiveRegex.new("settings").getOrNil(),
+                )),
+                rawRun: .empty,
+            ),
         ])
 
         assertEquals(result.strErrors, [
@@ -441,6 +449,43 @@ final class ConfigTest: XCTestCase {
             """,
         ).errors
         assertEquals(errors, [])
+    }
+
+    func testParseOnWindowDetectedArrayAppIds() {
+        let (config, errors) = parseConfig(
+            """
+            [[on-window-detected]]
+                if.app-id = ['org.mozilla.firefox', 'com.google.Chrome', 'com.brave.Browser']
+                run = ['move-node-to-workspace 3']
+            """,
+        )
+        assertEquals(errors, [])
+        let callback = config.onWindowDetected.singleOrNil()!
+        assertEquals(callback.matcher.appIds, ["org.mozilla.firefox", "com.google.Chrome", "com.brave.Browser"])
+        // Test backward compatibility
+        assertEquals(callback.matcher.appId, "org.mozilla.firefox")
+    }
+
+    func testParseOnWindowDetectedEmptyAppIdsArrayError() {
+        let (_, errors) = parseConfig(
+            """
+            [[on-window-detected]]
+                if.app-id = []
+                run = ['move-node-to-workspace 3']
+            """,
+        )
+        assertEquals(errors, ["on-window-detected[0].if.app-id: The array must not be empty"])
+    }
+
+    func testParseOnWindowDetectedNonStringAppIdsArrayElementError() {
+        let (_, errors) = parseConfig(
+            """
+            [[on-window-detected]]
+                if.app-id = ['org.mozilla.firefox', 42]
+                run = ['move-node-to-workspace 3']
+            """,
+        )
+        assertEquals(errors, ["on-window-detected[0].if.app-id[1]: Expected type is \'string\'. But actual type is \'int\'"])
     }
 
     func testTomlParser() {

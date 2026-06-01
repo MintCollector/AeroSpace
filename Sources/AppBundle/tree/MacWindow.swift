@@ -32,9 +32,11 @@ final class MacWindow: Window {
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
+        window.isAwaitingOnWindowDetected = true
         allWindowsMap[windowId] = window
 
         try await debugWindowsIfRecording(window, .cancellable)
+        defer { window.isAwaitingOnWindowDetected = false }
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             await tryOnWindowDetected(window)
         }
@@ -292,7 +294,10 @@ extension WindowDetectedCallback {
                 if let regex = matcher.windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
                     return false
                 }
-                if let appId = matcher.appId, appId != window.app.rawAppBundleId {
+                if let appIds = matcher.appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {
+                    return false
+                }
+                if let regex = matcher.appIdRegexSubstring, !(window.app.rawAppBundleId ?? "").contains(caseInsensitiveRegex: regex) {
                     return false
                 }
                 if let regex = matcher.appNameRegexSubstring, !(window.app.name ?? "").contains(caseInsensitiveRegex: regex) {
