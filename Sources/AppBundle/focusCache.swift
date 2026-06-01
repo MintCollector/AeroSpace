@@ -10,6 +10,14 @@ import Foundation
     if nativeFocused?.parent is MacosPopupWindowsContainer {
         return
     }
+    if let macWindow = nativeFocused as? MacWindow,
+       macWindow.isSticky,
+       macWindow.visualWorkspace != focus.workspace
+    {
+        lastKnownNativeFocusedWindowId = nativeFocused?.windowId
+        macWindow.macAppUnsafe.lastNativeFocusedWindowId = nativeFocused?.windowId
+        return
+    }
     if nativeFocused?.windowId != lastKnownNativeFocusedWindowId {
         // macOS auto-activates same-app windows on other workspaces when the last window
         // of that app is closed on the current workspace. Don't follow it.

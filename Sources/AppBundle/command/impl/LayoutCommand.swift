@@ -53,6 +53,14 @@ struct LayoutCommand: Command {
                 window.isExplicitlyUnmanaged = true
                 window.bind(to: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
                 return .succ
+            case .sticky:
+                guard let macWindow = window as? MacWindow else { return .fail }
+                if macWindow.isSticky {
+                    macWindow.isSticky = false
+                } else {
+                    guard window.parent is Workspace else { return .fail }
+                    macWindow.isSticky = true
+                }
         }
     }
 }
@@ -86,6 +94,7 @@ extension Window {
             case .tiling:      parent is TilingContainer
             case .floating:    parent is Workspace
             case .unmanaged:   parent is MacosPopupWindowsContainer
+            case .sticky:      (parent is Workspace) && (self as? MacWindow)?.isSticky == true
         }
     }
 }
