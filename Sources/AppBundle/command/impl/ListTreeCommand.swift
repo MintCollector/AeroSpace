@@ -173,3 +173,26 @@ private struct WindowNode: Encodable {
         case app_bundle_path = "app-bundle-path"
     }
 }
+
+private struct DynKey: CodingKey {
+    let stringValue: String
+    init(_ s: String) { stringValue = s }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { nil }
+}
+
+/// One JSON object: the resolved `FormatVar` fields, plus an optional nested child array under
+/// `childrenKey` ("workspaces"/"windows"). Lets list-tree reuse the shared field resolution while
+/// keeping the bespoke monitor->workspace->window nesting the flat formatter can't express.
+private struct JsonTreeNode: Encodable {
+    let fields: [String: Primitive]
+    let childrenKey: String?
+    let children: [JsonTreeNode]?
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: DynKey.self)
+        for (k, v) in fields { try c.encode(v, forKey: DynKey(k)) }
+        if let childrenKey, let children { try c.encode(children, forKey: DynKey(childrenKey)) }
+    }
+}
