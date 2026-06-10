@@ -7,15 +7,21 @@ public struct LayoutCmdArgs: CmdArgs {
         help: layout_help_generated,
         flags: [
             "--window-id": windowIdSubArgParser(),
+            "--root": trueBoolFlag(\.root),
         ],
         posArgs: [newMandatoryPosArgParser(\.toggleBetween, parseToggleBetween, placeholder: LayoutDescription.unionLiteral)],
+        conflictingOptions: [
+            ["--root", "--window-id"],
+        ],
     )
 
     public var toggleBetween: Lateinit<[LayoutDescription]> = .uninitialized
+    public var root: Bool = false
 
-    public init(rawArgs: [String], toggleBetween: [LayoutDescription]) {
+    public init(rawArgs: [String], toggleBetween: [LayoutDescription], root: Bool = false) {
         self.commonState = .init(rawArgs.slice)
         self.toggleBetween = .initialized(toggleBetween)
+        self.root = root
     }
 
     public enum LayoutDescription: String, CaseIterable, Equatable, Sendable {
@@ -24,6 +30,7 @@ public struct LayoutCmdArgs: CmdArgs {
         case h_accordion, v_accordion, h_tiles, v_tiles
         case tiling, floating
         case unmanaged
+        case sticky
     }
 }
 
@@ -51,6 +58,9 @@ func parseLayoutCmdArgs(_ args: StrArrSlice) -> ParsedCmd<LayoutCmdArgs> {
     parseSpecificCmdArgs(LayoutCmdArgs(rawArgs: args), args).map {
         check(!$0.toggleBetween.val.isEmpty)
         return $0
+    }
+    .filterNot("'tiling', 'floating', 'unmanaged' and 'sticky' are incompatible with --root") {
+        $0.root && $0.toggleBetween.val.contains(where: { $0 == .tiling || $0 == .floating || $0 == .unmanaged || $0 == .sticky })
     }
 }
 

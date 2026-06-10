@@ -191,6 +191,7 @@ extension FormatVar {
                     case .windowIsFullscreen: .success(.bool(w.window.isFullscreen))
                     case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefeched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
+                    case .windowParentContainerOrientation: toOrientationResult(w: w.window)
                     case .windowX: .success(.int(w.rect.map { Int($0.topLeftX) } ?? 0))
                     case .windowY: .success(.int(w.rect.map { Int($0.topLeftY) } ?? 0))
                     case .windowWidth: .success(.int(w.rect.map { Int($0.width) } ?? 0))
@@ -203,6 +204,7 @@ extension FormatVar {
                     case .workspaceVisible: .success(.bool(w.isVisible))
                     case .workspaceFocused: .success(.bool(focus.workspace == w))
                     case .workspaceRootContainerLayout: .success(.string(toLayoutString(tc: w.rootTilingContainer)))
+                    case .workspaceRootContainerOrientation: .success(.string(toOrientationString(w.rootTilingContainer.orientation)))
                 }
             case (.monitor(let m), .monitor(let f)):
                 return switch f {
@@ -234,6 +236,8 @@ extension PlainInterVar {
             case .tab: .success(.string("\t"))
             case .rightPadding:
                 .failure("\(PlainInterVar.rightPadding.rawValue.singleQuoted) interpolation variable cannot be expanded")
+            case .all:
+                .failure("\(PlainInterVar.all.rawValue.singleQuoted) interpolation variable cannot be expanded")
         }
     }
 }
@@ -255,6 +259,13 @@ func unknownInterpolationVariable(variable: String, _ obj: AeroObj) -> String {
         "Possible values:\n\(getAvailableInterVars(for: obj.kind).joined(separator: "\n").prependLines("  "))"
 }
 
+private func toOrientationString(_ orientation: Orientation) -> String {
+    switch orientation {
+        case .h: return "horizontal"
+        case .v: return "vertical"
+    }
+}
+
 private func toLayoutString(tc: TilingContainer) -> String {
     switch (tc.layout, tc.orientation) {
         case (.tiles, .h): return LayoutCmdArgs.LayoutDescription.h_tiles.rawValue
@@ -273,6 +284,21 @@ private func toLayoutResult(w: Window) -> Result<Primitive, String> {
         case .macosNativeHiddenAppWindow: .success(.string("macos_native_window_of_hidden_app"))
         case .macosNativeMinimizedWindow: .success(.string("macos_native_minimized"))
         case .macosPopupWindow: .success(.string("NULL-WINDOW-LAYOUT"))
+
+        case .rootTilingContainer: .failure("Not possible")
+        case .shimContainerRelation: .failure("Window cannot have a shim container relation")
+    }
+}
+
+private func toOrientationResult(w: Window) -> Result<Primitive, String> {
+    guard let parent = w.parent else { return .failure("NULL-PARENT") }
+    return switch getChildParentRelation(child: w, parent: parent) {
+        case .tiling(let tc): .success(.string(toOrientationString(tc.orientation)))
+        case .floatingWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeFullscreenWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeHiddenAppWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosNativeMinimizedWindow: .success(.string("NULL-ORIENTATION"))
+        case .macosPopupWindow: .success(.string("NULL-ORIENTATION"))
 
         case .rootTilingContainer: .failure("Not possible")
         case .shimContainerRelation: .failure("Window cannot have a shim container relation")

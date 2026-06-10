@@ -23,6 +23,7 @@ public struct ListWindowsCmdArgs: CmdArgs {
             "--format": formatParser(\._format, for: .window),
             "--count": trueBoolFlag(\.outputOnlyCount),
             "--json": trueBoolFlag(\.json),
+            "--sort": SubArgParser(\.sort, parseSortOptions),
         ],
         posArgs: [],
         conflictingOptions: [
@@ -36,6 +37,7 @@ public struct ListWindowsCmdArgs: CmdArgs {
     fileprivate var allAlias: Bool = false
 
     public var filteringOptions = FilteringOptions()
+    public var sort: [SortOption] = [] // empty == preserve tree traversal order (fork default)
     public var _format: [StringInterToken] = []
     public var outputOnlyCount: Bool = false
     public var json: Bool = false
@@ -51,13 +53,17 @@ public struct ListWindowsCmdArgs: CmdArgs {
 
 extension ListWindowsCmdArgs {
     public var format: [StringInterToken] {
-        _format.isEmpty
-            ? [
+        if _format.isEmpty {
+            return [
                 .interVar("window-id"), .interVar("right-padding"), .literal(" | "),
                 .interVar("app-name"), .interVar("right-padding"), .literal(" | "),
                 .interVar("window-title"),
             ]
-            : _format
+        }
+        if _format.contains(.interVar(PlainInterVar.all.rawValue)) {
+            return AeroObjKind.window.getFormatWithAllVariable()
+        }
+        return _format
     }
 }
 
@@ -76,7 +82,42 @@ func parseListWindowsCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListWindowsCmdArg
         .map { raw in
             raw.allAlias ? raw.copy(\.filteringOptions.monitors, [.all]).copy(\.allAlias, false) : raw // Normalize alias
         }
-        .flatMap { if $0.json, let msg = getErrorIfFormatIsIncompatibleWithJson($0._format) { .failure(msg) } else { .cmd($0) } }
+        .flatMap { parsed in
+            if parsed.json, let msg = getErrorIfFormatIsIncompatibleWithJson(parsed._format) {
+                return .failure(msg)
+            }
+            if let msg = getErrorIfAllFormatVariableIsInvalid(json: parsed.json, format: parsed._format) {
+                return .failure(msg)
+            }
+            return .cmd(parsed)
+        }
+}
+
+func getErrorIfAllFormatVariableIsInvalid(json: Bool, format: [StringInterToken]) -> String? {
+    let hasAllVariable = format.contains(.interVar(PlainInterVar.all.rawValue))
+
+    if hasAllVariable {
+        // Check if %{all} is mixed with other variables (excluding spaces) first
+        let nonSpaceTokens = format.filter { token in
+            switch token {
+                case .literal(let literal):
+                    return literal.contains(where: { $0 != " " })
+                case .interVar:
+                    return true
+            }
+        }
+
+        if nonSpaceTokens.count > 1 {
+            return "'%{all}' format option must be used alone and cannot be combined with other variables"
+        }
+
+        // Then check if %{all} is used without --json flag
+        if !json {
+            return "'%{all}' format option requires --json flag"
+        }
+    }
+
+    return nil
 }
 
 func formatParser<Root>(
@@ -119,10 +160,35 @@ private func parseWorkspaces(input: SubArgParserInput) -> ParsedCliArgs<[Workspa
     return .succ(workspaces, advanceBy: workspaces.count)
 }
 
+private func parseSortOptions(input: SubArgParserInput) -> ParsedCliArgs<[SortOption]> {
+    if let arg = input.nonFlagArgOrNil() {
+        let sortStrings = arg.split(separator: ",")
+        var sortOptions: [SortOption] = []
+        for (index, sortStr) in sortStrings.enumerated() {
+            if let option = SortOption(rawValue: String(sortStr)) {
+                sortOptions.append(option)
+            } else {
+                let validValues = SortOption.allCases.map { $0.rawValue }.joined(separator: ", ")
+                return .fail("Invalid sort option '\(sortStr)'. Valid options: \(validValues)", advanceBy: index + 1)
+            }
+        }
+        return .succ(sortOptions, advanceBy: 1)
+    } else {
+        let validValues = SortOption.allCases.map { $0.rawValue }.joined(separator: ", ")
+        return .fail("'--sort' requires a value. Valid options: \(validValues)", advanceBy: 0)
+    }
+}
+
 public enum WorkspaceFilter: Equatable, Sendable {
     case focused
     case visible
     case name(WorkspaceName)
+}
+
+public enum SortOption: String, Equatable, Sendable, CaseIterable {
+    case recent = "recent"
+    case appName = "app-name"
+    case windowTitle = "window-title"
 }
 
 public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
@@ -173,6 +239,7 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case windowTitle = "window-title"
         case windowLayout = "window-layout" // An alias for windowParentContainerLayout
         case windowParentContainerLayout = "window-parent-container-layout"
+        case windowParentContainerOrientation = "window-parent-container-orientation"
         case windowX = "window-x"
         case windowY = "window-y"
         case windowWidth = "window-width"
@@ -185,6 +252,7 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case workspaceFocused = "workspace-is-focused"
         case workspaceVisible = "workspace-is-visible"
         case workspaceRootContainerLayout = "workspace-root-container-layout"
+        case workspaceRootContainerOrientation = "workspace-root-container-orientation"
     }
 
     public enum AppFormatVar: String, Equatable, CaseIterable, Sendable {
@@ -209,6 +277,7 @@ public enum PlainInterVar: String, CaseIterable, Sendable, Equatable {
     case rightPadding = "right-padding"
     case newline = "newline"
     case tab = "tab"
+    case all = "all"
 }
 
 public enum AeroObjKind: CaseIterable, Sendable {
@@ -222,6 +291,17 @@ public enum AeroObjKind: CaseIterable, Sendable {
             case .window: .window
             case .workspace: .workspace
         }
+    }
+
+    public func getFormatWithAllVariable() -> [StringInterToken] {
+        return getAvailableInterVars(for: self)
+            .map(StringInterToken.interVar)
+            .filter {
+                ![.interVar(PlainInterVar.rightPadding.rawValue),
+                  .interVar(PlainInterVar.newline.rawValue),
+                  .interVar(PlainInterVar.tab.rawValue),
+                  .interVar(PlainInterVar.all.rawValue)].contains($0)
+            }
     }
 }
 
