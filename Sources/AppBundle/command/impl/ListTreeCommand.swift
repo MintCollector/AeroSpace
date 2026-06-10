@@ -5,6 +5,22 @@ struct ListTreeCommand: Command {
     let args: ListTreeCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = false
 
+    // Field sets the helper's tree DTOs expect. Keys come from each FormatVar.rawValue.
+    // Window app-* vars resolve against the window's app via expandFormatVar's (.window, .app) bridge.
+    static let windowVars: [FormatVar] = [
+        .window(.windowId), .window(.windowTitle), .window(.windowIsFullscreen), .window(.windowLayout),
+        .window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight),
+        .app(.appName), .app(.appBundleId), .app(.appPid), .app(.appExecPath), .app(.appBundlePath),
+    ]
+    static let workspaceVars: [FormatVar] = [
+        .workspace(.workspaceName), .workspace(.workspaceFocused),
+        .workspace(.workspaceVisible), .workspace(.workspaceRootContainerLayout),
+    ]
+    static let monitorVars: [FormatVar] = [
+        .monitor(.monitorId_oneBased), .monitor(.monitorAppKitNsScreenScreensId),
+        .monitor(.monitorName), .monitor(.monitorIsMain), .monitor(.monitorWidth), .monitor(.monitorHeight),
+    ]
+
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> BinaryExitCode {
         let focusedWorkspace = focus.workspace
         var monitorNodes: [MonitorNode] = []
