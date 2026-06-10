@@ -35,7 +35,8 @@ func parseCgWindowSnapshot(_ dicts: [NSDictionary]) -> [UInt32: CgWindowInfo] {
            let x = (b["X"] as? NSNumber)?.doubleValue,
            let y = (b["Y"] as? NSNumber)?.doubleValue,
            let w = (b["Width"] as? NSNumber)?.doubleValue,
-           let h = (b["Height"] as? NSNumber)?.doubleValue {
+           let h = (b["Height"] as? NSNumber)?.doubleValue
+        {
             rect = Rect(topLeftX: CGFloat(x), topLeftY: CGFloat(y), width: CGFloat(w), height: CGFloat(h))
         }
         result[id] = CgWindowInfo(title: title, rect: rect)

@@ -53,15 +53,13 @@ struct WindowWithPrefetchedTitle {
     ///   ones on hidden workspaces parked off-screen) → else snapshot bounds → else AX `getAxRect()`.
     static func resolveWindow(_ window: Window, fromSnapshot snap: [UInt32: CgWindowInfo]) async throws -> Self {
         let info = snap[window.windowId]
-        let title: String?
-        if let snapTitle = info?.title { title = snapTitle } else { title = try await window.title }
-        let rect: Rect?
-        if let cached = window.lastAppliedLayoutPhysicalRect {
-            rect = cached
+        let title: String? = if let snapTitle = info?.title { snapTitle } else { try await window.title }
+        let rect: Rect? = if let cached = window.lastAppliedLayoutPhysicalRect {
+            cached
         } else if let snapRect = info?.rect {
-            rect = snapRect
+            snapRect
         } else {
-            rect = try await window.getAxRect()
+            try await window.getAxRect()
         }
         return .init(window: window, title: title, rect: rect)
     }

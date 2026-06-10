@@ -6,20 +6,18 @@ struct SetGapsCommand: Command {
     let args: SetGapsCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = false
 
-    func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+    func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode {
         if args.useStdin {
             return runBatch(io)
         }
-        return runSingle(args.workspaceName?.raw, io)
+        return runSingle(args.workspaceName?.raw)
     }
 
-    /// Single workspace: `set-gaps [--workspace ws] --outer-left-right N --outer-top-bottom N --inner N`
-    @MainActor private func runSingle(_ wsName: String?, _ io: CmdIo) -> Bool {
-        let currentGaps: Gaps
-        if let wsName {
-            currentGaps = config.workspaceGaps[wsName] ?? config.gaps
+    @MainActor private func runSingle(_ wsName: String?) -> BinaryExitCode {
+        let currentGaps: Gaps = if let wsName {
+            config.workspaceGaps[wsName] ?? config.gaps
         } else {
-            currentGaps = config.gaps
+            config.gaps
         }
 
         var newGaps = currentGaps
@@ -27,14 +25,14 @@ struct SetGapsCommand: Command {
             let v = Int(lr)
             newGaps.outer = Gaps.Outer(
                 left: .constant(v), bottom: newGaps.outer.bottom,
-                top: newGaps.outer.top, right: .constant(v)
+                top: newGaps.outer.top, right: .constant(v),
             )
         }
         if let tb = args.outerTopBottom {
             let v = Int(tb)
             newGaps.outer = Gaps.Outer(
                 left: newGaps.outer.left, bottom: .constant(v),
-                top: .constant(v), right: newGaps.outer.right
+                top: .constant(v), right: newGaps.outer.right,
             )
         }
         if let inner = args.inner {
@@ -47,16 +45,15 @@ struct SetGapsCommand: Command {
         } else {
             config.gaps = newGaps
         }
-        return true
+        return .succ
     }
 
-    /// Batch: `set-gaps --stdin` with JSON on stdin
-    /// Format: {"workspace": {"inner": N, "outerLeftRight": N, "outerTopBottom": N}, ...}
-    @MainActor private func runBatch(_ io: CmdIo) -> Bool {
+    @MainActor private func runBatch(_ io: CmdIo) -> BinaryExitCode {
         let raw = io.readStdin()
         guard let data = raw.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Int]] else {
-            return io.err("Invalid JSON on stdin. Expected: {\"workspace\": {\"inner\": N, \"outerLeftRight\": N, \"outerTopBottom\": N}, ...}")
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Int]]
+        else {
+            return .fail(io.err("Invalid JSON on stdin. Expected: {\"workspace\": {\"inner\": N, \"outerLeftRight\": N, \"outerTopBottom\": N}, ...}"))
         }
 
         for (wsName, gaps) in dict {
@@ -65,13 +62,13 @@ struct SetGapsCommand: Command {
             if let lr = gaps["outerLeftRight"] {
                 newGaps.outer = Gaps.Outer(
                     left: .constant(lr), bottom: newGaps.outer.bottom,
-                    top: newGaps.outer.top, right: .constant(lr)
+                    top: newGaps.outer.top, right: .constant(lr),
                 )
             }
             if let tb = gaps["outerTopBottom"] {
                 newGaps.outer = Gaps.Outer(
                     left: newGaps.outer.left, bottom: .constant(tb),
-                    top: .constant(tb), right: newGaps.outer.right
+                    top: .constant(tb), right: newGaps.outer.right,
                 )
             }
             if let inner = gaps["inner"] {
@@ -79,6 +76,6 @@ struct SetGapsCommand: Command {
             }
             config.workspaceGaps[wsName] = newGaps
         }
-        return true
+        return .succ
     }
 }
