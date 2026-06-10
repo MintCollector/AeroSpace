@@ -13,7 +13,7 @@ enum GlobalObserver {
             return
         }
         let notifName = notification.name.rawValue
-        Task { @MainActor in
+        Task.startUnstructured { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
                 scheduleCancellableCompleteRefreshSession(.globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
@@ -25,7 +25,7 @@ enum GlobalObserver {
 
     private static func onHideApp(_ notification: Notification) {
         let notifName = notification.name.rawValue
-        Task { @MainActor in
+        Task.startUnstructured { @MainActor in
             guard let token: RunSessionGuard = .isServerEnabled else { return }
             try await runLightSession(.globalObserver(notifName), token) {
                 if config.automaticallyUnhideMacosHiddenApps {
@@ -91,7 +91,7 @@ enum GlobalObserver {
             // todo reduce number of refreshSession in the callback
             //  resetManipulatedWithMouseIfPossible might call its own refreshSession
             //  The end of the callback calls refreshSession
-            Task { @MainActor in
+            Task.startUnstructured { @MainActor in
                 guard let token: RunSessionGuard = .isServerEnabled else { return }
                 try await resetManipulatedWithMouseIfPossible()
                 let mouseLocation = mouseLocation

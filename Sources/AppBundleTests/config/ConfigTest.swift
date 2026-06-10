@@ -34,7 +34,7 @@ final class ConfigTest: XCTestCase {
             exec-on-workspace-change = ['', 1]
             """,
         )
-        assertEquals(errors, ["exec-on-workspace-change[1]: Expected type is \'string\'. But actual type is \'int\'"])
+        assertEquals(errors, ["exec-on-workspace-change[1]: Expected type is \'String\'. But actual type is \'Int\'"])
     }
 
     func testDuplicatedPersistentWorkspaces() {
@@ -179,7 +179,7 @@ final class ConfigTest: XCTestCase {
         )
         assertEquals(
             errors,
-            ["enable-normalization-flatten-containers: Expected type is \'bool\'. But actual type is \'string\'"],
+            ["enable-normalization-flatten-containers: Expected type is \'Bool\'. But actual type is \'String\'"],
         )
     }
 
@@ -415,7 +415,7 @@ final class ConfigTest: XCTestCase {
                 run = ['move-node-to-workspace 3']
             """,
         )
-        assertEquals(errors, ["on-window-detected[0].if.app-id[1]: Expected type is \'string\'. But actual type is \'int\'"])
+        assertEquals(errors, ["on-window-detected[0].if.app-id[1]: Expected type is \'String\'. But actual type is \'Int\'"])
     }
 
     func testTomlParser() {
@@ -533,7 +533,7 @@ final class ConfigTest: XCTestCase {
             [max-window-width]
             1 = "big"
             """)
-        assertEquals(errors, ["max-window-width.1: Expected type is 'int'. But actual type is 'string'"])
+        assertEquals(errors, ["max-window-width.1: Expected type is 'Int'. But actual type is 'String'"])
     }
 
     func testParseKeyMapping() {

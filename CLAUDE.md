@@ -16,6 +16,15 @@ the pre-built `.release/`, so it ships stale code unless you ran `build-release`
 
 Must `rm -rf /Applications/AeroSpace.app` before copy (codesign caching). `install` (and thus `deploy`) handles this.
 
+### Code signing (stable local identity)
+
+Builds are signed with a **self-signed `AeroSpace Local` identity** (not ad-hoc), giving the app a
+stable designated requirement (`identifier "bobko.aerospace" and certificate leaf = <our cert>`).
+macOS Accessibility/TCC keys on that requirement, so the grant **persists across rebuilds** — no more
+per-deploy re-approval. The cert lives in the login keychain; recreate it (or override the identity)
+per the comment in the `Makefile` (`CODESIGN_IDENTITY`). This is "Option A" — for distributing
+notarized builds to other Macs you'd swap in a Developer ID cert + notarization (see quanganhdo fork).
+
 ## Help text
 
 After editing `docs/aerospace-*.adoc`, regenerate:

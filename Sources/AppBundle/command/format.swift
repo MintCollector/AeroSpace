@@ -19,20 +19,14 @@ struct WindowWithPrefetchedTitle {
         )
     }
 
-    private static let rectVarNames: Set<String> = [
-        FormatVar.WindowFormatVar.windowX.rawValue,
-        FormatVar.WindowFormatVar.windowY.rawValue,
-        FormatVar.WindowFormatVar.windowWidth.rawValue,
-        FormatVar.WindowFormatVar.windowHeight.rawValue,
-    ]
-
-    static func resolveWindow(_ window: Window, for format: [StringInterToken]) async throws -> Self {
+    static func resolveWindow(_ window: Window, for format: [InterToken<InterVar>]) async throws -> Self {
+        let rectVars: Set<FormatVar.WindowFormatVar> = [.windowX, .windowY, .windowWidth, .windowHeight]
         var needsTitle = false
         var needsRect = false
         for token in format {
-            if case .interVar(let v) = token {
-                if v == FormatVar.WindowFormatVar.windowTitle.rawValue { needsTitle = true }
-                if rectVarNames.contains(v) { needsRect = true }
+            if case .interVar(.formatVar(.window(let v))) = token {
+                if v == .windowTitle { needsTitle = true }
+                if rectVars.contains(v) { needsRect = true }
             }
         }
         return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
@@ -78,7 +72,7 @@ enum AeroObj {
 
 extension [AeroObj] {
     @MainActor
-    func format(_ format: [StringInterToken]) -> Result<[String], String> {
+    func format(_ format: [InterToken<InterVar>]) -> Result<[String], String> {
         var cellTable: [[Cell<String>]] = []
         for obj in self {
             var line: [Cell<String>] = []
@@ -86,7 +80,7 @@ extension [AeroObj] {
             var errors: [String] = []
             for token in format {
                 switch token {
-                    case .interVar(PlainInterVar.rightPadding.rawValue):
+                    case .interVar(.plainInterVar(.rightPadding)):
                         line.append(Cell(value: curCell, rightPadding: true))
                         curCell = ""
                     case .literal(let literal):
@@ -124,9 +118,9 @@ enum Primitive: Encodable {
     case string(String)
 
     enum Kind: String {
-        case bool
-        case int
-        case string
+        case bool = "Bool"
+        case int = "Int"
+        case string = "String"
     }
 
     var kind: Kind {
@@ -189,7 +183,7 @@ extension FormatVar {
                 return switch f {
                     case .windowId: .success(.int(w.window.windowId))
                     case .windowIsFullscreen: .success(.bool(w.window.isFullscreen))
-                    case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefeched")))
+                    case .windowTitle: .success(.string(w.title.orDie("Title wasn't prefetched")))
                     case .windowLayout, .windowParentContainerLayout: toLayoutResult(w: w.window)
                     case .windowParentContainerOrientation: toOrientationResult(w: w.window)
                     case .windowX: .success(.int(w.rect.map { Int($0.topLeftX) } ?? 0))
@@ -242,15 +236,12 @@ extension PlainInterVar {
     }
 }
 
-extension String {
+extension InterVar {
     @MainActor func expandFormatVar(obj: AeroObj) -> Result<Primitive, String> {
-        if let it = FormatVar(rawValue: self)?.expandFormatVar(obj: obj) {
-            return it
+        switch self {
+            case .formatVar(let it): it.expandFormatVar(obj: obj)
+            case .plainInterVar(let it): it.expandFormatVar()
         }
-        if let it = PlainInterVar(rawValue: self)?.expandFormatVar() {
-            return it
-        }
-        return .failure(unknownInterpolationVariable(variable: self, obj))
     }
 }
 

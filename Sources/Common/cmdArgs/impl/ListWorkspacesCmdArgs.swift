@@ -36,7 +36,7 @@ public struct ListWorkspacesCmdArgs: CmdArgs {
     fileprivate var focused: Bool = false // Alias
 
     public var filteringOptions = FilteringOptions()
-    public var _format: [StringInterToken] = [.interVar("workspace")]
+    public var _format: [InterToken<InterVar>] = [.interVar(.formatVar(.workspace(.workspaceName)))]
     public var outputOnlyCount: Bool = false
     public var json: Bool = false
 
@@ -48,11 +48,11 @@ public struct ListWorkspacesCmdArgs: CmdArgs {
 }
 
 extension ListWorkspacesCmdArgs {
-    public var format: [StringInterToken] {
+    public var format: [InterToken<InterVar>] {
         if _format.isEmpty {
-            return [.interVar(FormatVar.WorkspaceFormatVar.workspaceName.rawValue)]
+            return [.interVar(.formatVar(.workspace(.workspaceName)))]
         }
-        if _format.contains(.interVar(PlainInterVar.all.rawValue)) {
+        if _format.contains(.interVar(.plainInterVar(.all))) {
             return AeroObjKind.workspace.getFormatWithAllVariable()
         }
         return _format

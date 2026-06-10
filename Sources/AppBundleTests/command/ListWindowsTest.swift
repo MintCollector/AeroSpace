@@ -106,7 +106,7 @@ final class ListWindowsTest: XCTestCase {
                 AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
                 AeroObj.window(.forTest(window: TestWindow.new(id: 1, parent: $0), title: "")),
             ]
-            assertEquals(windows.format([.interVar("window-title")]), .success(["non-empty", ""]))
+            assertEquals(windows.format([.interVar(.formatVar(.window(.windowTitle)))]), .success(["non-empty", ""]))
         }
 
         Workspace.get(byName: name).rootTilingContainer.apply {
@@ -114,7 +114,7 @@ final class ListWindowsTest: XCTestCase {
                 AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
                 AeroObj.window(.forTest(window: TestWindow.new(id: 10, parent: $0), title: "")),
             ]
-            assertEquals(windows.format([.interVar("window-id"), .interVar("right-padding"), .interVar("window-title")]), .success(["2 non-empty", "10"]))
+            assertEquals(windows.format([.interVar(.formatVar(.window(.windowId))), .interVar(.plainInterVar(.rightPadding)), .interVar(.formatVar(.window(.windowTitle)))]), .success(["2 non-empty", "10"]))
         }
 
         Workspace.get(byName: name).rootTilingContainer.apply {
@@ -122,7 +122,7 @@ final class ListWindowsTest: XCTestCase {
                 AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "title1")),
                 AeroObj.window(.forTest(window: TestWindow.new(id: 10, parent: $0), title: "title2")),
             ]
-            assertEquals(windows.format([.interVar("window-id"), .interVar("right-padding"), .literal(" | "), .interVar("window-title")]), .success(["2  | title1", "10 | title2"]))
+            assertEquals(windows.format([.interVar(.formatVar(.window(.windowId))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "), .interVar(.formatVar(.window(.windowTitle)))]), .success(["2  | title1", "10 | title2"]))
         }
     }
 
@@ -148,7 +148,7 @@ final class ListWindowsTest: XCTestCase {
             let window = TestWindow.new(id: 1, parent: $0)
             let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
             assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 .success(["horizontal"]),
             )
         }
@@ -158,7 +158,7 @@ final class ListWindowsTest: XCTestCase {
             let window = TestWindow.new(id: 2, parent: $0)
             let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
             assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 .success(["vertical"]),
             )
         }
@@ -168,7 +168,7 @@ final class ListWindowsTest: XCTestCase {
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
             assertEquals(
-                workspaces.format([.interVar("workspace-root-container-orientation")]),
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
                 .success(["horizontal"]),
             )
         }
@@ -178,7 +178,7 @@ final class ListWindowsTest: XCTestCase {
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
             assertEquals(
-                workspaces.format([.interVar("workspace-root-container-orientation")]),
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
                 .success(["vertical"]),
             )
         }
@@ -189,7 +189,7 @@ final class ListWindowsTest: XCTestCase {
             let window = TestWindow.new(id: 3, parent: nestedContainer)
             let windows = [AeroObj.window(.forTest(window: window, title: "nested"))]
             assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 .success(["vertical"]),
             )
         }
@@ -200,9 +200,9 @@ final class ListWindowsTest: XCTestCase {
             let windows = [AeroObj.window(.forTest(window: window, title: "combined"))]
             assertEquals(
                 windows.format([
-                    .interVar("window-parent-container-orientation"),
+                    .interVar(.formatVar(.window(.windowParentContainerOrientation))),
                     .literal(" | "),
-                    .interVar("window-parent-container-layout"),
+                    .interVar(.formatVar(.window(.windowParentContainerLayout))),
                 ]),
                 .success(["horizontal | h_tiles"]),
             )
