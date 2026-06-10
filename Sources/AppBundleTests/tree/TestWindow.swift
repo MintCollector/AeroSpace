@@ -3,6 +3,7 @@ import AppKit
 
 final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
+    var isMacosFullscreenForTest = false
 
     @MainActor
     private init(_ id: UInt32, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?) {
@@ -48,5 +49,11 @@ final class TestWindow: Window, CustomStringConvertible {
             width: size?.width ?? cur.width,
             height: size?.height ?? cur.height,
         )
+    }
+
+    override var isMacosFullscreen: Bool {
+        get async {
+            isMacosFullscreenForTest
+        }
     }
 }

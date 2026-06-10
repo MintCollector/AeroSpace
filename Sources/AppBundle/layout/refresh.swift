@@ -11,7 +11,7 @@ func scheduleCancellableCompleteRefreshSession(
 ) {
     if screenSleepWakeInProgress { return }
     activeRefreshTask?.cancel()
-    activeRefreshTask = Task { @MainActor in
+    activeRefreshTask = Task.startUnstructured { @MainActor in
         try checkCancellation()
         await runHeavyCompleteRefreshSession(
             event,
@@ -150,7 +150,7 @@ private func refresh() async throws {
 
 func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notif as String
-    Task { @MainActor in
+    Task.startUnstructured { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
         scheduleCancellableCompleteRefreshSession(.ax(notif))
     }
