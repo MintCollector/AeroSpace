@@ -38,6 +38,27 @@ struct WindowWithPrefetchedTitle {
         return .init(window: window, title: title, rect: rect)
     }
 
+    /// Resolve title + rect from a pre-read WindowServer snapshot (one `CGWindowListCopyWindowInfo`
+    /// for the whole tree), touching AX only as a fallback. Used by `list-tree` so the read path
+    /// makes no per-window AX call when the snapshot already has the data.
+    /// - title: snapshot title (Screen Recording granted) → else AX `window.title`.
+    /// - rect: cached `lastAppliedLayoutPhysicalRect` (logical; correct for tiled windows incl.
+    ///   ones on hidden workspaces parked off-screen) → else snapshot bounds → else AX `getAxRect()`.
+    static func resolveWindow(_ window: Window, fromSnapshot snap: [UInt32: CgWindowInfo]) async throws -> Self {
+        let info = snap[window.windowId]
+        let title: String?
+        if let snapTitle = info?.title { title = snapTitle } else { title = try await window.title }
+        let rect: Rect?
+        if let cached = window.lastAppliedLayoutPhysicalRect {
+            rect = cached
+        } else if let snapRect = info?.rect {
+            rect = snapRect
+        } else {
+            rect = try await window.getAxRect()
+        }
+        return .init(window: window, title: title, rect: rect)
+    }
+
     /// Prefer the rect AeroSpace already computed during layout (held in memory) over a
     /// cross-process AX query. Tiled, non-fullscreen windows always have
     /// `lastAppliedLayoutPhysicalRect` set, and it equals what was pushed to AX via
