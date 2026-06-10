@@ -23,4 +23,28 @@ final class ListTreeTest: XCTestCase {
             "monitor-name", "monitor-is-main", "monitor-width", "monitor-height",
         ])
     }
+
+    @MainActor
+    func testListTreeOutputShapeAndCachedRect() async throws {
+        setUpWorkspacesForTests()
+        let w = TestWindow.new(id: 5, parent: focus.workspace.rootTilingContainer,
+                               rect: Rect(topLeftX: 1, topLeftY: 1, width: 1, height: 1))
+        // Cached layout rect differs from the AX rect on purpose; list-tree must report the cached one.
+        w.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 200, width: 300, height: 400)
+
+        let result = try await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 0)
+
+        let json = try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as! [[String: Any]]
+        // monitor-id must be a number, not a "NULL-MONITOR-ID" sentinel string (helper decodes Int).
+        assertTrue((json[0]["monitor-id"] as? Int) != nil)
+
+        let allWindows = json
+            .flatMap { ($0["workspaces"] as! [[String: Any]]) }
+            .flatMap { ($0["windows"] as! [[String: Any]]) }
+        let win = allWindows.first { ($0["window-id"] as? Int) == 5 }!
+        assertEquals(win["window-x"] as? Int, 100)      // cached layout rect, not the AX rect (1)
+        assertEquals(win["window-width"] as? Int, 300)
+        assertEquals(Set(win.keys), Set(ListTreeCommand.windowVars.map { $0.rawValue }))
+    }
 }
