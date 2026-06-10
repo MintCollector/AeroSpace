@@ -269,6 +269,10 @@ enum Ax {
     //    key: kAXMainWindowAttribute,
     //    getter: tryGetWindow
     //)
+    static let documentAttr = ReadableAttrImpl<String>(
+        key: kAXDocumentAttribute,
+        getter: { $0 as? String },
+    )
     static let closeButtonAttr = ReadableAttrImpl<any AxUiElementMock>(
         key: kAXCloseButtonAttribute,
         getter: castToAxUiElementMock,

@@ -16,6 +16,7 @@ import Foundation
         _ = await reloadConfig_nonCancellable()
 
         checkAccessibilityPermissions()
+        requestScreenRecordingPermissionNonFatal() // for CGWindowList titles (list-tree); non-fatal
         startUnixSocketServer()
         GlobalObserver.initObserver()
         Workspace.garbageCollectUnusedWorkspaces() // init workspaces

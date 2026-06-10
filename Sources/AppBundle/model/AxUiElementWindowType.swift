@@ -55,6 +55,10 @@ extension AxUiElementMock {
             return get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true &&
                 get(Ax.closeButtonAttr)?.get(Ax.enabledAttr) == true
         }
+        // Document windows without a fullscreen button (e.g. Photoshop) are real windows
+        if get(Ax.documentAttr) != nil {
+            return false
+        }
         // Heuristic: float windows without fullscreen button (such windows are not designed to be big)
         // - IntelliJ various dialogs (Rebase..., Edit commit message, Settings, Project structure)
         // - Finder copy file dialog
@@ -122,6 +126,10 @@ extension AxUiElementMock {
         lazy var fullscreenButton = get(Ax.fullscreenButtonAttr)
 
         if id == .xcode && get(Ax.identifierAttr) == "open_quickly" {
+            return false
+        }
+
+        if id == .cmux && get(Ax.identifierAttr)?.hasPrefix("cmux.main.") != true {
             return false
         }
 
