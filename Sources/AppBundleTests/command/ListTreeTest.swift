@@ -35,11 +35,16 @@ final class ListTreeTest: XCTestCase {
         let result = try await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
 
-        let json = try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as! [[String: Any]]
+        // Root is now an object: { "focused-window-id": Int?, "monitors": [...] }.
+        let root = try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as! [String: Any]
+        let monitors = root["monitors"] as! [[String: Any]]
+        // focused-window-id key is always present (Int when something is focused, else NSNull/null).
+        assertTrue(root["focused-window-id"] != nil)
+        assertTrue(root["focused-window-id"] is Int || root["focused-window-id"] is NSNull)
         // monitor-id must be a number, not a "NULL-MONITOR-ID" sentinel string (helper decodes Int).
-        assertTrue((json[0]["monitor-id"] as? Int) != nil)
+        assertTrue((monitors[0]["monitor-id"] as? Int) != nil)
 
-        let allWindows = json
+        let allWindows = monitors
             .flatMap { ($0["workspaces"] as! [[String: Any]]) }
             .flatMap { ($0["windows"] as! [[String: Any]]) }
         let win = allWindows.first { ($0["window-id"] as? Int) == 5 }!

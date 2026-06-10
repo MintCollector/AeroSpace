@@ -26,6 +26,7 @@ import Foundation
         }
 
         checkAccessibilityPermissions()
+        requestScreenRecordingPermissionNonFatal() // for CGWindowList titles (list-tree); non-fatal
         startUnixSocketServer()
         GlobalObserver.initObserver()
         Workspace.garbageCollectUnusedWorkspaces() // init workspaces
