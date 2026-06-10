@@ -6,11 +6,15 @@ Swift codebase. MintCollector/AeroSpace is a fork of nikitabobko/AeroSpace.
 
 ```bash
 make check          # swift build --arch arm64
-make build-release  # Xcode release build
-make deploy-quick   # kill, rm -rf app bundle, copy to /Applications, restart
+make build-release  # Xcode release build → .release/
+make deploy         # build-release, then install: kill, rm -rf bundle, copy to /Applications, restart
+make install        # install the existing .release/ build WITHOUT rebuilding (copy + restart only)
 ```
 
-Must `rm -rf /Applications/AeroSpace.app` before copy (codesign caching). `deploy-quick` handles this.
+`make deploy` is the one to use after code changes — it rebuilds first. `make install` only copies
+the pre-built `.release/`, so it ships stale code unless you ran `build-release` yourself first.
+
+Must `rm -rf /Applications/AeroSpace.app` before copy (codesign caching). `install` (and thus `deploy`) handles this.
 
 ## Help text
 

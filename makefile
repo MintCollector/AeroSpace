@@ -1,4 +1,4 @@
-.PHONY: build build-release deploy deploy-quick install test swift-test format lint check clean
+.PHONY: build build-release deploy install test swift-test format lint check clean
 
 build:
 	swift build --arch arm64
@@ -12,8 +12,6 @@ build-release:
 	cp -r .build/arm64-apple-macosx/release/aerospace .release
 
 deploy: build-release install
-
-deploy-quick: install
 
 install:
 	osascript -e 'tell application "AeroSpace" to quit' 2>/dev/null || true
