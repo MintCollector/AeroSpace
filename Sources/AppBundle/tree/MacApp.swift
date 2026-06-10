@@ -86,6 +86,10 @@ final class MacApp: AbstractApp {
             let thread = Thread {
                 $axTaskLocalAppThreadToken.withValue(AxAppThreadToken(pid: pid, idForDebug: nsApp.idForDebug)) {
                     let axApp = AXUIElementCreateApplication(nsApp.processIdentifier)
+                    // Bound every AX message to this app at 1s. The read path no longer uses AX
+                    // (list-tree reads CGWindowList), but mutations (setAxFrame etc.) still do —
+                    // a hung app then fails fast (~1s) instead of blocking the thread ~6s.
+                    AXUIElementSetMessagingTimeout(axApp, 1.0)
                     let handlers: HandlerToNotifKeyMapping = unsafe [
                         (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
                     ]
