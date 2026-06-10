@@ -17,6 +17,10 @@ enum AxUiElementWindowType: String {
 
 // Covered by tests in ./axDumps in the repo root
 extension AxUiElementMock {
+    private func isEmacsFloatingChildFrame(_ id: KnownBundleId?) -> Bool {
+        id == .emacs && get(Ax.subroleAttr) == kAXFloatingWindowSubrole
+    }
+
     // 'isDialogHeuristic' function name is referenced in the guide
     func isDialogHeuristic(
         _ id: KnownBundleId?,
@@ -30,6 +34,12 @@ extension AxUiElementMock {
 
         if id == .iphonesimulator {
             return true
+        }
+
+        // Emacs child frames (posframe, lsp-ui-doc, etc.) are regular windows from AX
+        // perspective, but they are transient UI surfaces that should stay unmanaged.
+        if isEmacsFloatingChildFrame(id) {
+            return false
         }
 
         // Don't tile:
@@ -106,7 +116,7 @@ extension AxUiElementMock {
     ) -> Bool {
         if windowLevel != .normalWindow &&
             // Slowly roll out windowLevel for applications for which we have the appropriate dumps
-            (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2)
+            (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2 || id == .outlook)
         {
             return false
         }
@@ -116,6 +126,10 @@ extension AxUiElementMock {
         // https://github.com/nikitabobko/AeroSpace/issues/103
         // https://github.com/ghostty-org/ghostty/discussions/3512
         if id == .ghostty && get(Ax.identifierAttr) == "com.mitchellh.ghostty.quickTerminal" {
+            return false
+        }
+
+        if isEmacsFloatingChildFrame(id) {
             return false
         }
 

@@ -26,6 +26,30 @@ final class MacApp: AbstractApp {
     //      and make deinitialization automatic in deinit
     @MainActor static var allAppsMap: [pid_t: MacApp] = [:]
     @MainActor private static var wipPids: [pid_t: AwaitableOneTimeBroadcastLatch] = [:]
+    @MainActor static var failedRegistrationRetryAfter: [pid_t: Date] = [:]
+    static let failedRegistrationRetryDelay: TimeInterval = 5
+
+    /// Decides whether a failed-registration retry for `pid` should be throttled (skipped).
+    /// If a throttle deadline is set and still in the future, returns `true` (skip).
+    /// If the deadline has passed, it is cleared and `false` is returned (proceed).
+    /// `now` is injectable to keep this pure and testable.
+    @MainActor static func shouldThrottleFailedRegistration(_ pid: pid_t, now: Date = Date()) -> Bool {
+        if let retryAfter = failedRegistrationRetryAfter[pid] {
+            if retryAfter > now { return true }
+            failedRegistrationRetryAfter[pid] = nil
+        }
+        return false
+    }
+
+    /// Records a failed registration for `pid`, throttling retries until `now + failedRegistrationRetryDelay`.
+    @MainActor static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) {
+        failedRegistrationRetryAfter[pid] = now.addingTimeInterval(failedRegistrationRetryDelay)
+    }
+
+    /// Clears any throttle state for `pid` (called on successful registration and on destroy).
+    @MainActor static func clearFailedRegistration(_ pid: pid_t) {
+        failedRegistrationRetryAfter[pid] = nil
+    }
 
     private init(_ nsApp: NSRunningApplication, _ axApp: AXUIElement, _ axSubscriptions: [AxSubscription], _ thread: Thread) {
         self.nsApp = nsApp
@@ -50,6 +74,7 @@ final class MacApp: AbstractApp {
 
         while true {
             if let existing = allAppsMap[pid] { return existing }
+            if shouldThrottleFailedRegistration(pid) { return nil }
             try checkCancellation()
             if let wip = wipPids[pid] {
                 try await wip.await()
@@ -69,7 +94,12 @@ final class MacApp: AbstractApp {
                     let isGood = !subscriptions.isEmpty
                     let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
                     Task { @MainActor in
-                        allAppsMap[pid] = app
+                        if let app {
+                            allAppsMap[pid] = app
+                            clearFailedRegistration(pid)
+                        } else {
+                            recordFailedRegistration(pid)
+                        }
                         await wip.signalToAll()
                         wipPids[pid] = nil
                     }
@@ -89,6 +119,7 @@ final class MacApp: AbstractApp {
         _ = withWindowAsync(windowId) { [windows] window, job in
             guard let closeButton = window.get(Ax.closeButtonAttr) else { return }
             if AXUIElementPerformAction(closeButton.cast, kAXPressAction as CFString) == .success {
+                guard windows.threadGuardedOrNil != nil else { return }
                 windows.threadGuarded.removeValue(forKey: windowId)
             }
         }
@@ -102,8 +133,10 @@ final class MacApp: AbstractApp {
 
     // todo merge together with detectNewWindows
     func getFocusedWindow() async throws -> Window? {
-        let windowId = try await thread?.runInLoop { [nsApp, axApp, windows] job in
-            try axApp.threadGuarded.get(Ax.focusedWindowAttr)
+        let windowId = try await thread?.runInLoop { [nsApp, axApp, windows] (job) -> UInt32? in
+            guard let axApp = axApp.threadGuardedOrNil else { return nil }
+            guard windows.threadGuardedOrNil != nil else { return nil }
+            return try axApp.get(Ax.focusedWindowAttr)
                 .flatMap { try windows.threadGuarded.getOrRegisterAxWindow(windowId: $0.windowId, $0.ax.cast, nsApp, job) }?
                 .windowId
         }
@@ -134,8 +167,20 @@ final class MacApp: AbstractApp {
     func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
+            guard let axApp = axApp.threadGuardedOrNil else { return }
+            try disableAnimations(app: axApp, job) {
                 try setFrame(window, topLeft, size, job)
+            }
+            // Nudge the window size by 1px and back after AXEnhancedUserInterface is
+            // restored.  Some toolkits (e.g. GTK3's Quartz backend) don't redraw after
+            // AX-driven frame changes made while AXEnhancedUserInterface is disabled,
+            // leaving windows visually stale.  A no-op re-set of the same size is
+            // optimized away by macOS, so a real geometry change is needed to trigger
+            // the resize notification that prompts the app to redraw.
+            try job.checkCancellation()
+            if let size {
+                window.set(Ax.sizeAttr, CGSize(width: size.width + 1, height: size.height))
+                window.set(Ax.sizeAttr, size)
             }
         }
     }
@@ -143,15 +188,21 @@ final class MacApp: AbstractApp {
     func setAxFrameBlocking(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) async throws {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         try await withWindow(windowId) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
+            guard let axApp = axApp.threadGuardedOrNil else { return }
+            try disableAnimations(app: axApp, job) {
                 try setFrame(window, topLeft, size, job)
+            }
+            try job.checkCancellation()
+            if let size {
+                window.set(Ax.sizeAttr, CGSize(width: size.width + 1, height: size.height))
+                window.set(Ax.sizeAttr, size)
             }
         }
     }
 
     func getAxWindowsCount() async throws -> Int? {
         try await thread?.runInLoop { [axApp] job in
-            axApp.threadGuarded.get(Ax.windowsAttr)?.count
+            axApp.threadGuardedOrNil?.get(Ax.windowsAttr)?.count
         }
     }
 
@@ -165,13 +216,15 @@ final class MacApp: AbstractApp {
 
     func isWindowHeuristic(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?) async throws -> Bool {
         return try await withWindow(windowId) { [nsApp, axApp, appId] window, job in
-            window.isWindowHeuristic(axApp: axApp.threadGuarded, appId, nsApp.activationPolicy, windowLevel)
+            guard let axApp = axApp.threadGuardedOrNil else { return nil }
+            return window.isWindowHeuristic(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
         } == true
     }
 
     func getAxUiElementWindowType(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?) async throws -> AxUiElementWindowType {
         return try await withWindow(windowId) { [nsApp, axApp, appId] window, job in
-            window.getWindowType(axApp: axApp.threadGuarded, appId, nsApp.activationPolicy, windowLevel)
+            guard let axApp = axApp.threadGuardedOrNil else { return nil }
+            return window.getWindowType(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
         } ?? .window
     }
 
@@ -203,7 +256,8 @@ final class MacApp: AbstractApp {
 
     func dumpAppAxInfo() async throws -> [String: Json] {
         try await thread?.runInLoop { [axApp] job in
-            dumpAxRecursive(axApp.threadGuarded, .app)
+            guard let axApp = axApp.threadGuardedOrNil else { return nil }
+            return dumpAxRecursive(axApp, .app)
         } ?? [:]
     }
 
@@ -273,7 +327,8 @@ final class MacApp: AbstractApp {
         }
         guard let thread else { return [] }
         let (alive, dead) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32]) in
-            var alive: [UInt32: AxWindow] = windows.threadGuarded
+            guard var alive: [UInt32: AxWindow] = windows.threadGuardedOrNil else { return ([], []) }
+            guard let axApp = axApp.threadGuardedOrNil else { return ([], []) }
             var dead = [UInt32: AxWindow]()
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
             // Second and third lines of defence are technically needed only to avoid potential flickering
@@ -284,7 +339,7 @@ final class MacApp: AbstractApp {
                 }
             }
 
-            for (id, window) in axApp.threadGuarded.get(Ax.windowsAttr) ?? [] {
+            for (id, window) in axApp.get(Ax.windowsAttr) ?? [] {
                 try job.checkCancellation()
                 try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
             }
@@ -300,7 +355,10 @@ final class MacApp: AbstractApp {
     }
 
     private func destroy() async {
-        _ = await Task { @MainActor [pid] in _ = MacApp.allAppsMap.removeValue(forKey: pid) }.result
+        _ = await Task { @MainActor [pid] in
+            _ = MacApp.allAppsMap.removeValue(forKey: pid)
+            MacApp.clearFailedRegistration(pid)
+        }.result
         for (_, job) in setFrameJobs {
             job.cancel()
         }
@@ -316,14 +374,14 @@ final class MacApp: AbstractApp {
 
     private func withWindow<T>(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> T?) async throws -> T? {
         try await thread?.runInLoop { [windows] job in
-            guard let window = windows.threadGuarded[windowId] else { return nil }
+            guard let window = windows.threadGuardedOrNil?[windowId] else { return nil }
             return try body(window.ax, job)
         }
     }
 
     private func withWindowAsync(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> ()) -> RunLoopJob {
         thread?.runInLoopAsync { [windows] job in
-            guard let window = windows.threadGuarded[windowId] else { return }
+            guard let window = windows.threadGuardedOrNil?[windowId] else { return }
             try? body(window.ax, job)
         } ?? .cancelled
     }
