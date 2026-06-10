@@ -19,8 +19,14 @@ aerospace list-tree [-h|--help]
 // tag::body[]
 {manpurpose}
 
-Outputs a JSON array of monitors, each containing its workspaces, each containing its windows.
-All workspaces are included, even empty ones.
+Outputs a JSON object `{ "focused-window-id": <number|null>, "monitors": [...] }`. `monitors`
+is an array of monitors, each containing its workspaces, each containing its windows. All
+workspaces are included, even empty ones. `focused-window-id` is the id of the currently focused
+window, or `null` when no window is focused.
+
+Window titles and geometry are read from the WindowServer in a single non-blocking call rather
+than per-window Accessibility queries. Reading window _titles_ this way requires Screen Recording
+permission; without it, titles fall back to Accessibility (geometry never needs the permission).
 
 -h, --help:: Print help
 

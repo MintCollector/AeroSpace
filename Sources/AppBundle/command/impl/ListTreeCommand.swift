@@ -34,6 +34,11 @@ struct ListTreeCommand: Command {
             return .success(dict)
         }
 
+        // One WindowServer read for the whole tree: title + bounds for every window, joined by id
+        // in the snapshot-fed resolver below. Replaces the per-window AX title/rect calls that
+        // stalled the serialized MainActor.
+        let snap = readCgWindowSnapshot()
+
         var monitorNodes: [JsonTreeNode] = []
         for monitor in sortedMonitors {
             let monitorPoint = monitor.rect.topLeftCorner
@@ -44,7 +49,7 @@ struct ListTreeCommand: Command {
                 // Preserve allLeafWindowsRecursive order — the helper derives window-tree-index from it.
                 var windowNodes: [JsonTreeNode] = []
                 for window in workspace.allLeafWindowsRecursive where window.isBound {
-                    let resolved = try await WindowWithPrefetchedTitle.resolveWindow(window, needsTitle: true, needsRect: true)
+                    let resolved = try await WindowWithPrefetchedTitle.resolveWindow(window, fromSnapshot: snap)
                     switch fields(.window(resolved), Self.windowVars) {
                         case .success(let f): windowNodes.append(JsonTreeNode(fields: f, childrenKey: nil, children: nil))
                         case .failure(let e): return .fail(io.err(e))
@@ -62,10 +67,25 @@ struct ListTreeCommand: Command {
             }
         }
 
-        guard let json = JSONEncoder.aeroSpaceDefault.encodeToString(monitorNodes) else {
+        let root = JsonTreeRoot(focusedWindowId: focus.windowOrNil?.windowId, monitors: monitorNodes)
+        guard let json = JSONEncoder.aeroSpaceDefault.encodeToString(root) else {
             return .fail(io.err("Failed to encode tree to JSON"))
         }
         return .succ(io.out(json))
+    }
+}
+
+/// Root of `list-tree`: the focused window's id (null when nothing is focused) plus the monitor
+/// array. aero-helper reads `focused-window-id` here instead of a separate `list-windows --focused`
+/// query, so the hot poll is a single request.
+private struct JsonTreeRoot: Encodable {
+    let focusedWindowId: UInt32?
+    let monitors: [JsonTreeNode]
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: DynKey.self)
+        try c.encode(focusedWindowId.map { Int64($0) }, forKey: DynKey("focused-window-id"))
+        try c.encode(monitors, forKey: DynKey("monitors"))
     }
 }
 
