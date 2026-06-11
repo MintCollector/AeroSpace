@@ -47,6 +47,34 @@ final class MacAppTest: XCTestCase {
         XCTAssertFalse(MacApp.shouldThrottleFailedRegistration(pid, now: now))
     }
 
+    func testRepeatedFailuresBackOffExponentiallyUpToCap() {
+        let now = Date()
+        let base = MacApp.failedRegistrationRetryDelay
+        // 1st failure -> base delay.
+        MacApp.recordFailedRegistration(pid, now: now)
+        XCTAssertTrue(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(base - 0.001)))
+        XCTAssertFalse(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(base + 0.001)))
+        // 2nd failure -> 2x base (count retained across the expiry above).
+        MacApp.recordFailedRegistration(pid, now: now)
+        XCTAssertTrue(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(base * 2 - 0.001)))
+        XCTAssertFalse(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(base * 2 + 0.001)))
+        // Many failures -> capped at the max delay, never beyond.
+        for _ in 0 ..< 20 { MacApp.recordFailedRegistration(pid, now: now) }
+        let cap = MacApp.failedRegistrationMaxRetryDelay
+        XCTAssertTrue(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(cap - 0.001)))
+        XCTAssertFalse(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(cap + 0.001)))
+    }
+
+    func testClearResetsBackoffToBase() {
+        let now = Date()
+        let base = MacApp.failedRegistrationRetryDelay
+        for _ in 0 ..< 5 { MacApp.recordFailedRegistration(pid, now: now) }
+        // Clearing (success/destroy) resets the failure count, so the next failure is back to base.
+        MacApp.clearFailedRegistration(pid)
+        MacApp.recordFailedRegistration(pid, now: now)
+        XCTAssertFalse(MacApp.shouldThrottleFailedRegistration(pid, now: now.addingTimeInterval(base + 0.001)))
+    }
+
     func testClearFailedRegistrationResetsThrottle() {
         let now = Date()
         MacApp.recordFailedRegistration(pid, now: now)

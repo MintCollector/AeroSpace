@@ -35,9 +35,12 @@ final class MacWindow: Window {
 
     @MainActor
     @discardableResult
-    static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
+    static func getOrRegister(windowId: UInt32, macApp: MacApp, nativeTabGroups: [NativeTabWindowGroup]? = nil) async throws -> MacWindow {
         if let existing = allWindowsMap[windowId] { return existing }
-        if let group = try await macApp.nativeTabGroup(containing: windowId),
+        // Reuse the groups already computed during refresh when the caller passes them — an in-memory
+        // lookup, no AX. Only fall back to a fresh AX query (a full-app traversal per new window) on
+        // paths that have no precomputed groups, e.g. getFocusedWindow.
+        if let group = try await containingNativeTabGroup(windowId: windowId, macApp: macApp, precomputed: nativeTabGroups),
            group.memberWindowIds.contains(where: { allWindowsMap[$0] != nil })
         {
             try await reconcileNativeTabGroup(group, macApp: macApp)
@@ -65,6 +68,18 @@ final class MacWindow: Window {
             try await tryOnWindowDetected(window)
         }
         return window
+    }
+
+    @MainActor
+    private static func containingNativeTabGroup(
+        windowId: UInt32,
+        macApp: MacApp,
+        precomputed: [NativeTabWindowGroup]?,
+    ) async throws -> NativeTabWindowGroup? {
+        if let precomputed {
+            return precomputed.first { $0.memberWindowIds.contains(windowId) }
+        }
+        return try await macApp.nativeTabGroup(containing: windowId)
     }
 
     // Drop an inactive native-tab sibling from the tree. Unlike garbageCollect, this is NOT a real

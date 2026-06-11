@@ -27,11 +27,20 @@ final class MacApp: AbstractApp {
     @MainActor static var allAppsMap: [pid_t: MacApp] = [:]
     @MainActor private static var wipPids: [pid_t: AwaitableOneTimeBroadcastLatch] = [:]
     @MainActor static var failedRegistrationRetryAfter: [pid_t: Date] = [:]
-    static let failedRegistrationRetryDelay: TimeInterval = 5
+    @MainActor private static var failedRegistrationFailures: [pid_t: Int] = [:]
+    // Exponential backoff for failed AX registrations. The FIRST retry is fast: a just-launched app
+    // whose AX API isn't subscribable for the first few ms must still get tiled promptly — a flat
+    // multi-second delay made every new app appear to "hang" before tiling. Repeated failures (a
+    // genuinely unsubscribable app) back off, doubling up to the cap, so we never retry in a tight
+    // CPU-spiking loop — the property #2085 originally protected.
+    static let failedRegistrationRetryDelay: TimeInterval = 0.1 // base / first-failure delay
+    static let failedRegistrationMaxRetryDelay: TimeInterval = 5
 
     /// Decides whether a failed-registration retry for `pid` should be throttled (skipped).
     /// If a throttle deadline is set and still in the future, returns `true` (skip).
     /// If the deadline has passed, it is cleared and `false` is returned (proceed).
+    /// The failure count is intentionally retained on expiry so a subsequent failure keeps backing
+    /// off; it is reset only on success/destroy via `clearFailedRegistration`.
     /// `now` is injectable to keep this pure and testable.
     @MainActor static func shouldThrottleFailedRegistration(_ pid: pid_t, now: Date = Date()) -> Bool {
         if let retryAfter = failedRegistrationRetryAfter[pid] {
@@ -41,14 +50,19 @@ final class MacApp: AbstractApp {
         return false
     }
 
-    /// Records a failed registration for `pid`, throttling retries until `now + failedRegistrationRetryDelay`.
+    /// Records a failed registration for `pid`, throttling retries with exponential backoff:
+    /// `base * 2^priorFailures`, capped at `failedRegistrationMaxRetryDelay`.
     @MainActor static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) {
-        failedRegistrationRetryAfter[pid] = now.addingTimeInterval(failedRegistrationRetryDelay)
+        let priorFailures = failedRegistrationFailures[pid] ?? 0
+        let delay = min(failedRegistrationMaxRetryDelay, failedRegistrationRetryDelay * pow(2, Double(priorFailures)))
+        failedRegistrationFailures[pid] = priorFailures + 1
+        failedRegistrationRetryAfter[pid] = now.addingTimeInterval(delay)
     }
 
     /// Clears any throttle state for `pid` (called on successful registration and on destroy).
     @MainActor static func clearFailedRegistration(_ pid: pid_t) {
         failedRegistrationRetryAfter[pid] = nil
+        failedRegistrationFailures[pid] = nil
     }
 
     private init(_ nsApp: NSRunningApplication, _ axApp: AXUIElement, _ axSubscriptions: [AxSubscription], _ thread: Thread) {
