@@ -2,7 +2,9 @@ import AppKit
 import Common
 
 open class Window: TreeNode, Hashable {
-    let windowId: UInt32
+    // var (not let) so native-tab reconciliation can re-point a surviving window to the
+    // active tab's window id when macOS reassigns it. See MacWindow.adoptNativeTabWindowId.
+    var windowId: UInt32
     let app: any AbstractApp
     var lastFloatingSize: CGSize?
     var isAwaitingOnWindowDetected: Bool = false

@@ -15,10 +15,34 @@ final class MacWindow: Window {
     @MainActor static var allWindowsMap: [UInt32: MacWindow] = [:]
     @MainActor static var allWindows: [MacWindow] { Array(allWindowsMap.values) }
 
+    // A macOS native-tab group (e.g. Finder/Safari "Merge All Windows") exposes N window ids but
+    // only the active tab is a real frame. Collapse the group onto a single surviving MacWindow and
+    // discard the inactive tab siblings so the tree tiles the group as one window. Ported from
+    // seatedro/i4 (Add native tab support), minus its immutable-tree TreeStore sync (we have none).
+    @MainActor
+    static func reconcileNativeTabGroup(_ group: NativeTabWindowGroup, macApp: MacApp) async throws {
+        let managedMembers = group.memberWindowIds.compactMap { allWindowsMap[$0] }
+        guard let survivor = allWindowsMap[group.activeWindowId] ?? managedMembers.first else { return }
+
+        for window in managedMembers where window !== survivor {
+            window.discardNativeTabSidecar()
+        }
+
+        if survivor.windowId != group.activeWindowId {
+            try await survivor.adoptNativeTabWindowId(group.activeWindowId, macApp: macApp)
+        }
+    }
+
     @MainActor
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
         if let existing = allWindowsMap[windowId] { return existing }
+        if let group = try await macApp.nativeTabGroup(containing: windowId),
+           group.memberWindowIds.contains(where: { allWindowsMap[$0] != nil })
+        {
+            try await reconcileNativeTabGroup(group, macApp: macApp)
+            if let existing = allWindowsMap[group.activeWindowId] { return existing }
+        }
         let rect = try await macApp.getAxRect(windowId)
         let data = try await unbindAndGetBindingDataForNewWindow(
             windowId,
@@ -41,6 +65,33 @@ final class MacWindow: Window {
             try await tryOnWindowDetected(window)
         }
         return window
+    }
+
+    // Drop an inactive native-tab sibling from the tree. Unlike garbageCollect, this is NOT a real
+    // window close — the underlying window still exists, merged into the active tab — so it must not
+    // populate the closed-windows cache or emit a windowDestroyed event.
+    @MainActor
+    func discardNativeTabSidecar() {
+        guard MacWindow.allWindowsMap.removeValue(forKey: windowId) != nil else { return }
+        if parent != nil {
+            _ = unbindFromParent()
+        }
+    }
+
+    // Re-point a surviving MacWindow at the active tab's window id (macOS may report a different id
+    // for the active tab than the one we originally registered the group under).
+    @MainActor
+    private func adoptNativeTabWindowId(_ newWindowId: UInt32, macApp: MacApp) async throws {
+        check(self.macApp === macApp)
+        let oldWindowId = windowId
+        MacWindow.allWindowsMap.removeValue(forKey: oldWindowId)
+        macApp.nativeTabWindowIdChanged(from: oldWindowId, to: newWindowId)
+        windowId = newWindowId
+        MacWindow.allWindowsMap[newWindowId] = self
+        if let rect = try await macApp.getAxRect(newWindowId) {
+            lastFloatingSize = rect.size
+        }
+        try await debugWindowsIfRecording(self)
     }
 
     // var description: String {
