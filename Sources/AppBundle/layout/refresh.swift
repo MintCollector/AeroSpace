@@ -212,6 +212,14 @@ private func layoutWorkspaces() async throws {
         let workspace = monitor.activeWorkspace
         workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
         try await workspace.layoutWorkspace()
+        // On workspace switch, raise floating windows above the tiled windows so they're visible on
+        // arrival. Sorted ascending by lastFocusedAt so the most-recently-used float ends up topmost.
+        // The focused window is raised on top of these afterwards by the caller (syncFocusToMacOs).
+        if workspacesNeedingFloatingRaise.remove(workspace.name) != nil {
+            for window in workspace.floatingWindows.sorted(by: { $0.lastFocusedAt < $1.lastFocusedAt }) {
+                window.nativeRaise()
+            }
+        }
     }
     // unhide sticky windows from non-visible workspaces
     for workspace in Workspace.all where !workspace.isVisible {

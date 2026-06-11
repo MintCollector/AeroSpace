@@ -182,6 +182,14 @@ final class MacApp: AbstractApp {
         }
     }
 
+    /// Raise the window to the top of this app's z-order without activating the app (unlike nativeFocus).
+    @MainActor func nativeRaise(_ windowId: UInt32) {
+        if serverArgs.isReadOnly { return }
+        _ = withWindowAsync(windowId) { window, job in
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        }
+    }
+
     func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in

@@ -41,6 +41,8 @@ open class Window: TreeNode, Hashable {
     var isMacosMinimized: Bool { get async throws { false } } // todo replace with enum MacOsWindowNativeState { normal, fullscreen, invisible }
     var isHiddenInCorner: Bool { die("Not implemented") }
     @MainActor func nativeFocus() { die("Not implemented") }
+    /// Raise the window to the top of its app's z-order without activating the app or changing focus.
+    @MainActor func nativeRaise() {} // best-effort, no-op for non-mac windows
     func getAxRect() async throws -> Rect? { die("Not implemented") }
     func getCenter() async throws -> CGPoint? { try await getAxRect()?.center }
 

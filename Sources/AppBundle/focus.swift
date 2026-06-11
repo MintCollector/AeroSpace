@@ -191,7 +191,13 @@ extension Workspace {
     }
 }
 
+// Workspaces that just became focused and whose floating windows should be raised to the top on the
+// next layout pass, so they're visible on arrival instead of buried behind tiled windows.
+// Consumed (one-shot per switch) by layoutWorkspaces().
+@MainActor var workspacesNeedingFloatingRaise: Set<String> = []
+
 @MainActor private func onWorkspaceChanged(_ oldWorkspace: String, _ newWorkspace: String) {
+    workspacesNeedingFloatingRaise.insert(newWorkspace)
     broadcastEvent(.workspaceChanged(
         workspace: newWorkspace,
         prevWorkspace: oldWorkspace,

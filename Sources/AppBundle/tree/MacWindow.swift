@@ -194,6 +194,10 @@ final class MacWindow: Window {
         macApp.nativeFocus(windowId)
     }
 
+    @MainActor override func nativeRaise() {
+        macApp.nativeRaise(windowId)
+    }
+
     override func closeAxWindow() {
         // Don't eagerly GC — the close may be intercepted (e.g., "save changes?" dialog).
         // The refresh cycle handles GC once the window is confirmed dead via
