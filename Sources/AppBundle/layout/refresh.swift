@@ -149,10 +149,16 @@ private func refresh() async throws {
             }
         }
     }
-    for (app, result) in mapping {
-        for windowId in result.aliveWindowIds {
-            try await MacWindow.getOrRegister(windowId: windowId, macApp: app, nativeTabGroups: result.nativeTabGroups)
-        }
+    // Register windows in spatial (left→right, top→bottom) order so the fallback placement path
+    // (windows with no closed-windows-cache record) lands deterministically instead of in Swift
+    // dictionary key order. The cache-restore path overrides this when it has a record. The sort is
+    // global across all apps because a workspace's windows interleave by screen position, not by app.
+    let cgSnapshot = readCgWindowSnapshot()
+    let toRegister = mapping.flatMap { app, result in
+        result.aliveWindowIds.map { (app: app, windowId: $0, groups: result.nativeTabGroups) }
+    }
+    for entry in sortedForRegistration(toRegister, rectOf: { cgSnapshot[$0.windowId]?.rect }) {
+        try await MacWindow.getOrRegister(windowId: entry.windowId, macApp: entry.app, nativeTabGroups: entry.groups)
     }
 
     // Garbage collect workspaces after apps, because workspaces contain apps.
