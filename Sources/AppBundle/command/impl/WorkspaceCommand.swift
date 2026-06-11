@@ -9,6 +9,13 @@ struct WorkspaceCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode { // todo refactor
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
         let focusedWs = target.workspace
+
+        // Dissolve any active view-toggles before switching workspaces.
+        // (skip if this IS a view-toggle command — it manages its own state)
+        if !args.viewToggle {
+            dissolveViewToggles(workspace: focusedWs)
+        }
+
         let workspaceName: String
         switch args.target.val {
             case .relative(let nextPrev):
@@ -23,6 +30,13 @@ struct WorkspaceCommand: Command {
                 workspaceName = workspace.name
             case .direct(let name):
                 workspaceName = name.raw
+                if args.viewToggle {
+                    if focusedWs.name == workspaceName {
+                        return .succ // Noop: can't view-toggle your own workspace
+                    }
+                    performViewToggle(hostWorkspace: focusedWs, donorWorkspaceName: workspaceName)
+                    return .succ
+                }
                 if args.autoBackAndForth && focusedWs.name == workspaceName {
                     return WorkspaceBackAndForthCommand(args: WorkspaceBackAndForthCmdArgs(rawArgs: [])).run(env, io)
                 }

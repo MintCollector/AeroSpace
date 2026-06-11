@@ -6,6 +6,7 @@ struct SummonWorkspaceCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode {
+        dissolveViewToggles(workspace: focus.workspace)
         let workspace = Workspace.get(byName: args.target.val.raw)
         let focusedMonitor = focus.workspace.workspaceMonitor
 
