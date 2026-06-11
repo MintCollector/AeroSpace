@@ -476,6 +476,10 @@ extension [UInt32: AxWindow] {
 
     // Must be called on the app's AX thread — reads AX attributes (title, AXTabGroup) directly.
     fileprivate func nativeTabGroups() -> [NativeTabWindowGroup] {
+        // A native-tab group always spans ≥2 AX windows in one app (macOS exposes each merged tab as
+        // its own window id). A single-window app can't have one, so skip the per-window title/
+        // children/role AX walk entirely — the common case, every refresh.
+        guard values.count >= 2 else { return [] }
         let candidates = values.map {
             NativeTabWindowCandidate(
                 windowId: $0.windowId,

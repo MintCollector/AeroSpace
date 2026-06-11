@@ -22,6 +22,12 @@ final class NativeTabsTest: XCTestCase {
         XCTAssertEqual(groups.singleOrNil()?.inactiveWindowIds, [11])
     }
 
+    // Mirrors the `values.count >= 2` short-circuit in MacApp.nativeTabGroups(): fewer than two
+    // backing windows can never form a group, so skipping the AX walk in that case is behavior-safe.
+    func testNoBackingWindowsYieldsNoGroups() {
+        XCTAssertEqual(resolveNativeTabWindowGroups(from: []), [])
+    }
+
     func testDoesNotCreateGroupWhenOnlyActiveTabWindowIsVisibleToAx() {
         let groups = resolveNativeTabWindowGroups(from: [
             NativeTabWindowCandidate(
