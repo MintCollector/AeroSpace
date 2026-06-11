@@ -35,6 +35,8 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     nonisolated private let nameLogicalSegments: StringLogicalSegments
     /// `assignedMonitorPoint` must be interpreted only when the workspace is invisible
     fileprivate var assignedMonitorPoint: CGPoint? = nil
+    /// Active `workspace --view-toggle` merges hosted by this workspace (ephemeral, in-memory only)
+    var viewToggledStates: [ViewToggleState] = []
 
     @MainActor
     private init(_ name: String) {
@@ -199,4 +201,9 @@ private func isValidAssignment(workspace: Workspace, screen: CGPoint) -> Bool {
         case let forceAssigned? where forceAssigned.rect.topLeftCorner != screen: false
         default: true
     }
+}
+
+struct ViewToggleState {
+    let donorWorkspaceName: String
+    let movedNodes: [(node: TreeNode, originalBinding: BindingData)]
 }
