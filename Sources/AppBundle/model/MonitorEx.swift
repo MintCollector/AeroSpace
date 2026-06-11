@@ -1,11 +1,10 @@
 extension Monitor {
     @MainActor
     func visibleRectPaddedByOuterGaps(forWorkspace workspaceName: String? = nil) -> Rect {
-        let gapsConfig: Gaps
-        if let workspaceName, let wsGaps = config.workspaceGaps[workspaceName] {
-            gapsConfig = wsGaps
+        let gapsConfig: Gaps = if let workspaceName, let wsGaps = config.workspaceGaps[workspaceName] {
+            wsGaps
         } else {
-            gapsConfig = config.gaps
+            config.gaps
         }
         let topLeft = visibleRect.topLeftCorner
         let gaps = ResolvedGaps(gaps: gapsConfig, monitor: self)

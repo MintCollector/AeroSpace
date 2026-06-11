@@ -23,7 +23,8 @@ import Foundation
         // of that app is closed on the current workspace. Don't follow it.
         if let nativeFocusedWs = nativeFocused?.toLiveFocusOrNil()?.workspace,
            nativeFocusedWs != focus.workspace,
-           lastWindowDestroyedDate.distance(to: .now) < 0.5 {
+           lastWindowDestroyedDate.distance(to: .now) < 0.5
+        {
             lastKnownNativeFocusedWindowId = nativeFocused?.windowId
             nativeFocused?.macAppUnsafe.lastNativeFocusedWindowId = nativeFocused?.windowId
             return

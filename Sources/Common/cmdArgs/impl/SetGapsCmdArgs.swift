@@ -7,9 +7,9 @@ public struct SetGapsCmdArgs: CmdArgs {
         help: set_gaps_help_generated,
         flags: [
             "--workspace": workspaceSubArgParser(),
-            "--outer-left-right": singleValueSubArgParser(\.outerLeftRight, "<size>", { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") }),
-            "--outer-top-bottom": singleValueSubArgParser(\.outerTopBottom, "<size>", { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") }),
-            "--inner": singleValueSubArgParser(\.inner, "<size>", { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") }),
+            "--outer-left-right": singleValueSubArgParser(\.outerLeftRight, "<size>") { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") },
+            "--outer-top-bottom": singleValueSubArgParser(\.outerTopBottom, "<size>") { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") },
+            "--inner": singleValueSubArgParser(\.inner, "<size>") { UInt($0).map { .success($0) } ?? .failure("Not a valid unsigned integer") },
             "--stdin": trueBoolFlag(\.useStdin),
         ],
         posArgs: [],

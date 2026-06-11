@@ -1,8 +1,8 @@
 import AppKit
 import Common
 
-private extension FrameValue {
-    func resolve(current: CGFloat) -> Int {
+extension FrameValue {
+    fileprivate func resolve(current: CGFloat) -> Int {
         switch self {
             case .set(let v): v
             case .add(let v): Int(current) + v
