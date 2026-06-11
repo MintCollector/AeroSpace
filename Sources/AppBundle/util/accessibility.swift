@@ -226,6 +226,33 @@ enum Ax {
         key: kAXFocusedAttribute,
         getter: { $0 as? Bool },
     )
+    static let valueBoolAttr = ReadableAttrImpl<Bool>(
+        key: kAXValueAttribute,
+        getter: {
+            if let value = $0 as? Bool {
+                return value
+            }
+            if let value = $0 as? NSNumber {
+                return value.boolValue
+            }
+            if let value = $0 as? Int64 {
+                return value != 0
+            }
+            return nil
+        },
+    )
+    static let childrenAttr = ReadableAttrImpl<[any AxUiElementMock]>(
+        key: kAXChildrenAttribute,
+        getter: {
+            if let values = $0 as? [AnyObject] {
+                return values.map { castToAxUiElementMock($0) }
+            }
+            if let values = $0 as? NSArray {
+                return values.map { castToAxUiElementMock($0 as AnyObject) }
+            }
+            return nil
+        },
+    )
     static let isMainAttr = WritableAttrImpl<Bool>(
         key: kAXMainAttribute,
         getter: { $0 as? Bool },
@@ -300,6 +327,9 @@ enum Ax {
 let kAXAeroSynthetic = "Aero.synthetic"
 
 private func castToAxUiElementMock(_ a: AnyObject) -> AxUiElementMock {
+    if let ax = a as? AxUiElementMock {
+        return ax
+    }
     if isUnitTest {
         if let str = a as? String, let commaIndex = str.firstIndex(of: ",") {
             let windowId = UInt32.init(String(str.prefix(upTo: commaIndex)).removePrefix("AXUIElement(AxWindowId="))

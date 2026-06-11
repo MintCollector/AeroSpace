@@ -179,6 +179,13 @@ final class MacApp: AbstractApp {
         }
     }
 
+    func nativeTabGroup(containing windowId: UInt32) async throws -> NativeTabWindowGroup? {
+        try await thread?.runInLoop { [windows] job in
+            try job.checkCancellation()
+            return windows.threadGuardedOrNil?.nativeTabGroups().first { $0.memberWindowIds.contains(windowId) }
+        }
+    }
+
     func getAxRectForTermination(_ windowId: UInt32) -> Rect? {
         let future = CompletableFuture<Rect?>()
         let job = withWindowAsync(windowId, .nonCancellable) { window, job in
@@ -222,9 +229,20 @@ final class MacApp: AbstractApp {
         }
     }
 
+    // Cancel any pending setFrame jobs keyed on either id when a native-tab survivor adopts a new
+    // window id, so a stale job can't fire against the wrong window. See adoptNativeTabWindowId.
+    func nativeTabWindowIdChanged(from oldWindowId: UInt32, to newWindowId: UInt32) {
+        setFrameJobs.removeValue(forKey: oldWindowId)?.cancel()
+        setFrameJobs.removeValue(forKey: newWindowId)?.cancel()
+    }
+
     func dumpWindowAxInfo(windowId: UInt32, _ cm: CancellationMode) async throws -> [String: Json] {
         try await withWindow(windowId, cm) { window, job in
-            dumpAxRecursive(window, .window)
+            var result = dumpAxRecursive(window, .window)
+            if let nativeTabs = window.nativeTabGroupInfo() {
+                result["Aero.NativeTabs"] = nativeTabs.debugJson
+            }
+            return result
         } ?? [:]
     }
 
@@ -333,6 +351,12 @@ final class MacApp: AbstractApp {
             let inactiveNativeTabWindowIds = nativeTabGroups.flatMap(\.inactiveWindowIds).toSet()
             let activeWindowIds = alive.keys.filter { !inactiveNativeTabWindowIds.contains($0) }
 
+            // Collapse native-tab groups: only the active tab participates in layout; inactive tab
+            // siblings are excluded from the alive set (they're the same on-screen frame).
+            let nativeTabGroups = alive.nativeTabGroups()
+            let inactiveNativeTabWindowIds = nativeTabGroups.flatMap(\.inactiveWindowIds).toSet()
+            let activeWindowIds = alive.keys.filter { !inactiveNativeTabWindowIds.contains($0) }
+
             windows.threadGuarded = alive
             return (activeWindowIds, Array(dead.keys), nativeTabGroups)
         }
@@ -424,6 +448,22 @@ extension [UInt32: AxWindow] {
         } else {
             return nil
         }
+    }
+
+    // Must be called on the app's AX thread — reads AX attributes (title, AXTabGroup) directly.
+    fileprivate func nativeTabGroups() -> [NativeTabWindowGroup] {
+        // A native-tab group always spans ≥2 AX windows in one app (macOS exposes each merged tab as
+        // its own window id). A single-window app can't have one, so skip the per-window title/
+        // children/role AX walk entirely — the common case, every refresh.
+        guard values.count >= 2 else { return [] }
+        let candidates = values.map {
+            NativeTabWindowCandidate(
+                windowId: $0.windowId,
+                title: $0.ax.get(Ax.titleAttr) ?? "",
+                tabGroup: $0.ax.nativeTabGroupInfo(),
+            )
+        }
+        return resolveNativeTabWindowGroups(from: candidates)
     }
 }
 

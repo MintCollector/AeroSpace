@@ -141,6 +141,7 @@ private func refresh() async throws {
 
     for window in MacWindow.allWindows {
         if !aliveWindowIds.contains(window.windowId) {
+            // An inactive native-tab sibling isn't a real close — discard it without caching/events.
             if inactiveNativeTabWindowIds.contains(window.windowId) {
                 window.discardNativeTabSidecar()
             } else {
