@@ -96,7 +96,7 @@ extension Window {
     @MainActor func toLiveFocusOrNil() -> LiveFocus? { visualWorkspace.map { LiveFocus(windowOrNil: self, workspace: $0) } }
 }
 extension Workspace {
-    @MainActor func focusWorkspace() -> Bool { setFocus(to: toLiveFocus()) }
+    @MainActor func focusWorkspace() -> Bool { setFocus(to: toLiveFocusOnArrival()) }
 
     func toLiveFocus() -> LiveFocus {
         // todo unfortunately mostRecentWindowRecursive may recursively reach empty rootTilingContainer
@@ -106,6 +106,20 @@ extension Workspace {
         } else {
             LiveFocus(windowOrNil: nil, workspace: self) // emptyWorkspace
         }
+    }
+
+    // When arriving at a workspace (switch / summon / focus), prefer the most-recently-focused
+    // floating window if any exist. Floating windows can't be kept above the focused window across
+    // apps via the AX API — app activation always wins — so the only way to guarantee they're
+    // visible on arrival (rather than buried behind the focused tiled window) is to focus one.
+    // Composes with the floating-raise pass in layoutWorkspaces(): that lifts every float above the
+    // tiles, and focusing the MRU float then puts it on top. Falls back to normal MRU focus when
+    // there are no floating windows.
+    @MainActor func toLiveFocusOnArrival() -> LiveFocus {
+        if let float = floatingWindows.max(by: { $0.lastFocusedAt < $1.lastFocusedAt }) {
+            return LiveFocus(windowOrNil: float, workspace: self)
+        }
+        return toLiveFocus()
     }
 }
 
