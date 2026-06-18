@@ -139,6 +139,10 @@ extension AxUiElementMock {
             return false
         }
 
+        if id == .cmux && get(Ax.identifierAttr)?.hasPrefix("cmux.main.") != true {
+            return false
+        }
+
         if id == .iterm2 && fullscreenButton == nil {
             return false
         }

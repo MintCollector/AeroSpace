@@ -468,6 +468,7 @@ private final class AxWindow {
 extension [UInt32: AxWindow] {
     @discardableResult
     fileprivate mutating func getOrRegisterAxWindow(windowId id: UInt32, _ axWindow: AXUIElement, _ nsApp: NSRunningApplication, _ job: RunLoopJob) throws -> AxWindow? {
+        if id == 0 { return nil }
         if let existing = self[id] { return existing }
         // Delay new window detection if mouse is down
         // It helps with apps that allow dragging their tabs out to create new windows
