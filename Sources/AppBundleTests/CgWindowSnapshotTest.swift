@@ -34,4 +34,21 @@ final class CgWindowSnapshotTest: XCTestCase {
         let snap = parseCgWindowSnapshot([noNumber as NSDictionary])
         assertEquals(snap.count, 0)
     }
+
+    func testParseCgAliveWindowIdsExtractsIds() {
+        let dicts: [NSDictionary] = [
+            [kCGWindowNumber as String: 42, kCGWindowName as String: "kitty — zsh"] as NSDictionary,
+            [kCGWindowNumber as String: 7] as NSDictionary,
+        ]
+        let ids = parseCgAliveWindowIds(dicts)
+        assertEquals(ids, [42, 7])
+    }
+
+    func testParseCgAliveWindowIdsSkipsMissingWindowNumber() {
+        let dicts: [NSDictionary] = [
+            [kCGWindowName as String: "ghost"] as NSDictionary,
+        ]
+        let ids = parseCgAliveWindowIds(dicts)
+        assertEquals(ids, [])
+    }
 }

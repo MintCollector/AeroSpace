@@ -22,6 +22,22 @@ func readCgWindowSnapshot() -> [UInt32: CgWindowInfo] {
     return parseCgWindowSnapshot(cfArray)
 }
 
+@MainActor
+func readCgAliveWindowIds() -> Set<UInt32> {
+    let options = CGWindowListOption([.excludeDesktopElements])
+    guard let cfArray = CGWindowListCopyWindowInfo(options, CGWindowID(0)) as? [NSDictionary] else { return [] }
+    return parseCgAliveWindowIds(cfArray)
+}
+
+func parseCgAliveWindowIds(_ dicts: [NSDictionary]) -> Set<UInt32> {
+    var result = Set<UInt32>(minimumCapacity: dicts.count)
+    for dict in dicts {
+        guard let num = dict[kCGWindowNumber] as? NSNumber else { continue }
+        result.insert(num.uint32Value)
+    }
+    return result
+}
+
 /// Pure join/parse step (testable without the live CG call). `kCGWindowBounds` is already in
 /// global, top-left-origin points — the same space as AeroSpace's `Rect` — so no flip is needed.
 func parseCgWindowSnapshot(_ dicts: [NSDictionary]) -> [UInt32: CgWindowInfo] {

@@ -328,11 +328,12 @@ final class MacApp: AbstractApp {
                 await app.destroy()
             }
         }
+        let cgAliveWindowIds = readCgAliveWindowIds()
         return try await withThrowingTaskGroup(of: (pid_t, MacAppWindowsRefreshResult).self, returning: [MacApp: MacAppWindowsRefreshResult].self) { group in
             func refreshTheApp(_ nsApp: NSRunningApplication) {
                 group.addTask { @Sendable @MainActor in
                     guard let app = try await MacApp.getOrRegister(nsApp) else { return (nsApp.processIdentifier, .empty) }
-                    return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
+                    return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId, cgAliveWindowIds: cgAliveWindowIds))
                 }
             }
             // Register new apps
@@ -361,33 +362,40 @@ final class MacApp: AbstractApp {
         }
     }
 
-    private func refreshAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> MacAppWindowsRefreshResult {
+    private func refreshAndGetAliveWindowIds(frontmostAppBundleId: String?, cgAliveWindowIds: Set<UInt32>) async throws -> MacAppWindowsRefreshResult {
         if nsApp.isTerminated {
             await destroy()
             return .empty
         }
         guard let thread else { return .empty }
-        let (alive, dead, nativeTabGroups) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32], [NativeTabWindowGroup]) in
+        let (alive, dead, nativeTabGroups) = try await thread.runInLoop { [nsApp, windows, axApp, cgAliveWindowIds] (job) -> ([UInt32], [UInt32], [NativeTabWindowGroup]) in
             guard var alive: [UInt32: AxWindow] = windows.threadGuardedOrNil else { return ([], [], []) }
             guard let axApp = axApp.threadGuardedOrNil else { return ([], [], []) }
             var dead = [UInt32: AxWindow]()
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
             // Second and third lines of defence are technically needed only to avoid potential flickering
             if frontmostAppBundleId != lockScreenAppBundleId {
-                (alive, dead) = try alive.partition {
+                (alive, dead) = alive.partition { cgAliveWindowIds.contains($0.key) }
+            }
+
+            // Probe app liveness with a short timeout — a responsive app answers in <10ms.
+            // If nil, the app is unresponsive — skip per-window AX and mark all windows dead.
+            AXUIElementSetMessagingTimeout(axApp, 0.2)
+            let axWindows = axApp.get(Ax.windowsAttr)
+            AXUIElementSetMessagingTimeout(axApp, 1.0)
+
+            let nativeTabGroups: [NativeTabWindowGroup]
+            if let axWindows {
+                for (id, window) in axWindows {
                     try job.checkCancellation()
-                    return $0.value.ax.containingWindowId() != nil
+                    try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
                 }
+                nativeTabGroups = alive.nativeTabGroups()
+            } else {
+                dead.merge(alive) { _, new in new }
+                alive.removeAll()
+                nativeTabGroups = []
             }
-
-            for (id, window) in axApp.get(Ax.windowsAttr) ?? [] {
-                try job.checkCancellation()
-                try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
-            }
-
-            // Collapse native-tab groups: only the active tab participates in layout; inactive tab
-            // siblings are excluded from the alive set (they're the same on-screen frame).
-            let nativeTabGroups = alive.nativeTabGroups()
             let inactiveNativeTabWindowIds = nativeTabGroups.flatMap(\.inactiveWindowIds).toSet()
             let activeWindowIds = alive.keys.filter { !inactiveNativeTabWindowIds.contains($0) }
 
