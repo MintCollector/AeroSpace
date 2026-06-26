@@ -14,19 +14,8 @@ private func parentKindLabel(_ window: Window?) -> String {
     }
 }
 
-private let focusCacheLogFile: FileHandle? = {
-    let path = "/tmp/aerospace-focus-cache.log"
-    FileManager.default.createFile(atPath: path, contents: nil)
-    return FileHandle(forWritingAtPath: path)
-}()
-
 func focusLog(_ msg: String) {
-    let ts = ISO8601DateFormatter().string(from: Date())
-    let event = refreshSessionEvent?.description ?? "none"
-    let line = "[\(ts)] [\(event)] \(msg)\n"
-    eprint(msg)
-    focusCacheLogFile?.seekToEndOfFile()
-    focusCacheLogFile?.write(line.data(using: .utf8) ?? Data())
+    aeroLog("focus", msg)
 }
 
 /// The data should flow (from nativeFocused to focused) and
@@ -34,7 +23,7 @@ func focusLog(_ msg: String) {
 /// Alternative names: takeFocusFromMacOs, syncFocusFromMacOs
 @MainActor func updateFocusCache(_ nativeFocused: Window?) {
     if nativeFocused?.parent is MacosPopupWindowsContainer {
-        focusLog("[focus-cache] skip popup window \(nativeFocused?.windowId ?? 0)")
+        focusLog("skip popup window \(nativeFocused?.windowId ?? 0)")
         return
     }
     if let macWindow = nativeFocused as? MacWindow,
@@ -59,15 +48,15 @@ func focusLog(_ msg: String) {
            nativeFocusedWs != focus.workspace,
            lastWindowDestroyedDate.distance(to: .now) < 0.5
         {
-            focusLog("[focus-cache] suppressed cross-ws switch: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) on ws '\(nativeWs)' — recent window destroy (focusWs: '\(currentWs)', prev: \(oldId))")
+            focusLog("suppressed cross-ws switch: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) on ws '\(nativeWs)' — recent window destroy (focusWs: '\(currentWs)', prev: \(oldId))")
             lastKnownNativeFocusedWindowId = nativeFocused?.windowId
             nativeFocused?.macAppUnsafe.lastNativeFocusedWindowId = nativeFocused?.windowId
             return
         }
         if nativeWs != currentWs {
-            focusLog("[focus-cache] CROSS-WS: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) — switching ws '\(currentWs)' → '\(nativeWs)' (prev: \(oldId))")
+            focusLog("CROSS-WS: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) — switching ws '\(currentWs)' → '\(nativeWs)' (prev: \(oldId))")
         } else {
-            focusLog("[focus-cache] native focus changed: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) on ws '\(currentWs)' (prev: \(oldId))")
+            focusLog("native focus changed: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) on ws '\(currentWs)' (prev: \(oldId))")
         }
         _ = nativeFocused?.focusWindow()
         lastKnownNativeFocusedWindowId = nativeFocused?.windowId

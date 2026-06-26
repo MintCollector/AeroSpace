@@ -53,6 +53,18 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case volume
     case workspace
     case workspaceBackAndForth = "workspace-back-and-forth"
+
+    public var isQuery: Bool {
+        switch self {
+            case .listApps, .listExecEnvVars, .listModes, .listMonitors,
+                 .listTree, .listWindows, .listWorkspaces,
+                 .debugWindows, .config,
+                 .echo, ._true, ._false, .test, .testNot:
+                true
+            default:
+                false
+        }
+    }
 }
 
 func initSubcommands() -> [String: any SubCommandParserProtocol] {

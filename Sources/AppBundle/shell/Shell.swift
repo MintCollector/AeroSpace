@@ -112,8 +112,15 @@ extension Shell where T == any Command {
     }
 
     @discardableResult @MainActor func run(_ env: CmdEnv, _ stdin: consuming CmdStdin) async -> CmdResult {
+        let shouldLog = !flatten().allSatisfy { $0.info.kind.isQuery }
+        let desc = shouldLog ? buildDescription { $0.args.description } : ""
+        if !desc.isEmpty { aeroLog("cmd", "run: \(desc)") }
         let io: CmdIo = CmdIoImpl(stdin: stdin)
         let exitCode = await run(env, io)
+        if !desc.isEmpty && exitCode.rawValue != 0 {
+            let stderr = io.stderr.joined(separator: "; ")
+            aeroLog("cmd", "exit \(exitCode.rawValue): \(desc)\(stderr.isEmpty ? "" : " — \(stderr)")")
+        }
         return CmdResult(stdout: io.stdout, stderr: io.stderr, exitCode: exitCode)
     }
 }
