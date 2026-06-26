@@ -30,8 +30,8 @@ install:
 	osascript -e 'tell application "AeroSpace" to quit' 2>/dev/null || true
 	pkill -x AeroSpace 2>/dev/null || true
 	sleep 1
-	rm -rf /Applications/AeroSpace.app
-	cp -r .release/AeroSpace.app /Applications/AeroSpace.app
+	mkdir -p /Applications/AeroSpace.app
+	rsync -a --delete .release/AeroSpace.app/ /Applications/AeroSpace.app/
 	cp .release/aerospace /opt/homebrew/bin/aerospace
 	open /Applications/AeroSpace.app
 
