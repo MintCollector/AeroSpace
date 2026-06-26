@@ -1,0 +1,62 @@
+{
+  "updated_at": "2026-06-26T14:18:15.226762-07:00",
+  "file_count": 579,
+  "hubs": [
+    "script/setup.sh"
+  ],
+  "importers": {
+    "script/setup.sh": [
+      "test.sh",
+      "build-release.sh",
+      "format.sh",
+      "install-from-sources.sh",
+      "run-cli.sh",
+      "run-debug.sh",
+      "build-docs.sh",
+      "swift-test.sh",
+      "build-shell-completion.sh",
+      "lint.sh",
+      "generate.sh",
+      "build-debug.sh"
+    ]
+  },
+  "imports": {
+    "build-debug.sh": [
+      "script/setup.sh"
+    ],
+    "build-docs.sh": [
+      "script/setup.sh"
+    ],
+    "build-release.sh": [
+      "script/setup.sh"
+    ],
+    "build-shell-completion.sh": [
+      "script/setup.sh"
+    ],
+    "format.sh": [
+      "script/setup.sh"
+    ],
+    "generate.sh": [
+      "script/setup.sh"
+    ],
+    "install-from-sources.sh": [
+      "script/setup.sh"
+    ],
+    "lint.sh": [
+      "script/setup.sh"
+    ],
+    "run-cli.sh": [
+      "script/setup.sh"
+    ],
+    "run-debug.sh": [
+      "script/setup.sh"
+    ],
+    "swift-test.sh": [
+      "script/setup.sh"
+    ],
+    "test.sh": [
+      "script/setup.sh"
+    ]
+  },
+  "recent_events": null
+}
