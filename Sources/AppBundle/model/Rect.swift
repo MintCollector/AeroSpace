@@ -76,4 +76,13 @@ extension Rect {
                 : Rect(topLeftX: topLeftX, topLeftY: topLeftY + offset, width: width, height: portion)
         }
     }
+
+    var nsRect: NSRect {
+        NSRect(
+            x: topLeftX,
+            y: mainMonitorInfo.height - topLeftY - height,
+            width: width,
+            height: height,
+        )
+    }
 }

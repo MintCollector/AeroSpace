@@ -5,17 +5,27 @@ final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
     var isMacosFullscreenForTest = false
     var onGetAxRect: (@MainActor () -> Void)?
+    private var customTitle: String?
+    private(set) var setAxFrameCalls = 0
 
     @MainActor
-    private init(_ id: UInt32, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?) {
+    private init(_ id: UInt32, _ app: any AbstractApp, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?, _ customTitle: String?) {
         _rect = rect
-        super.init(id: id, TestApp.shared, lastFloatingSize: nil, parent: parent, adaptiveWeight: adaptiveWeight, index: INDEX_BIND_LAST)
+        self.customTitle = customTitle
+        super.init(id: id, app, lastFloatingSize: nil, parent: parent, adaptiveWeight: adaptiveWeight, index: INDEX_BIND_LAST)
     }
 
     @discardableResult
     @MainActor
-    static func new(id: UInt32, parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat = 1, rect: Rect? = nil) -> TestWindow {
-        let wi = TestWindow(id, parent, adaptiveWeight, rect)
+    static func new(
+        id: UInt32,
+        parent: NonLeafTreeNodeObject,
+        adaptiveWeight: CGFloat = 1,
+        rect: Rect? = nil,
+        title: String? = nil,
+        app: any AbstractApp = TestApp.shared,
+    ) -> TestWindow {
+        let wi = TestWindow(id, app, parent, adaptiveWeight, rect, title)
         TestApp.shared._windows.append(wi)
         return wi
     }
@@ -29,10 +39,15 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     override func closeAxWindow() {
+        TabHeaderTitleCache.shared.invalidate(windowId: windowId)
         unbindFromParent()
     }
 
-    override func getTitle(_ cm: CancellationMode) async throws -> String { description }
+    override func getTitle(_ cm: CancellationMode) async throws -> String { customTitle ?? description }
+
+    func setTitleForTests(_ newTitle: String?) {
+        customTitle = newTitle
+    }
 
     @MainActor override func getAxRect(_ cm: CancellationMode) async throws -> Rect? { // todo change to not Optional
         onGetAxRect?()
@@ -47,6 +62,7 @@ final class TestWindow: Window, CustomStringConvertible {
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { isMacosFullscreenForTest }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
+        setAxFrameCalls += 1
         let cur = _rect ?? Rect(topLeftX: 0, topLeftY: 0, width: 0, height: 0)
         _rect = Rect(
             topLeftX: topLeft?.x ?? cur.topLeftX,

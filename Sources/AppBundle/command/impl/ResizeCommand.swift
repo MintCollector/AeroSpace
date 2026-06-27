@@ -7,6 +7,9 @@ struct ResizeCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
+        if target.workspace.rootTilingContainer.layout == .scrolling {
+            return .fail(io.err("resize command doesn't support the scrolling layout"))
+        }
 
         if let window = target.windowOrNil, window.isFloating {
             if args.dimension.val.splitDirection != nil {

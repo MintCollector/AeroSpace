@@ -5,7 +5,8 @@ extension Workspace {
         let containers = children.filterIsInstance(of: TilingContainer.self)
         switch containers.count {
             case 0:
-                return TilingContainer(parent: self, adaptiveWeight: 1, defaultRootContainerOrientation, config.defaultRootContainerLayout, index: INDEX_BIND_LAST)
+                let rootOrientation = config.defaultRootContainerLayout == .scrolling ? .h : defaultRootContainerOrientation
+                return TilingContainer(parent: self, adaptiveWeight: 1, rootOrientation, config.defaultRootContainerLayout, index: INDEX_BIND_LAST)
             case 1:
                 return containers.singleOrNil().orDie()
             default:

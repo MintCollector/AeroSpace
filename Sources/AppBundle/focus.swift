@@ -88,6 +88,7 @@ func resolveFocusAfterWindowRemoval(wasFocused: Bool, previousWindow: Window?, w
         windowFocusSequence += 1
         window.lastFocusedAt = windowFocusSequence
     }
+    newFocus.workspace.rootTilingContainer.reveal(newFocus.windowOrNil, preferRightPane: false)
     return status
 }
 extension Window {

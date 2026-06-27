@@ -147,6 +147,9 @@ let run_callback_help_generated = """
     USAGE: run-callback [-h|--help] [--for-every-window|--window-id <window-id>] on-window-detected
        OR: run-callback [-h|--help] (on-focus-changed|on-focused-monitor-changed)
     """
+let scroll_help_generated = """
+    USAGE: scroll [-h|--help] (left|right)
+    """
 let set_frame_help_generated = """
     USAGE: set-frame [-h|--help] [--window-id <window-id>]
                      [--x <[+|-]pixels>] [--y <[+|-]pixels>]

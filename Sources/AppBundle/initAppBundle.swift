@@ -53,6 +53,12 @@ import Foundation
 private func smartLayoutAtStartup() {
     let workspace = focus.workspace
     let root = workspace.rootTilingContainer
+    if config.defaultRootContainerLayout == .scrolling {
+        root.layout = .scrolling
+        root.changeOrientation(.h)
+        root.reveal(focus.windowOrNil, preferRightPane: true)
+        return
+    }
     root.layout = config.defaultRootContainerLayout
 }
 

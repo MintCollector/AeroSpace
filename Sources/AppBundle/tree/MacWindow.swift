@@ -155,6 +155,7 @@ final class MacWindow: Window {
         if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
             return
         }
+        TabHeaderTitleCache.shared.invalidate(windowId: windowId)
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
         let destroyedWorkspaceName = nodeWorkspace?.name
         let tiledCount: Int? = {
@@ -212,6 +213,7 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
+        TabHeaderTitleCache.shared.invalidate(windowId: windowId)
         // Don't eagerly GC — the close may be intercepted (e.g., "save changes?" dialog).
         // The refresh cycle handles GC once the window is confirmed dead via
         // kAXUIElementDestroyedNotification or the scheduled heavy refresh.
@@ -315,11 +317,14 @@ final class MacWindow: Window {
             case .tiling, .rootTilingContainer:
                 // Tiling windows are positioned by layoutRecursive, safe to clear.
                 self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
+                lastAppliedLayoutPhysicalRect = nil // See below
             case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow,
                  .macosPopupWindow, .shimContainerRelation:
                 // Preserve saved position — window is in a temporary macOS state and will
                 // need the position when it returns to floating.
-                break
+                // The window was physically moved away while the workspace was hidden, so force the next layout pass
+                // to re-apply its frame instead of assuming the cached rect is still on screen.
+                lastAppliedLayoutPhysicalRect = nil
         }
     }
 

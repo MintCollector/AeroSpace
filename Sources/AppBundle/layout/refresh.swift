@@ -36,7 +36,10 @@ func runHeavyCompleteRefreshSession(
 ) async {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
-    if !TrayMenuModel.shared.isEnabled { return }
+    if !TrayMenuModel.shared.isEnabled {
+        TabHeadersPanelController.shared.closeAll()
+        return
+    }
     if screenSleepWakeInProgress { return }
     let res = await Result {
         try await $refreshSessionEvent.withValue(event) {
@@ -204,9 +207,10 @@ enum OptimalHideCorner {
 private func layoutWorkspaces() async throws {
     if screenSleepWakeInProgress { return }
     if !TrayMenuModel.shared.isEnabled {
+        TabHeadersPanelController.shared.closeAll()
         for workspace in Workspace.all {
             workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
-            try await workspace.layoutWorkspace() // Unhide tiling windows from corner
+            _ = try await workspace.layoutWorkspace() // Unhide tiling windows from corner
         }
         FocusedWindowBorderPanel.shared.hide()
         return
@@ -237,11 +241,12 @@ private func layoutWorkspaces() async throws {
         monitorToOptimalHideCorner[monitor.rect.topLeftCorner] = corner
     }
 
+    var tabHeaderSnapshots: [TabHeaderSnapshot] = []
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
         workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
-        try await workspace.layoutWorkspace()
+        tabHeaderSnapshots += try await workspace.layoutWorkspace()
         // On workspace switch, raise floating windows above the tiled windows so they're visible on
         // arrival. Sorted ascending by lastFocusedAt so the most-recently-used float ends up topmost.
         // The focused window is raised on top of these afterwards by the caller (syncFocusToMacOs).
@@ -267,6 +272,7 @@ private func layoutWorkspaces() async throws {
             try await macWindow.hideInCorner(corner) // todo as!
         }
     }
+    TabHeadersPanelController.shared.refresh(with: tabHeaderSnapshots)
 
     await refreshFocusedWindowBorder()
 }
