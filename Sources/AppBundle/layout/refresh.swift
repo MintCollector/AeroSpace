@@ -74,6 +74,9 @@ func runLightSession<T>(
     activeRefreshTask?.cancel() // Give priority to runSession
     activeRefreshTask = nil
     return try await $refreshSessionEvent.withValue(event) {
+        if event.isQueryCommand {
+            return try await body()
+        }
         let nativeFocused = try await getNativeFocusedWindow(.cancellable)
         if let nativeFocused { try await debugWindowsIfRecording(nativeFocused, .cancellable) }
         updateFocusCache(nativeFocused)

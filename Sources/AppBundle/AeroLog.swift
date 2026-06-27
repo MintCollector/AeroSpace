@@ -14,9 +14,10 @@ private let logFile: FileHandle? = {
     return handle
 }()
 
-private nonisolated(unsafe) let tsFormatter: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+private nonisolated(unsafe) let tsFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+    f.timeZone = .current
     return f
 }()
 

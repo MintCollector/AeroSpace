@@ -102,6 +102,10 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
         if case .focusFollowsMouse = self { return true } else { return false }
     }
 
+    public var isQueryCommand: Bool {
+        if case .socketServer(let args) = self { return type(of: args).info.kind.isQuery } else { return false }
+    }
+
     public var description: String {
         switch self {
             case .ax(let str): "ax(\(str))"
