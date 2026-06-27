@@ -53,7 +53,7 @@ private func smartLayoutAtStartup() {
     root.layout = config.defaultRootContainerLayout
 }
 
-var isStartup: Bool { refreshSessionEvent.orDie("refreshSessionEvent is not initialized").isStartup }
+var isStartup: Bool { refreshSessionEvent?.isStartup ?? false }
 
 struct ServerArgs: Sendable {
     var configLocation: String? = nil

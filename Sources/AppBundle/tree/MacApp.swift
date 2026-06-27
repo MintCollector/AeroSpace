@@ -395,10 +395,22 @@ final class MacApp: AbstractApp {
                 for key in axGone.keys { alive.removeValue(forKey: key) }
                 nativeTabGroups = alive.nativeTabGroups()
             } else {
-                eprint("[alive-check] \(nsApp.idForDebug): AX probe failed (200ms timeout) — marking \(alive.count) window(s) dead: \(alive.keys.sorted())")
-                dead.merge(alive) { _, new in new }
-                alive.removeAll()
-                nativeTabGroups = []
+                // AX unresponsive — fall back to CGWindowList to GC truly-gone windows
+                // while keeping windows that are still in the WindowServer (just AX-slow).
+                let cgIds: Set<UInt32> = {
+                    let opts = CGWindowListOption([.excludeDesktopElements])
+                    guard let arr = CGWindowListCopyWindowInfo(opts, CGWindowID(0)) as? [NSDictionary] else { return [] }
+                    return Set(arr.compactMap { ($0[kCGWindowNumber] as? NSNumber)?.uint32Value })
+                }()
+                let cgGone = alive.filter { !cgIds.contains($0.key) }
+                if !cgGone.isEmpty {
+                    eprint("[alive-check] \(nsApp.idForDebug): AX probe failed — GC'd \(cgGone.count) window(s) not in CGWindowList: \(cgGone.keys.sorted())")
+                    dead.merge(cgGone) { _, new in new }
+                    for key in cgGone.keys { alive.removeValue(forKey: key) }
+                } else {
+                    eprint("[alive-check] \(nsApp.idForDebug): AX probe failed — all \(alive.count) window(s) still in CGWindowList, keeping alive")
+                }
+                nativeTabGroups = alive.nativeTabGroups()
             }
             let inactiveNativeTabWindowIds = nativeTabGroups.flatMap(\.inactiveWindowIds).toSet()
             let activeWindowIds = alive.keys.filter { !inactiveNativeTabWindowIds.contains($0) }
