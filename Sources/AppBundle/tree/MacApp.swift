@@ -380,7 +380,12 @@ final class MacApp: AbstractApp {
             // entirely (both do per-window AX calls that would each block for the full timeout).
             AXUIElementSetMessagingTimeout(axApp, 0.2)
             let axWindows = axApp.get(Ax.windowsAttr)
-            AXUIElementSetMessagingTimeout(axApp, 1.0)
+            // Restore full timeout only if the app responded. If the probe failed,
+            // keep the short timeout so layout's setFrame calls fail fast (~200ms)
+            // instead of blocking the thread for 1s per AX call.
+            if axWindows != nil {
+                AXUIElementSetMessagingTimeout(axApp, 1.0)
+            }
 
             let nativeTabGroups: [NativeTabWindowGroup]
             if let axWindows {
