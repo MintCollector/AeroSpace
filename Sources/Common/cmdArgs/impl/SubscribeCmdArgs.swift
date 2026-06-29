@@ -62,4 +62,5 @@ public enum ServerEventType: String, Codable, CaseIterable, Sendable {
     case windowDestroyed = "window-destroyed"
     case windowMoved = "window-moved"
     case bindingTriggered = "binding-triggered"
+    case workspaceLayoutChanged = "workspace-layout-changed"
 }

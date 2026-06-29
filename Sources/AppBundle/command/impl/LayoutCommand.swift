@@ -123,7 +123,66 @@ struct LayoutCommand: Command {
             let targetLayout = targetLayout ?? parent.layout
             parent.layout = targetLayout
             parent.changeOrientation(targetOrientation)
+            if parent.isRootContainer {
+                broadcastEvent(.workspaceLayoutChanged(
+                    workspace: parent.nodeWorkspace?.name ?? "",
+                    layout: toLayoutString(tc: parent),
+                ))
+            }
             return .succ
+    }
+}
+
+@MainActor private func changeRootLayout(
+    _ io: CmdIo,
+    root: TilingContainer,
+    toggleBetween: [LayoutCmdArgs.LayoutDescription],
+) -> BinaryExitCode {
+    let targetDescription = toggleBetween.first(where: { !root.matchesDescription($0) })
+        ?? toggleBetween.first.orDie()
+    if root.matchesDescription(targetDescription) { return .fail }
+    guard let (targetLayout, targetOrientation) = targetDescription.tilingMapping else {
+        return .fail(io.err("'\(targetDescription.rawValue)' is a window placement mode and is not valid with --root")) // unreachable: rejected at parse time
+    }
+    root.layout = targetLayout ?? root.layout
+    root.changeOrientation(targetOrientation ?? root.orientation)
+    broadcastEvent(.workspaceLayoutChanged(
+        workspace: root.nodeWorkspace?.name ?? "",
+        layout: toLayoutString(tc: root),
+    ))
+    return .succ
+}
+
+extension LayoutCmdArgs.LayoutDescription {
+    fileprivate var tilingMapping: (layout: Layout?, orientation: Orientation?)? {
+        return switch self {
+            case .h_accordion: (.accordion, .h)
+            case .v_accordion: (.accordion, .v)
+            case .h_tiles:     (.tiles, .h)
+            case .v_tiles:     (.tiles, .v)
+            case .accordion:   (.accordion, nil)
+            case .tiles:       (.tiles, nil)
+            case .horizontal:  (nil, .h)
+            case .vertical:    (nil, .v)
+            case .tiling, .floating, .unmanaged, .sticky: nil
+        }
+    }
+}
+
+extension TilingContainer {
+    fileprivate func matchesDescription(_ desc: LayoutCmdArgs.LayoutDescription) -> Bool {
+        return switch desc {
+            case .accordion:   layout == .accordion
+            case .tiles:       layout == .tiles
+            case .horizontal:  orientation == .h
+            case .vertical:    orientation == .v
+            case .h_accordion: layout == .accordion && orientation == .h
+            case .v_accordion: layout == .accordion && orientation == .v
+            case .h_tiles:     layout == .tiles && orientation == .h
+            case .v_tiles:     layout == .tiles && orientation == .v
+            case .tiling:      true
+            case .floating, .unmanaged, .sticky: false
+        }
     }
 }
 
