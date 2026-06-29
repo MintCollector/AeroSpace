@@ -204,9 +204,14 @@ final class MacApp: AbstractApp {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         let semaphore = DispatchSemaphore(value: 0)
         let job = withWindowAsync(windowId, .nonCancellable) { [axApp] window, job in
-            guard let axApp = axApp.threadGuardedOrNil else { semaphore.signal(); return }
-            try? disableAnimations(app: axApp, job) {
-                try setFrame(window, topLeft, size, job)
+            if let axApp = axApp.threadGuardedOrNil {
+                try? disableAnimations(app: axApp, job) {
+                    try setFrame(window, topLeft, size, job)
+                }
+                if !job.isCancelled, let size {
+                    window.set(Ax.sizeAttr, CGSize(width: size.width + 1, height: size.height))
+                    window.set(Ax.sizeAttr, size)
+                }
             }
             semaphore.signal()
         }
@@ -223,9 +228,7 @@ final class MacApp: AbstractApp {
     }
 
     func getAxRect(_ windowId: UInt32, _ cm: CancellationMode) async throws -> Rect? {
-        try await withWindow(windowId, cm) { window, job in
-            try AppBundle.getAxRect(window: window, job: job)
-        }
+        try await withWindow(windowId, cm) { window, job in try AppBundle.getAxRect(window: window, job: job) }
     }
 
     func nativeTabGroup(containing windowId: UInt32) async throws -> NativeTabWindowGroup? {

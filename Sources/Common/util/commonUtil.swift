@@ -63,7 +63,7 @@ public func dieT<T>(
             message: message,
         )
     }
-    if let terminationHandler, !recursionDetectorDuringTermination {
+    if !recursionDetectorDuringTermination {
         MainActor.runSync {
             $recursionDetectorDuringTermination.withValue(true) {
                 terminationHandler.beforeTermination()

@@ -70,10 +70,8 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
             }
         }
         Button("Quit \(aeroSpaceAppName)") {
-            Task.startUnstructured {
-                terminationHandler?.beforeTermination()
-                terminateApp()
-            }
+            terminationHandler.beforeTermination()
+            terminateApp()
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
         switch (viewModel.axPermissionStatus, viewModel.isEnabled) {

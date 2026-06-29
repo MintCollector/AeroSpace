@@ -11,8 +11,8 @@ let lockScreenAppBundleId = "com.apple.loginwindow"
 func interceptTermination(_ _signal: Int32) {
     signal(_signal, { (signal: Int32) in
         check(Thread.current.isMainThread)
-        Task.startUnstructured { @MainActor in
-            terminationHandler?.beforeTermination()
+        Task { @MainActor in
+            terminationHandler.beforeTermination()
             exit(signal)
         }
     } as sig_t)
