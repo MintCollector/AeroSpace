@@ -581,9 +581,13 @@ on-window-detected = [
 ----
 
 Additionally, `no-focus = true` prevents the newly detected window from stealing focus.
-For about a second after the window is detected, AeroSpace refuses to follow the window's native
+For about a second after the window appears, AeroSpace refuses to follow the window's native
 focus grabs (so the focused window and the visible workspace stay put) and pushes macOS focus back
 to the window you were working in.
+For rules whose `if` conditions only reference the app (`app-id`, `app-id-regex-substring`,
+`app-name-regex-substring`), the protection starts immediately on window creation — before the
+window is placed in the layout. Rules conditioned on window title or workspace can only take
+effect once the window is detected.
 It is useful for apps that open windows in the background while you work elsewhere,
 e.g. a test runner driving a browser:
 

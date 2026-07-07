@@ -146,6 +146,51 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
     }
 }
 
+/// Arms no-focus suppression straight off the AX windowCreated notification, BEFORE the window is
+/// registered in the tree. Detection rides on the heavy refresh (plus on-window-detected callbacks
+/// like aero-helper auto-place) and can lag the window's appearance by hundreds of ms — without
+/// pre-arming, the app can steal focus unopposed in that gap. Only rules decidable from the app
+/// alone pre-arm (app-id / app-name matchers); window-title / workspace conditioned rules and
+/// command matchers arm at detection as usual. Detection later refreshes the entry (and its TTL).
+@MainActor func preArmNoFocusSuppression(windowId: UInt32, pid: pid_t, appBundleId: String?, appName: String?, now: Date = Date()) {
+    if noFocusSuppression[windowId] != nil { return }
+    let matches = config.onWindowDetected.contains { callback in
+        guard callback.noFocus, case .legacy(let matcher) = callback.matcher else { return false }
+        return matcher.matchesAppBeforeDetection(bundleId: appBundleId, appName: appName)
+    }
+    guard matches else { return }
+    let restoreWindowId = focus.windowOrNil?.windowId
+    noFocusSuppression[windowId] = NoFocusSuppressionEntry(
+        restoreWindowId: restoreWindowId,
+        pid: pid,
+        deadline: now.addingTimeInterval(noFocusSuppressionTtl),
+    )
+    focusLog("[focus-cache] no-focus pre-armed for window \(windowId) (bundle: \(appBundleId ?? "?")), restore target: \(restoreWindowId.map(String.init) ?? "nil")")
+}
+
+extension LegacyWindowDetectedCallbackMatcher {
+    /// Whether this matcher is fully decidable from the app alone (no Window in the tree yet)
+    /// AND matches the given app. Window-title / workspace conditions force a "no".
+    @MainActor fileprivate func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
+        if windowTitleRegexSubstring != nil || workspace != nil {
+            return false
+        }
+        if let startupMatcher = duringAeroSpaceStartup, startupMatcher != isStartup {
+            return false
+        }
+        if let appIds, !appIds.contains(bundleId ?? "") {
+            return false
+        }
+        if let regex = appIdRegexSubstring, (bundleId ?? "").contains(caseInsensitiveRegex: regex) != true {
+            return false
+        }
+        if let regex = appNameRegexSubstring, (appName ?? "").contains(caseInsensitiveRegex: regex) != true {
+            return false
+        }
+        return true
+    }
+}
+
 /// Fast-path bounce, called straight from the notification handlers (per-app AX
 /// kAXFocusedWindowChangedNotification and NSWorkspace didActivateApplicationNotification)
 /// WITHOUT waiting for a refresh session. The refresh path still bounces via updateFocusCache,

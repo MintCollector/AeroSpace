@@ -194,4 +194,75 @@ final class NoFocusSuppressionTest: XCTestCase {
 
         assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 3) // Untouched
     }
+
+    func testPreArmMatchesAppIdOnlyRule() {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        // Window 42 not yet in the tree — pre-arm fires straight off the AX windowCreated event
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression[42]?.restoreWindowId, 1)
+        assertEquals(noFocusSuppression[42]?.pid, 99)
+    }
+
+    func testPreArmSkipsWindowConditionedRule() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(
+                    appId: "com.example.app",
+                    windowTitleRegexSubstring: .new("Notification").getOrDie(),
+                )),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        // Title can't be evaluated before the window is in the tree — must NOT pre-arm
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
+
+    func testPreArmSkipsNonMatchingApp() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.other.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
+
+    func testPreArmSkipsCommandMatcherAndNonNoFocusRules() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(matcher: .command(.empty), noFocus: true, rawRun: .empty), // Command matcher: needs the window
+            WindowDetectedCallback( // Matching app, but no-focus not set
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                rawRun: .empty,
+            ),
+        ]
+
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
 }
