@@ -218,7 +218,9 @@ final class LayoutCommandTest: XCTestCase {
         await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.tiles, .horizontal, .vertical], root: true))
             .run(.defaultEnv, .emptyStdin)
 
-
+        assertEquals(workspace.rootTilingContainer.layout, .tiles)
+        assertEquals(workspace.rootTilingContainer.orientation, .h)
+    }
 
     func testEmptyWorkspace_floating_fails() async {
         let workspace = Workspace.get(byName: name)
@@ -363,7 +365,9 @@ final class LayoutCommandTest: XCTestCase {
         await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [.h_accordion], root: true))
             .run(.defaultEnv, .emptyStdin)
 
-
+        assertEquals(workspace.rootTilingContainer.layout, .accordion)
+        assertEquals(workspace.rootTilingContainer.orientation, .h)
+    }
 
     func testRoot_floatingFocusedWindow_changesRootTilingContainer() async {
         let workspace = Workspace.get(byName: name)

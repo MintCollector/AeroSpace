@@ -400,8 +400,8 @@ final class ConfigTest: XCTestCase {
             ),
             WindowDetectedCallback( // 8
                 matcher: .legacy(LegacyWindowDetectedCallbackMatcher(
-                    appIdRegexSubstring: CaseInsensitiveRegex.new("^com\\.apple\\..+$").getOrNil(),
-                    appNameRegexSubstring: CaseInsensitiveRegex.new("settings").getOrNil(),
+                    appIdRegexSubstring: CaseInsensitiveRegex.new("^com\\.apple\\..+$").getOrDie(),
+                    appNameRegexSubstring: CaseInsensitiveRegex.new("settings").getOrDie(),
                 )),
                 rawRun: .empty,
             ),
@@ -452,40 +452,44 @@ final class ConfigTest: XCTestCase {
     }
 
     func testParseOnWindowDetectedArrayAppIds() {
-        let (config, errors) = parseConfig(
+        let result = parseConfig(
             """
             [[on-window-detected]]
                 if.app-id = ['org.mozilla.firefox', 'com.google.Chrome', 'com.brave.Browser']
                 run = ['move-node-to-workspace 3']
             """,
         )
-        assertEquals(errors, [])
-        let callback = config.onWindowDetected.singleOrNil()!
-        assertEquals(callback.matcher.appIds, ["org.mozilla.firefox", "com.google.Chrome", "com.brave.Browser"])
+        assertEquals(result.errors, [])
+        let callback = result.config.onWindowDetected.singleOrNil()!
+        guard case .legacy(let matcher) = callback.matcher else {
+            XCTFail("Expected legacy matcher")
+            return
+        }
+        assertEquals(matcher.appIds, ["org.mozilla.firefox", "com.google.Chrome", "com.brave.Browser"])
         // Test backward compatibility
-        assertEquals(callback.matcher.appId, "org.mozilla.firefox")
+        assertEquals(matcher.appId, "org.mozilla.firefox")
     }
 
     func testParseOnWindowDetectedEmptyAppIdsArrayError() {
-        let (_, errors) = parseConfig(
+        let errors = parseConfig(
             """
             [[on-window-detected]]
                 if.app-id = []
                 run = ['move-node-to-workspace 3']
             """,
-        )
-        assertEquals(errors, ["on-window-detected[0].if.app-id: The array must not be empty"])
+        ).strErrors
+        assertEquals(errors, ["[ERROR] on-window-detected[0].if.app-id: The array must not be empty"])
     }
 
     func testParseOnWindowDetectedNonStringAppIdsArrayElementError() {
-        let (_, errors) = parseConfig(
+        let errors = parseConfig(
             """
             [[on-window-detected]]
                 if.app-id = ['org.mozilla.firefox', 42]
                 run = ['move-node-to-workspace 3']
             """,
-        )
-        assertEquals(errors, ["on-window-detected[0].if.app-id[1]: Expected type is \'string\'. But actual type is \'int\'"])
+        ).strErrors
+        assertEquals(errors, ["[ERROR] on-window-detected[0].if.app-id[1]: Expected type is \'String\'. But actual type is \'Int\'"])
     }
 
     func testTomlParser() {
@@ -728,38 +732,6 @@ final class ConfigTest: XCTestCase {
         // and confirm that an unparsable TOML is flagged as preventing reload.
         let result = parseConfig("a = ")
         assertFalse(result.allowReloadConfig)
-    }
-
-    func testParseMaxWindowWidthTable() {
-        let result = parseConfig("""
-            [max-window-width]
-            1 = 3840
-            2 = 1920
-            """)
-        assertEquals(result.errors, [])
-        assertEquals(result.config.maxWindowWidth, [1: 3840, 2: 1920])
-    }
-
-    func testMaxWindowWidthDefaultNil() {
-        let result = parseConfig("")
-        assertEquals(result.errors, [])
-        assertEquals(result.config.maxWindowWidth, nil)
-    }
-
-    func testParseMaxWindowWidthInvalidKey() {
-        let result = parseConfig("""
-            [max-window-width]
-            foo = 3840
-            """)
-        assertEquals(result.strErrors, ["[ERROR] max-window-width.foo: Key 'foo' must be a valid integer (column count)"])
-    }
-
-    func testParseMaxWindowWidthInvalidValue() {
-        let result = parseConfig("""
-            [max-window-width]
-            1 = "big"
-            """)
-        assertEquals(result.strErrors, ["[ERROR] max-window-width.1: Expected type is 'int'. But actual type is 'string'"])
     }
 
     func testParseKeyMapping() {

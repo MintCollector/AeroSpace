@@ -4,7 +4,7 @@ import XCTest
 
 final class ListTreeTest: XCTestCase {
     func testParseListTreeCommand() {
-        testParseCommandSucc("list-tree", ListTreeCmdArgs(rawArgs: []))
+        testParseSingleCommandSucc("list-tree", ListTreeCmdArgs(rawArgs: []))
     }
 
     // Pins the exact JSON keys the helper's tree DTOs decode, so a FormatVar rename can't

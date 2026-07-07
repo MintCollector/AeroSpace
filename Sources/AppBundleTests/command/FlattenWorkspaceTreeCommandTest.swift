@@ -42,6 +42,6 @@ final class FlattenWorkspaceTreeCommandTest: XCTestCase {
         // Before flatten: root → [window(1), v_tiles → [window(2), h_tiles → [window(3), window(4)]]]
         try await FlattenWorkspaceTreeCommand(args: FlattenWorkspaceTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
         // After flatten: all windows are direct children of root, no residual containers.
-        assertEquals(workspace.layoutDescription, .workspace([.h_tiles([.window(1), .window(2), .window(3), .window(4)])]))
+        assertEquals(workspace.layoutDescription, .workspace([.h_tiles([.window(1), .window(2), .window(3), .window(4)]), .floatingWindowsContainer([])]))
     }
 }

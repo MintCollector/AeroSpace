@@ -179,7 +179,7 @@ final class WorkspaceCommandTest: XCTestCase {
         // has no workspace to resolve to. The command must fail with an error message
         // instead of silently returning a non-zero code with empty stderr.
         let focusedName = focus.workspace.name
-        let args = WorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, true)
+        let args = WorkspaceCmdArgs(target: .relative(.next)).copy(\.commonState.explicitStdinFlag, true)
         let result = try await WorkspaceCommand(args: args).run(.defaultEnv, .init(focusedName))
         assertEquals(result.exitCode.rawValue, 2)
         assertEquals(result.stderr, ["Can't resolve next or prev workspace"])

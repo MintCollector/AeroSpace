@@ -85,6 +85,7 @@ private func syntheticWindow(
         kAXFullScreenButtonAttribute: .null,
         kAXZoomButtonAttribute: .null,
         kAXMinimizeButtonAttribute: .null,
+        kAXDocumentAttribute: .null,
     ]
 }
 
