@@ -19,7 +19,9 @@ final class AxWindowKindTest: XCTestCase {
             window.getWindowType(axApp: app, .emacs, .regular, .normalWindow),
             .popup,
         )
-        XCTAssertEqual(window.isDialogHeuristic(.emacs, .normalWindow), false)
+        // isDialogHeuristic is moot for popups (isWindowHeuristic already filters them out);
+        // in isolation the non-standard subrole reads as dialog, matching the axDumps fixtures.
+        XCTAssertEqual(window.isDialogHeuristic(.emacs, .normalWindow), true)
     }
 
     func testEmacsStandardWindowRemainsWindow() {

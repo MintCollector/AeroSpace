@@ -36,12 +36,6 @@ extension AxUiElementMock {
             return true
         }
 
-        // Emacs child frames (posframe, lsp-ui-doc, etc.) are regular windows from AX
-        // perspective, but they are transient UI surfaces that should stay unmanaged.
-        if isEmacsFloatingChildFrame(id) {
-            return false
-        }
-
         // Don't tile:
         // - Chrome cmd+f window ("AXUnknown" value)
         // - login screen (Yes fuck, it's also a window from Apple's API perspective) ("AXUnknown" value)
@@ -65,8 +59,11 @@ extension AxUiElementMock {
             return get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true &&
                 get(Ax.closeButtonAttr)?.get(Ax.enabledAttr) == true
         }
-        // Document windows without a fullscreen button (e.g. Photoshop) are real windows
-        if get(Ax.documentAttr) != nil {
+        // Photoshop document windows report AXStandardWindow but expose no AXFullScreenButton,
+        // which the heuristic below would misread as a floating dialog. Scoped to Photoshop:
+        // PiP windows (Edge/Brave), Spotify miniplayer, VLC video, and Slack huddle popups also
+        // carry AXDocument yet must float (pinned by the axDumps fixtures).
+        if id == .photoshop && get(Ax.documentAttr) != nil {
             return false
         }
         // Heuristic: float windows without fullscreen button (such windows are not designed to be big)
@@ -133,6 +130,9 @@ extension AxUiElementMock {
             return false
         }
 
+        // Emacs child frames (posframes, corfu completion popups, etc.) are transient
+        // UI elements that should not be managed as windows.
+        // https://github.com/nikitabobko/AeroSpace/issues/776
         if isEmacsFloatingChildFrame(id) {
             return false
         }
@@ -152,13 +152,6 @@ extension AxUiElementMock {
         }
 
         if activationPolicy == .accessory && get(Ax.closeButtonAttr) == nil && id != .steam {
-            return false
-        }
-
-        // Emacs child frames (posframes, corfu completion popups, etc.)
-        // These are transient UI elements that should not be managed as windows.
-        // https://github.com/nikitabobko/AeroSpace/issues/776
-        if id == .emacs && get(Ax.subroleAttr) == kAXFloatingWindowSubrole {
             return false
         }
 
