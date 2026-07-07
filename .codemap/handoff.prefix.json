@@ -1,0 +1,9 @@
+{
+  "file_count": 587,
+  "hubs": [
+    {
+      "path": "script/setup.sh",
+      "importers": 12
+    }
+  ]
+}
