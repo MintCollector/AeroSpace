@@ -165,10 +165,28 @@ private func refresh() async throws {
     Workspace.garbageCollectUnusedWorkspaces()
 }
 
-func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
+func refreshObs(_: AXObserver, _ element: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notif as String
+    // Resolve the event's windowId here on the app's AX thread — the element in the notification
+    // IS the window, so no extra cross-process AX query is needed later. Feeds the no-focus
+    // pre-arm/fast-bounce, which must not wait for the refresh session (its getNativeFocusedWindow
+    // round-trip can take hundreds of ms against a busy app).
+    let isWindowCreated = notif == kAXWindowCreatedNotification
+    let isFocusChange = notif == kAXFocusedWindowChangedNotification
+    let eventWindowId: UInt32? = (isWindowCreated || isFocusChange) ? element.containingWindowId() : nil
+    var elementPid: pid_t = 0
+    let havePid = isWindowCreated && AXUIElementGetPid(element, &elementPid) == .success
     Task.startUnstructured { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
+        if let eventWindowId {
+            if isWindowCreated, havePid {
+                // Shield the window against focus stealing before the (slow) tree registration.
+                let app = NSRunningApplication(processIdentifier: elementPid)
+                preArmNoFocusSuppression(windowId: eventWindowId, pid: elementPid, appBundleId: app?.bundleIdentifier, appName: app?.localizedName)
+            } else if isFocusChange {
+                fastBounceNoFocusSuppression(windowId: eventWindowId, pid: nil)
+            }
+        }
         scheduleCancellableCompleteRefreshSession(.ax(notif))
     }
 }

@@ -345,9 +345,9 @@ public enum AeroObjKind: CaseIterable, Sendable {
             .compactMap { InterVar(rawValue: $0) }
             .filter { v in
                 v != .plainInterVar(.rightPadding) &&
-                v != .plainInterVar(.newline) &&
-                v != .plainInterVar(.tab) &&
-                v != .plainInterVar(.all)
+                    v != .plainInterVar(.newline) &&
+                    v != .plainInterVar(.tab) &&
+                    v != .plainInterVar(.all)
             }
             .map { .interVar($0) }
     }

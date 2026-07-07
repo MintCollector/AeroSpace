@@ -138,4 +138,131 @@ final class NoFocusSuppressionTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 2) // Unchanged legacy behavior
         assertEquals(focus.workspace.name, "other")
     }
+
+    func testFastBounceByWindowId() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected // Native steal, model not yet aware
+        fastBounceNoFocusSuppression(windowId: 2, pid: nil)
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 1) // Native focus bounced back
+        assertEquals(focus.windowOrNil?.windowId, 1) // Model focus untouched
+    }
+
+    func testFastBounceByPid() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected
+        fastBounceNoFocusSuppression(windowId: nil, pid: TestApp.shared.pid) // App-activation path
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 1)
+        assertEquals(focus.windowOrNil?.windowId, 1)
+    }
+
+    func testFastBounceExpiredEntryIsNoop() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected
+        fastBounceNoFocusSuppression(windowId: 2, pid: nil, now: Date().addingTimeInterval(noFocusSuppressionTtl + 0.1))
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 2) // Expired: no bounce
+    }
+
+    func testFastBounceUnknownWindowIsNoop() {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let other = TestWindow.new(id: 3, parent: workspace.rootTilingContainer)
+
+        TestApp.shared.focusedWindow = other // Focus change with no armed suppression
+        fastBounceNoFocusSuppression(windowId: 3, pid: nil)
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 3) // Untouched
+    }
+
+    func testPreArmMatchesAppIdOnlyRule() {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        // Window 42 not yet in the tree — pre-arm fires straight off the AX windowCreated event
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression[42]?.restoreWindowId, 1)
+        assertEquals(noFocusSuppression[42]?.pid, 99)
+    }
+
+    func testPreArmSkipsWindowConditionedRule() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(
+                    appId: "com.example.app",
+                    windowTitleRegexSubstring: .new("Notification").getOrDie(),
+                )),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        // Title can't be evaluated before the window is in the tree — must NOT pre-arm
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
+
+    func testPreArmSkipsNonMatchingApp() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+        ]
+
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.other.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
+
+    func testPreArmSkipsCommandMatcherAndNonNoFocusRules() {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [
+            WindowDetectedCallback(matcher: .command(.empty), noFocus: true, rawRun: .empty), // Command matcher: needs the window
+            WindowDetectedCallback( // Matching app, but no-focus not set
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(appId: "com.example.app")),
+                rawRun: .empty,
+            ),
+        ]
+
+        preArmNoFocusSuppression(windowId: 42, pid: 99, appBundleId: "com.example.app", appName: nil)
+
+        assertEquals(noFocusSuppression.isEmpty, true)
+    }
 }

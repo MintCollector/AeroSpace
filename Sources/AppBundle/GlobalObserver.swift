@@ -13,9 +13,16 @@ enum GlobalObserver {
             return
         }
         let notifName = notification.name.rawValue
+        let activatedPid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
         Task.startUnstructured { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
+                // The activation IS the focus steal for windows under no-focus suppression
+                // (e.g. an app that activates well after its window was created). Bounce here,
+                // before the refresh session's slow getNativeFocusedWindow round-trip.
+                if let activatedPid {
+                    fastBounceNoFocusSuppression(windowId: nil, pid: activatedPid)
+                }
                 scheduleCancellableCompleteRefreshSession(.globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
             } else {
                 scheduleCancellableCompleteRefreshSession(.globalObserver(notifName))

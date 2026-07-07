@@ -110,6 +110,7 @@ func focusLog(_ msg: String) {
 
 struct NoFocusSuppressionEntry {
     let restoreWindowId: UInt32?
+    let pid: pid_t
     let deadline: Date
 }
 
@@ -132,6 +133,7 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
         : modelFocusedId
     noFocusSuppression[window.windowId] = NoFocusSuppressionEntry(
         restoreWindowId: restoreWindowId,
+        pid: window.app.pid,
         deadline: now.addingTimeInterval(noFocusSuppressionTtl),
     )
     focusLog("[focus-cache] no-focus armed for window \(window.windowId) (app: \(window.app.name ?? "?")), restore target: \(restoreWindowId.map(String.init) ?? "nil")")
@@ -142,6 +144,81 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
         restore.nativeFocus()
         focusLog("[focus-cache] no-focus immediate bounce: window \(window.windowId) -> restore window \(restore.windowId)")
     }
+}
+
+/// Arms no-focus suppression straight off the AX windowCreated notification, BEFORE the window is
+/// registered in the tree. Detection rides on the heavy refresh (plus on-window-detected callbacks
+/// like aero-helper auto-place) and can lag the window's appearance by hundreds of ms — without
+/// pre-arming, the app can steal focus unopposed in that gap. Only rules decidable from the app
+/// alone pre-arm (app-id / app-name matchers); window-title / workspace conditioned rules and
+/// command matchers arm at detection as usual. Detection later refreshes the entry (and its TTL).
+@MainActor func preArmNoFocusSuppression(windowId: UInt32, pid: pid_t, appBundleId: String?, appName: String?, now: Date = Date()) {
+    if noFocusSuppression[windowId] != nil { return }
+    let matches = config.onWindowDetected.contains { callback in
+        guard callback.noFocus, case .legacy(let matcher) = callback.matcher else { return false }
+        return matcher.matchesAppBeforeDetection(bundleId: appBundleId, appName: appName)
+    }
+    guard matches else { return }
+    let restoreWindowId = focus.windowOrNil?.windowId
+    noFocusSuppression[windowId] = NoFocusSuppressionEntry(
+        restoreWindowId: restoreWindowId,
+        pid: pid,
+        deadline: now.addingTimeInterval(noFocusSuppressionTtl),
+    )
+    focusLog("[focus-cache] no-focus pre-armed for window \(windowId) (bundle: \(appBundleId ?? "?")), restore target: \(restoreWindowId.map(String.init) ?? "nil")")
+}
+
+extension LegacyWindowDetectedCallbackMatcher {
+    /// Whether this matcher is fully decidable from the app alone (no Window in the tree yet)
+    /// AND matches the given app. Window-title / workspace conditions force a "no".
+    @MainActor fileprivate func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
+        if windowTitleRegexSubstring != nil || workspace != nil {
+            return false
+        }
+        if let startupMatcher = duringAeroSpaceStartup, startupMatcher != isStartup {
+            return false
+        }
+        if let appIds, !appIds.contains(bundleId ?? "") {
+            return false
+        }
+        if let regex = appIdRegexSubstring, (bundleId ?? "").contains(caseInsensitiveRegex: regex) != true {
+            return false
+        }
+        if let regex = appNameRegexSubstring, (appName ?? "").contains(caseInsensitiveRegex: regex) != true {
+            return false
+        }
+        return true
+    }
+}
+
+/// Fast-path bounce, called straight from the notification handlers (per-app AX
+/// kAXFocusedWindowChangedNotification and NSWorkspace didActivateApplicationNotification)
+/// WITHOUT waiting for a refresh session. The refresh path still bounces via updateFocusCache,
+/// but it first does an AX round-trip to the stealing app (getNativeFocusedWindow) which can
+/// take hundreds of ms on a busy app — this path reacts in the notification itself.
+/// Match by windowId when the AX event carries the window, or by pid on app activation.
+@MainActor func fastBounceNoFocusSuppression(windowId: UInt32?, pid: pid_t?, now: Date = Date()) {
+    let suppressedWindowId: UInt32? = if let windowId, noFocusSuppression[windowId] != nil {
+        windowId
+    } else if let pid {
+        noFocusSuppression.first { $0.value.pid == pid }?.key
+    } else {
+        nil
+    }
+    guard let suppressedWindowId, let entry = noFocusSuppression[suppressedWindowId] else { return }
+    if entry.deadline <= now {
+        noFocusSuppression[suppressedWindowId] = nil
+        return
+    }
+    // Same target selection as the updateFocusCache bounce: live model focus beats the remembered
+    // id — unless the model already adopted the suppressed window, then fall back to the memory.
+    let modelFocus = focus.windowOrNil
+    let bounceTarget: Window? = (modelFocus?.windowId != suppressedWindowId ? modelFocus : nil)
+        ?? entry.restoreWindowId.flatMap { Window.get(byId: $0) }
+    guard let bounceTarget, bounceTarget.windowId != suppressedWindowId else { return }
+    _ = bounceTarget.focusWindow()
+    bounceTarget.nativeFocus()
+    focusLog("[focus-cache] no-focus fast bounce: window \(suppressedWindowId) -> restore window \(bounceTarget.windowId)")
 }
 
 /// Test-only. Resets focusCache module state between unit tests.
