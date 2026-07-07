@@ -395,10 +395,11 @@ final class MacApp: AbstractApp {
                 for key in axGone.keys { alive.removeValue(forKey: key) }
                 nativeTabGroups = alive.nativeTabGroups()
             } else {
-                eprint("[alive-check] \(nsApp.idForDebug): AX probe failed (200ms timeout) — marking \(alive.count) window(s) dead: \(alive.keys.sorted())")
-                dead.merge(alive) { _, new in new }
-                alive.removeAll()
-                nativeTabGroups = []
+                // App is unresponsive — preserve existing alive set instead of GC'ing.
+                // Upstream never marks windows dead on probe failure; doing so causes
+                // re-registration → on-window-detected → focus-steal cascades.
+                eprint("[alive-check] \(nsApp.idForDebug): AX probe failed (200ms timeout) — preserving \(alive.count) window(s)")
+                nativeTabGroups = alive.nativeTabGroups()
             }
             let inactiveNativeTabWindowIds = nativeTabGroups.flatMap(\.inactiveWindowIds).toSet()
             let activeWindowIds = alive.keys.filter { !inactiveNativeTabWindowIds.contains($0) }

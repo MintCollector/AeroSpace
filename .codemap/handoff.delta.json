@@ -1,0 +1,30 @@
+{
+  "changed": [
+    {
+      "path": "CLAUDE.md",
+      "hash": "9ac1f4bb9aba10d0e125f6ca654901a6b7120dd36eefe80f1144e37c6845f756",
+      "size": 4583,
+      "status": "modified"
+    },
+    {
+      "path": "Sources/AppBundle/tree/MacApp.swift",
+      "hash": "d5e040daede08a88d00bd29244dbe3a785ec3fcbe37b926716fb3f0d58b27b59",
+      "size": 26665,
+      "status": "modified"
+    },
+    {
+      "path": "docs/plans/2026-06-30-fast-destroy-gc.md",
+      "hash": "af1607f3b1266dd412368bcc93abef275617e4f933984e4b797cc62f1a70b53d",
+      "size": 10210,
+      "status": "untracked"
+    }
+  ],
+  "risk_files": [],
+  "recent_events": [],
+  "next_steps": [
+    "Run tests covering changed files before handoff."
+  ],
+  "open_questions": [
+    "No recent timeline events matched the lookback window."
+  ]
+}

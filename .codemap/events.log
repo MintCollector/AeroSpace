@@ -1,0 +1,47 @@
+2026-06-26 18:43:52 | REMOVE | Sources/AppBundle/tree/MacApp.swift      |    0 |   -551 | 
+2026-06-26 18:43:52 | CREATE | Sources/AppBundle/tree/MacApp.swift      |  552 |   +552 | dirty
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundle/config/parseOnWindowDetected.swift |    0 |   -205 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundle/config/parseOnWindowDetected.swift |  211 |   +211 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundle/focusCache.swift       |    0 |    -76 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundle/focusCache.swift       |  152 |   +152 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundle/tree/MacWindow.swift   |    0 |   -435 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundle/tree/MacWindow.swift   |  440 |   +440 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/AxUiElementWindowTypeTest.swift |    0 |   -138 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/AxUiElementWindowTypeTest.swift |  139 |   +139 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/CgWindowSnapshotTest.swift |    0 |    -38 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/CgWindowSnapshotTest.swift |   37 |    +37 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/EchoCommandTest.swift |    0 |   -120 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/EchoCommandTest.swift |  120 |   +120 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift |    0 |    -47 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift |   47 |    +47 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/FocusCommandTest.swift |    0 |   -285 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/FocusCommandTest.swift |  284 |   +284 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/FormatTest.swift |    0 |   -462 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/FormatTest.swift |  462 |   +462 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/LayoutCommandTest.swift |    0 |   -571 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/LayoutCommandTest.swift |  575 |   +575 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/ListTreeTest.swift |    0 |    -55 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/ListTreeTest.swift |   55 |    +55 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/ListWindowsTest.swift |    0 |   -321 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/ListWindowsTest.swift |  321 |   +321 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/ListWorkspacesTest.swift |    0 |   -151 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/ListWorkspacesTest.swift |  151 |   +151 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/WorkspaceCommandTest.swift |    0 |   -187 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/WorkspaceCommandTest.swift |  187 |   +187 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift |    0 |   -243 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift |  243 |   +243 | 
+2026-07-07 10:19:29 | REMOVE | Sources/AppBundleTests/config/ConfigTest.swift |    0 |   -860 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/config/ConfigTest.swift |  863 |   +863 | 
+2026-07-07 10:19:29 | CREATE | Sources/AppBundleTests/tree/NoFocusSuppressionTest.swift |  141 |   +141 | 
+2026-07-07 10:20:41 | WRITE  | Sources/Common/versionGenerated.swift    |    2 |        | 
+2026-07-07 10:20:41 | WRITE  | Sources/Cli/subcommandDescriptionsGenerated.swift |   52 |        | 
+2026-07-07 10:20:41 | WRITE  | Sources/Common/gitHashGenerated.swift    |    3 |        | 
+2026-07-07 10:54:52 | REMOVE | Sources/AppBundle/model/AxUiElementWindowType.swift |    0 |   -235 | 
+2026-07-07 10:54:52 | CREATE | Sources/AppBundle/model/AxUiElementWindowType.swift |  228 |   +228 | 
+2026-07-07 10:54:52 | REMOVE | Sources/AppBundle/model/KnownBundleId.swift |    0 |    -46 | 
+2026-07-07 10:54:52 | CREATE | Sources/AppBundle/model/KnownBundleId.swift |   47 |    +47 | 
+2026-07-07 10:54:52 | REMOVE | Sources/AppBundleTests/AxUiElementWindowTypeTest.swift |    0 |   -139 | 
+2026-07-07 10:54:52 | CREATE | Sources/AppBundleTests/AxUiElementWindowTypeTest.swift |  141 |   +141 | 
+2026-07-07 10:55:10 | WRITE  | Sources/Common/versionGenerated.swift    |    2 |        | 
+2026-07-07 10:55:10 | WRITE  | Sources/Cli/subcommandDescriptionsGenerated.swift |   52 |        | 
+2026-07-07 10:55:10 | WRITE  | Sources/Common/gitHashGenerated.swift    |    3 |        | 

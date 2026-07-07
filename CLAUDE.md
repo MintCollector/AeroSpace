@@ -46,7 +46,8 @@ bash script/generate-cmd-help.sh
 ## Config
 
 - User config: `~/.config/aerospace/aerospace.toml`
-- aero-helper profiles: `~/code/aero-helper/profiles.toml`
+- aero-helper profiles: `../aero-helper/profiles.toml`
+- **Both files must be updated together** when changing config values (gaps, keybindings, max-window-width, etc.)
 
 ## Notable forks (features worth porting)
 

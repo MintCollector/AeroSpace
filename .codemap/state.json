@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-06-26T14:18:15.226762-07:00",
-  "file_count": 579,
+  "updated_at": "2026-07-07T10:55:10.418909-07:00",
+  "file_count": 588,
   "hubs": [
     "script/setup.sh"
   ],
   "importers": {
     "script/setup.sh": [
-      "test.sh",
+      "swift-test.sh",
+      "run-cli.sh",
+      "generate.sh",
+      "build-docs.sh",
       "build-release.sh",
+      "build-debug.sh",
+      "lint.sh",
+      "test.sh",
+      "run-debug.sh",
       "format.sh",
       "install-from-sources.sh",
-      "run-cli.sh",
-      "run-debug.sh",
-      "build-docs.sh",
-      "swift-test.sh",
-      "build-shell-completion.sh",
-      "lint.sh",
-      "generate.sh",
-      "build-debug.sh"
+      "build-shell-completion.sh"
     ]
   },
   "imports": {
@@ -58,5 +58,583 @@
       "script/setup.sh"
     ]
   },
-  "recent_events": null
+  "recent_events": [
+    {
+      "time": "2026-07-07T10:19:29.174086-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/config/parseOnWindowDetected.swift",
+      "lang": "swift",
+      "delta": -205,
+      "size_delta": -8767
+    },
+    {
+      "time": "2026-07-07T10:19:29.174903-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/config/parseOnWindowDetected.swift",
+      "lang": "swift",
+      "lines": 211,
+      "delta": 211,
+      "size_delta": 8961
+    },
+    {
+      "time": "2026-07-07T10:19:29.18127-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/focusCache.swift",
+      "lang": "swift",
+      "delta": -76,
+      "size_delta": -3715
+    },
+    {
+      "time": "2026-07-07T10:19:29.181566-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/focusCache.swift",
+      "lang": "swift",
+      "lines": 152,
+      "delta": 152,
+      "size_delta": 8480
+    },
+    {
+      "time": "2026-07-07T10:19:29.187452-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/tree/MacWindow.swift",
+      "lang": "swift",
+      "delta": -435,
+      "size_delta": -21824
+    },
+    {
+      "time": "2026-07-07T10:19:29.187758-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/tree/MacWindow.swift",
+      "lang": "swift",
+      "lines": 440,
+      "delta": 440,
+      "size_delta": 22068
+    },
+    {
+      "time": "2026-07-07T10:19:29.193522-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift",
+      "lang": "swift",
+      "delta": -138,
+      "size_delta": -5002
+    },
+    {
+      "time": "2026-07-07T10:19:29.193824-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift",
+      "lang": "swift",
+      "lines": 139,
+      "delta": 139,
+      "size_delta": 5039
+    },
+    {
+      "time": "2026-07-07T10:19:29.198786-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/CgWindowSnapshotTest.swift",
+      "lang": "swift",
+      "delta": -38,
+      "size_delta": -1428
+    },
+    {
+      "time": "2026-07-07T10:19:29.199136-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/CgWindowSnapshotTest.swift",
+      "lang": "swift",
+      "lines": 37,
+      "delta": 37,
+      "size_delta": 1427
+    },
+    {
+      "time": "2026-07-07T10:19:29.204001-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/EchoCommandTest.swift",
+      "lang": "swift",
+      "delta": -120,
+      "size_delta": -5680
+    },
+    {
+      "time": "2026-07-07T10:19:29.204287-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/EchoCommandTest.swift",
+      "lang": "swift",
+      "lines": 120,
+      "delta": 120,
+      "size_delta": 5849
+    },
+    {
+      "time": "2026-07-07T10:19:29.209392-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift",
+      "lang": "swift",
+      "delta": -47,
+      "size_delta": -2259
+    },
+    {
+      "time": "2026-07-07T10:19:29.209726-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift",
+      "lang": "swift",
+      "lines": 47,
+      "delta": 47,
+      "size_delta": 2290
+    },
+    {
+      "time": "2026-07-07T10:19:29.214115-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/FocusCommandTest.swift",
+      "lang": "swift",
+      "delta": -285,
+      "size_delta": -12570
+    },
+    {
+      "time": "2026-07-07T10:19:29.214411-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/FocusCommandTest.swift",
+      "lang": "swift",
+      "lines": 284,
+      "delta": 284,
+      "size_delta": 12552
+    },
+    {
+      "time": "2026-07-07T10:19:29.220021-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/FormatTest.swift",
+      "lang": "swift",
+      "delta": -462,
+      "size_delta": -21532
+    },
+    {
+      "time": "2026-07-07T10:19:29.22038-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/FormatTest.swift",
+      "lang": "swift",
+      "lines": 462,
+      "delta": 462,
+      "size_delta": 21498
+    },
+    {
+      "time": "2026-07-07T10:19:29.226078-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/LayoutCommandTest.swift",
+      "lang": "swift",
+      "delta": -571,
+      "size_delta": -24366
+    },
+    {
+      "time": "2026-07-07T10:19:29.226392-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/LayoutCommandTest.swift",
+      "lang": "swift",
+      "lines": 575,
+      "delta": 575,
+      "size_delta": 24650
+    },
+    {
+      "time": "2026-07-07T10:19:29.231187-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/ListTreeTest.swift",
+      "lang": "swift",
+      "delta": -55,
+      "size_delta": -2974
+    },
+    {
+      "time": "2026-07-07T10:19:29.231489-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/ListTreeTest.swift",
+      "lang": "swift",
+      "lines": 55,
+      "delta": 55,
+      "size_delta": 2980
+    },
+    {
+      "time": "2026-07-07T10:19:29.236484-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/ListWindowsTest.swift",
+      "lang": "swift",
+      "delta": -321,
+      "size_delta": -17600
+    },
+    {
+      "time": "2026-07-07T10:19:29.236811-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/ListWindowsTest.swift",
+      "lang": "swift",
+      "lines": 321,
+      "delta": 321,
+      "size_delta": 17653
+    },
+    {
+      "time": "2026-07-07T10:19:29.242437-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/ListWorkspacesTest.swift",
+      "lang": "swift",
+      "delta": -151,
+      "size_delta": -8186
+    },
+    {
+      "time": "2026-07-07T10:19:29.2428-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/ListWorkspacesTest.swift",
+      "lang": "swift",
+      "lines": 151,
+      "delta": 151,
+      "size_delta": 8150
+    },
+    {
+      "time": "2026-07-07T10:19:29.247677-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/WorkspaceCommandTest.swift",
+      "lang": "swift",
+      "delta": -187,
+      "size_delta": -9587
+    },
+    {
+      "time": "2026-07-07T10:19:29.248087-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/WorkspaceCommandTest.swift",
+      "lang": "swift",
+      "lines": 187,
+      "delta": 187,
+      "size_delta": 9599
+    },
+    {
+      "time": "2026-07-07T10:19:29.253196-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift",
+      "lang": "swift",
+      "delta": -243,
+      "size_delta": -9063
+    },
+    {
+      "time": "2026-07-07T10:19:29.253692-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift",
+      "lang": "swift",
+      "lines": 243,
+      "delta": 243,
+      "size_delta": 9069
+    },
+    {
+      "time": "2026-07-07T10:19:29.258716-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/config/ConfigTest.swift",
+      "lang": "swift",
+      "delta": -860,
+      "size_delta": -31962
+    },
+    {
+      "time": "2026-07-07T10:19:29.259157-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/config/ConfigTest.swift",
+      "lang": "swift",
+      "lines": 863,
+      "delta": 863,
+      "size_delta": 32192
+    },
+    {
+      "time": "2026-07-07T10:19:29.264214-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/tree/NoFocusSuppressionTest.swift",
+      "lang": "swift",
+      "lines": 141,
+      "delta": 141,
+      "size_delta": 6633
+    },
+    {
+      "time": "2026-07-07T10:20:41.449396-07:00",
+      "op": "WRITE",
+      "path": "Sources/Common/versionGenerated.swift",
+      "lang": "swift",
+      "lines": 2
+    },
+    {
+      "time": "2026-07-07T10:20:41.740236-07:00",
+      "op": "WRITE",
+      "path": "Sources/Cli/subcommandDescriptionsGenerated.swift",
+      "lang": "swift",
+      "lines": 52
+    },
+    {
+      "time": "2026-07-07T10:20:41.748295-07:00",
+      "op": "WRITE",
+      "path": "Sources/Common/gitHashGenerated.swift",
+      "lang": "swift",
+      "lines": 3
+    },
+    {
+      "time": "2026-07-07T10:54:52.786961-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/model/AxUiElementWindowType.swift",
+      "lang": "swift",
+      "delta": -235,
+      "size_delta": -10342
+    },
+    {
+      "time": "2026-07-07T10:54:52.787727-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/model/AxUiElementWindowType.swift",
+      "lang": "swift",
+      "lines": 228,
+      "delta": 228,
+      "size_delta": 10264
+    },
+    {
+      "time": "2026-07-07T10:54:52.793292-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/model/KnownBundleId.swift",
+      "lang": "swift",
+      "delta": -46,
+      "size_delta": -1654
+    },
+    {
+      "time": "2026-07-07T10:54:52.793695-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/model/KnownBundleId.swift",
+      "lang": "swift",
+      "lines": 47,
+      "delta": 47,
+      "size_delta": 1697
+    },
+    {
+      "time": "2026-07-07T10:54:52.798987-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift",
+      "lang": "swift",
+      "delta": -139,
+      "size_delta": -5039
+    },
+    {
+      "time": "2026-07-07T10:54:52.799352-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift",
+      "lang": "swift",
+      "lines": 141,
+      "delta": 141,
+      "size_delta": 5229
+    },
+    {
+      "time": "2026-07-07T10:55:10.109043-07:00",
+      "op": "WRITE",
+      "path": "Sources/Common/versionGenerated.swift",
+      "lang": "swift",
+      "lines": 2
+    },
+    {
+      "time": "2026-07-07T10:55:10.406562-07:00",
+      "op": "WRITE",
+      "path": "Sources/Cli/subcommandDescriptionsGenerated.swift",
+      "lang": "swift",
+      "lines": 52
+    },
+    {
+      "time": "2026-07-07T10:55:10.414317-07:00",
+      "op": "WRITE",
+      "path": "Sources/Common/gitHashGenerated.swift",
+      "lang": "swift",
+      "lines": 3
+    }
+  ],
+  "working_set": {
+    "files": {
+      "Sources/AppBundle/config/parseOnWindowDetected.swift": {
+        "path": "Sources/AppBundle/config/parseOnWindowDetected.swift",
+        "first_touch": "2026-07-07T10:19:29.18075-07:00",
+        "last_touch": "2026-07-07T10:19:29.18075-07:00",
+        "edit_count": 1,
+        "net_delta": 211,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundle/focusCache.swift": {
+        "path": "Sources/AppBundle/focusCache.swift",
+        "first_touch": "2026-07-07T10:19:29.186489-07:00",
+        "last_touch": "2026-07-07T10:19:29.186489-07:00",
+        "edit_count": 1,
+        "net_delta": 152,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundle/model/AxUiElementWindowType.swift": {
+        "path": "Sources/AppBundle/model/AxUiElementWindowType.swift",
+        "first_touch": "2026-07-07T10:54:52.792648-07:00",
+        "last_touch": "2026-07-07T10:54:52.792648-07:00",
+        "edit_count": 1,
+        "net_delta": 228,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundle/model/KnownBundleId.swift": {
+        "path": "Sources/AppBundle/model/KnownBundleId.swift",
+        "first_touch": "2026-07-07T10:54:52.798383-07:00",
+        "last_touch": "2026-07-07T10:54:52.798383-07:00",
+        "edit_count": 1,
+        "net_delta": 47,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundle/tree/MacWindow.swift": {
+        "path": "Sources/AppBundle/tree/MacWindow.swift",
+        "first_touch": "2026-07-07T10:19:29.192636-07:00",
+        "last_touch": "2026-07-07T10:19:29.192636-07:00",
+        "edit_count": 1,
+        "net_delta": 440,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift": {
+        "path": "Sources/AppBundleTests/AxUiElementWindowTypeTest.swift",
+        "first_touch": "2026-07-07T10:54:52.803152-07:00",
+        "last_touch": "2026-07-07T10:54:52.803152-07:00",
+        "edit_count": 1,
+        "net_delta": 141,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/CgWindowSnapshotTest.swift": {
+        "path": "Sources/AppBundleTests/CgWindowSnapshotTest.swift",
+        "first_touch": "2026-07-07T10:19:29.203565-07:00",
+        "last_touch": "2026-07-07T10:19:29.203565-07:00",
+        "edit_count": 1,
+        "net_delta": 37,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/EchoCommandTest.swift": {
+        "path": "Sources/AppBundleTests/command/EchoCommandTest.swift",
+        "first_touch": "2026-07-07T10:19:29.208485-07:00",
+        "last_touch": "2026-07-07T10:19:29.208485-07:00",
+        "edit_count": 1,
+        "net_delta": 120,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift": {
+        "path": "Sources/AppBundleTests/command/FlattenWorkspaceTreeCommandTest.swift",
+        "first_touch": "2026-07-07T10:19:29.21368-07:00",
+        "last_touch": "2026-07-07T10:19:29.21368-07:00",
+        "edit_count": 1,
+        "net_delta": 47,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/FocusCommandTest.swift": {
+        "path": "Sources/AppBundleTests/command/FocusCommandTest.swift",
+        "first_touch": "2026-07-07T10:19:29.219456-07:00",
+        "last_touch": "2026-07-07T10:19:29.219456-07:00",
+        "edit_count": 1,
+        "net_delta": 284,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/FormatTest.swift": {
+        "path": "Sources/AppBundleTests/command/FormatTest.swift",
+        "first_touch": "2026-07-07T10:19:29.225076-07:00",
+        "last_touch": "2026-07-07T10:19:29.225076-07:00",
+        "edit_count": 1,
+        "net_delta": 462,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/LayoutCommandTest.swift": {
+        "path": "Sources/AppBundleTests/command/LayoutCommandTest.swift",
+        "first_touch": "2026-07-07T10:19:29.230726-07:00",
+        "last_touch": "2026-07-07T10:19:29.230726-07:00",
+        "edit_count": 1,
+        "net_delta": 575,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/ListTreeTest.swift": {
+        "path": "Sources/AppBundleTests/command/ListTreeTest.swift",
+        "first_touch": "2026-07-07T10:19:29.235934-07:00",
+        "last_touch": "2026-07-07T10:19:29.235934-07:00",
+        "edit_count": 1,
+        "net_delta": 55,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/ListWindowsTest.swift": {
+        "path": "Sources/AppBundleTests/command/ListWindowsTest.swift",
+        "first_touch": "2026-07-07T10:19:29.241587-07:00",
+        "last_touch": "2026-07-07T10:19:29.241587-07:00",
+        "edit_count": 1,
+        "net_delta": 321,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/ListWorkspacesTest.swift": {
+        "path": "Sources/AppBundleTests/command/ListWorkspacesTest.swift",
+        "first_touch": "2026-07-07T10:19:29.247239-07:00",
+        "last_touch": "2026-07-07T10:19:29.247239-07:00",
+        "edit_count": 1,
+        "net_delta": 151,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/WorkspaceCommandTest.swift": {
+        "path": "Sources/AppBundleTests/command/WorkspaceCommandTest.swift",
+        "first_touch": "2026-07-07T10:19:29.252456-07:00",
+        "last_touch": "2026-07-07T10:19:29.252456-07:00",
+        "edit_count": 1,
+        "net_delta": 187,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift": {
+        "path": "Sources/AppBundleTests/command/WorkspaceViewToggleTest.swift",
+        "first_touch": "2026-07-07T10:19:29.257702-07:00",
+        "last_touch": "2026-07-07T10:19:29.257702-07:00",
+        "edit_count": 1,
+        "net_delta": 243,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/config/ConfigTest.swift": {
+        "path": "Sources/AppBundleTests/config/ConfigTest.swift",
+        "first_touch": "2026-07-07T10:19:29.263557-07:00",
+        "last_touch": "2026-07-07T10:19:29.263557-07:00",
+        "edit_count": 1,
+        "net_delta": 863,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundleTests/tree/NoFocusSuppressionTest.swift": {
+        "path": "Sources/AppBundleTests/tree/NoFocusSuppressionTest.swift",
+        "first_touch": "2026-07-07T10:19:29.268297-07:00",
+        "last_touch": "2026-07-07T10:19:29.268297-07:00",
+        "edit_count": 1,
+        "net_delta": 141,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/Cli/subcommandDescriptionsGenerated.swift": {
+        "path": "Sources/Cli/subcommandDescriptionsGenerated.swift",
+        "first_touch": "2026-07-07T10:20:41.747005-07:00",
+        "last_touch": "2026-07-07T10:55:10.413143-07:00",
+        "edit_count": 2,
+        "net_delta": 0,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/Common/gitHashGenerated.swift": {
+        "path": "Sources/Common/gitHashGenerated.swift",
+        "first_touch": "2026-07-07T10:20:41.752583-07:00",
+        "last_touch": "2026-07-07T10:55:10.418801-07:00",
+        "edit_count": 2,
+        "net_delta": 0,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/Common/versionGenerated.swift": {
+        "path": "Sources/Common/versionGenerated.swift",
+        "first_touch": "2026-07-07T10:20:41.456395-07:00",
+        "last_touch": "2026-07-07T10:55:10.116378-07:00",
+        "edit_count": 2,
+        "net_delta": 0,
+        "is_hub": false,
+        "importers": 0
+      }
+    },
+    "started_at": "2026-07-07T09:05:27.640125-07:00"
+  }
 }
