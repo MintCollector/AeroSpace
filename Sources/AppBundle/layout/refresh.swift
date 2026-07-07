@@ -165,10 +165,20 @@ private func refresh() async throws {
     Workspace.garbageCollectUnusedWorkspaces()
 }
 
-func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
+func refreshObs(_: AXObserver, _ element: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notif as String
+    // For focus-change events, resolve the windowId here on the app's AX thread — the element in
+    // the notification IS the newly focused window, so no extra cross-process AX query is needed
+    // later. Feeds the no-focus fast bounce, which must not wait for the refresh session (its
+    // getNativeFocusedWindow round-trip can take hundreds of ms against a busy app).
+    let focusedWindowId: UInt32? = notif == kAXFocusedWindowChangedNotification
+        ? element.containingWindowId()
+        : nil
     Task.startUnstructured { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
+        if let focusedWindowId {
+            fastBounceNoFocusSuppression(windowId: focusedWindowId, pid: nil)
+        }
         scheduleCancellableCompleteRefreshSession(.ax(notif))
     }
 }

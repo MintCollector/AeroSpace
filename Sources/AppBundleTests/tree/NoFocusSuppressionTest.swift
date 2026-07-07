@@ -138,4 +138,60 @@ final class NoFocusSuppressionTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 2) // Unchanged legacy behavior
         assertEquals(focus.workspace.name, "other")
     }
+
+    func testFastBounceByWindowId() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected // Native steal, model not yet aware
+        fastBounceNoFocusSuppression(windowId: 2, pid: nil)
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 1) // Native focus bounced back
+        assertEquals(focus.windowOrNil?.windowId, 1) // Model focus untouched
+    }
+
+    func testFastBounceByPid() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected
+        fastBounceNoFocusSuppression(windowId: nil, pid: TestApp.shared.pid) // App-activation path
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 1)
+        assertEquals(focus.windowOrNil?.windowId, 1)
+    }
+
+    func testFastBounceExpiredEntryIsNoop() async {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let detected = TestWindow.new(id: 2, parent: Workspace.get(byName: "other").rootTilingContainer)
+        config.onWindowDetected = [noFocusRule]
+        await tryOnWindowDetected(detected)
+
+        TestApp.shared.focusedWindow = detected
+        fastBounceNoFocusSuppression(windowId: 2, pid: nil, now: Date().addingTimeInterval(noFocusSuppressionTtl + 0.1))
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 2) // Expired: no bounce
+    }
+
+    func testFastBounceUnknownWindowIsNoop() {
+        let workspace = Workspace.get(byName: name)
+        let focused = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        assertEquals(focused.focusWindow(), true)
+        let other = TestWindow.new(id: 3, parent: workspace.rootTilingContainer)
+
+        TestApp.shared.focusedWindow = other // Focus change with no armed suppression
+        fastBounceNoFocusSuppression(windowId: 3, pid: nil)
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 3) // Untouched
+    }
 }

@@ -110,6 +110,7 @@ func focusLog(_ msg: String) {
 
 struct NoFocusSuppressionEntry {
     let restoreWindowId: UInt32?
+    let pid: pid_t
     let deadline: Date
 }
 
@@ -132,6 +133,7 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
         : modelFocusedId
     noFocusSuppression[window.windowId] = NoFocusSuppressionEntry(
         restoreWindowId: restoreWindowId,
+        pid: window.app.pid,
         deadline: now.addingTimeInterval(noFocusSuppressionTtl),
     )
     focusLog("[focus-cache] no-focus armed for window \(window.windowId) (app: \(window.app.name ?? "?")), restore target: \(restoreWindowId.map(String.init) ?? "nil")")
@@ -142,6 +144,36 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
         restore.nativeFocus()
         focusLog("[focus-cache] no-focus immediate bounce: window \(window.windowId) -> restore window \(restore.windowId)")
     }
+}
+
+/// Fast-path bounce, called straight from the notification handlers (per-app AX
+/// kAXFocusedWindowChangedNotification and NSWorkspace didActivateApplicationNotification)
+/// WITHOUT waiting for a refresh session. The refresh path still bounces via updateFocusCache,
+/// but it first does an AX round-trip to the stealing app (getNativeFocusedWindow) which can
+/// take hundreds of ms on a busy app — this path reacts in the notification itself.
+/// Match by windowId when the AX event carries the window, or by pid on app activation.
+@MainActor func fastBounceNoFocusSuppression(windowId: UInt32?, pid: pid_t?, now: Date = Date()) {
+    let suppressedWindowId: UInt32? = if let windowId, noFocusSuppression[windowId] != nil {
+        windowId
+    } else if let pid {
+        noFocusSuppression.first { $0.value.pid == pid }?.key
+    } else {
+        nil
+    }
+    guard let suppressedWindowId, let entry = noFocusSuppression[suppressedWindowId] else { return }
+    if entry.deadline <= now {
+        noFocusSuppression[suppressedWindowId] = nil
+        return
+    }
+    // Same target selection as the updateFocusCache bounce: live model focus beats the remembered
+    // id — unless the model already adopted the suppressed window, then fall back to the memory.
+    let modelFocus = focus.windowOrNil
+    let bounceTarget: Window? = (modelFocus?.windowId != suppressedWindowId ? modelFocus : nil)
+        ?? entry.restoreWindowId.flatMap { Window.get(byId: $0) }
+    guard let bounceTarget, bounceTarget.windowId != suppressedWindowId else { return }
+    _ = bounceTarget.focusWindow()
+    bounceTarget.nativeFocus()
+    focusLog("[focus-cache] no-focus fast bounce: window \(suppressedWindowId) -> restore window \(bounceTarget.windowId)")
 }
 
 /// Test-only. Resets focusCache module state between unit tests.
