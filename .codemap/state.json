@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-07-07T10:55:10.418909-07:00",
+  "updated_at": "2026-07-07T11:12:41.042733-07:00",
   "file_count": 588,
   "hubs": [
     "script/setup.sh"
@@ -432,6 +432,40 @@
       "path": "Sources/Common/gitHashGenerated.swift",
       "lang": "swift",
       "lines": 3
+    },
+    {
+      "time": "2026-07-07T11:12:04.949403-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/tree/MacApp.swift",
+      "lang": "swift",
+      "delta": -552,
+      "size_delta": -26665
+    },
+    {
+      "time": "2026-07-07T11:12:04.950022-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/tree/MacApp.swift",
+      "lang": "swift",
+      "lines": 551,
+      "delta": 551,
+      "size_delta": 26495
+    },
+    {
+      "time": "2026-07-07T11:12:41.036532-07:00",
+      "op": "REMOVE",
+      "path": "Sources/AppBundle/tree/MacApp.swift",
+      "lang": "swift",
+      "delta": -551,
+      "size_delta": -26495
+    },
+    {
+      "time": "2026-07-07T11:12:41.036966-07:00",
+      "op": "CREATE",
+      "path": "Sources/AppBundle/tree/MacApp.swift",
+      "lang": "swift",
+      "lines": 552,
+      "delta": 552,
+      "size_delta": 26665
     }
   ],
   "working_set": {
@@ -469,6 +503,15 @@
         "last_touch": "2026-07-07T10:54:52.798383-07:00",
         "edit_count": 1,
         "net_delta": 47,
+        "is_hub": false,
+        "importers": 0
+      },
+      "Sources/AppBundle/tree/MacApp.swift": {
+        "path": "Sources/AppBundle/tree/MacApp.swift",
+        "first_touch": "2026-07-07T11:12:41.042593-07:00",
+        "last_touch": "2026-07-07T11:12:41.042593-07:00",
+        "edit_count": 1,
+        "net_delta": 552,
         "is_hub": false,
         "importers": 0
       },
