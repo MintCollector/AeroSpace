@@ -38,8 +38,8 @@ enum MaxWindowWidth: Equatable {
 
     func resolve(columnCount: Int) -> CGFloat? {
         switch self {
-        case .uniform(let w): return CGFloat(w)
-        case .perColumnCount(let dict): return dict[columnCount].map { CGFloat($0) }
+            case .uniform(let w): return CGFloat(w)
+            case .perColumnCount(let dict): return dict[columnCount].map { CGFloat($0) }
         }
     }
 }

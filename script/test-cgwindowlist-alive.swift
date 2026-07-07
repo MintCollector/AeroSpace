@@ -38,7 +38,8 @@ func readCgWindows() -> [UInt32: CgWindow] {
            let x = (b["X"] as? NSNumber)?.doubleValue,
            let y = (b["Y"] as? NSNumber)?.doubleValue,
            let w = (b["Width"] as? NSNumber)?.doubleValue,
-           let h = (b["Height"] as? NSNumber)?.doubleValue {
+           let h = (b["Height"] as? NSNumber)?.doubleValue
+        {
             bounds = CGRect(x: x, y: y, width: w, height: h)
         }
         result[id] = CgWindow(id: id, pid: pid, ownerName: ownerName, name: name,
@@ -60,7 +61,7 @@ func readAeroWindows() -> [UInt32: AeroWindow] {
     let proc = Process()
     proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     proc.arguments = ["aerospace", "list-windows", "--all",
-                       "--format", "%{window-id}|%{app-name}|%{workspace}|%{window-title}"]
+                      "--format", "%{window-id}|%{app-name}|%{workspace}|%{window-title}"]
     let pipe = Pipe()
     proc.standardOutput = pipe
     proc.standardError = FileHandle.nullDevice
