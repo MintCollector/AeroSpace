@@ -223,7 +223,7 @@ final class WorkspaceViewToggleTest: XCTestCase {
     // MARK: - Parsing
 
     func testParseViewToggle() {
-        testParseCommandSucc(
+        testParseSingleCommandSucc(
             "workspace --view-toggle 2",
             WorkspaceCmdArgs(rawArgs: []).copy(\.viewToggle, true).copy(\.target, .initialized(.direct(.parse("2").getOrDie()))),
         )

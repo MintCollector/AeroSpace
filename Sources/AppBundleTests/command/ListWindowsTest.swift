@@ -257,9 +257,9 @@ final class ListWindowsTest: XCTestCase {
             $0.changeOrientation(.h)
             let window = TestWindow.new(id: 1, parent: $0)
             let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
-            assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
-                .success(["horizontal"]),
+            assertSucc(
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
+                ["horizontal"],
             )
         }
 
@@ -267,9 +267,9 @@ final class ListWindowsTest: XCTestCase {
             $0.changeOrientation(.v)
             let window = TestWindow.new(id: 2, parent: $0)
             let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
-            assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
-                .success(["vertical"]),
+            assertSucc(
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
+                ["vertical"],
             )
         }
 
@@ -277,9 +277,9 @@ final class ListWindowsTest: XCTestCase {
             $0.changeOrientation(.h)
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
-            assertEquals(
-                workspaces.format([.interVar("workspace-root-container-orientation")]),
-                .success(["horizontal"]),
+            assertSucc(
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
+                ["horizontal"],
             )
         }
 
@@ -287,9 +287,9 @@ final class ListWindowsTest: XCTestCase {
             $0.changeOrientation(.v)
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
-            assertEquals(
-                workspaces.format([.interVar("workspace-root-container-orientation")]),
-                .success(["vertical"]),
+            assertSucc(
+                workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
+                ["vertical"],
             )
         }
 
@@ -298,9 +298,9 @@ final class ListWindowsTest: XCTestCase {
             let nestedContainer = TilingContainer.newVTiles(parent: root, adaptiveWeight: 1, index: 0)
             let window = TestWindow.new(id: 3, parent: nestedContainer)
             let windows = [AeroObj.window(.forTest(window: window, title: "nested"))]
-            assertEquals(
-                windows.format([.interVar("window-parent-container-orientation")]),
-                .success(["vertical"]),
+            assertSucc(
+                windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
+                ["vertical"],
             )
         }
 
@@ -308,13 +308,13 @@ final class ListWindowsTest: XCTestCase {
             $0.changeOrientation(.h)
             let window = TestWindow.new(id: 4, parent: $0)
             let windows = [AeroObj.window(.forTest(window: window, title: "combined"))]
-            assertEquals(
+            assertSucc(
                 windows.format([
-                    .interVar("window-parent-container-orientation"),
+                    .interVar(.formatVar(.window(.windowParentContainerOrientation))),
                     .literal(" | "),
-                    .interVar("window-parent-container-layout"),
+                    .interVar(.formatVar(.window(.windowParentContainerLayout))),
                 ]),
-                .success(["horizontal | h_tiles"]),
+                ["horizontal | h_tiles"],
             )
         }
     }

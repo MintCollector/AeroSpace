@@ -116,9 +116,9 @@ final class ListWorkspacesTest: XCTestCase {
             $0.changeOrientation(.h)
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
-            assertEquals(
+            assertSucc(
                 workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
-                .success(["horizontal"]),
+                ["horizontal"],
             )
         }
 
@@ -126,9 +126,9 @@ final class ListWorkspacesTest: XCTestCase {
             $0.changeOrientation(.v)
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
-            assertEquals(
+            assertSucc(
                 workspaces.format([.interVar(.formatVar(.workspace(.workspaceRootContainerOrientation)))]),
-                .success(["vertical"]),
+                ["vertical"],
             )
         }
 
@@ -136,7 +136,7 @@ final class ListWorkspacesTest: XCTestCase {
             $0.changeOrientation(.h)
             let workspace = Workspace.get(byName: name)
             let workspaces = [AeroObj.workspace(workspace)]
-            assertEquals(
+            assertSucc(
                 workspaces.format([
                     .interVar(.formatVar(.workspace(.workspaceName))),
                     .literal(" | "),
@@ -144,7 +144,7 @@ final class ListWorkspacesTest: XCTestCase {
                     .literal(" | "),
                     .interVar(.formatVar(.workspace(.workspaceRootContainerLayout))),
                 ]),
-                .success(["\(name) | horizontal | h_tiles"]),
+                ["\(name) | horizontal | h_tiles"],
             )
         }
     }

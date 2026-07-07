@@ -14,7 +14,7 @@ build:
 	swift build --arch arm64
 
 build-release:
-	./generate.sh --ignore-xcodeproj --ignore-cmd-help --ignore-shell-parser
+	./generate.sh --ignore-xcodeproj --ignore-cmd-help
 	swift build -c release --arch arm64 --product aerospace
 	xcodebuild clean build -scheme AeroSpace -destination "generic/platform=macOS" -configuration Release -derivedDataPath .xcode-build CODE_SIGN_IDENTITY="$(CODESIGN_IDENTITY)" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual
 	rm -rf .release && mkdir .release

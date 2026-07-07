@@ -34,5 +34,4 @@ final class CgWindowSnapshotTest: XCTestCase {
         let snap = parseCgWindowSnapshot([noNumber as NSDictionary])
         assertEquals(snap.count, 0)
     }
-
 }

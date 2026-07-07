@@ -136,8 +136,7 @@ final class FocusCommandTest: XCTestCase {
     func testFocusAcrossTheContainerOrientation() async {
         Workspace.get(byName: name).apply {
             TestWindow.new(id: 1, parent: $0.rootTilingContainer)
-            TestWindow.new(id: 2, parent: $0.rootTilingContainer)
-            assertEquals($0.focusWorkspace(), true)
+            assertEquals(TestWindow.new(id: 2, parent: $0.rootTilingContainer).focusWindow(), true)
         }
 
         assertEquals(focus.windowOrNil?.windowId, 2)

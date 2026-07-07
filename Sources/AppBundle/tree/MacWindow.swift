@@ -396,6 +396,11 @@ func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int
     ))
     var lastExitCode = Int32ExitCode.succ
     for callback in config.onWindowDetected where await callback.matches(window) {
+        if callback.noFocus {
+            // Arm before (and regardless of) the run commands, so the suppression is active
+            // even if a run command fails or moves the window.
+            armNoFocusSuppression(for: window)
+        }
         lastExitCode = await callback.run.run(env.withWindowId(window.windowId), io)
         if !callback.checkFurtherCallbacks {
             return lastExitCode

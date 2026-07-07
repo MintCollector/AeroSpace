@@ -17,6 +17,7 @@ enum KnownBundleId: String, Equatable {
     case kitty = "net.kovidgoyal.kitty"
     case outlook = "com.microsoft.Outlook"
     case photoBooth = "com.apple.PhotoBooth"
+    case photoshop = "com.adobe.Photoshop"
     case qutebrowser = "org.qutebrowser.qutebrowser"
     case screenstudio = "com.timpler.screenstudio"
     case slack = "com.tinyspeck.slackmacgap"

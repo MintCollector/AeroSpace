@@ -549,6 +549,7 @@ You can use `on-window-detected` config option to run commands every time a new 
     if.workspace = 'workspace-name'
     if.during-aerospace-startup = true
     check-further-callbacks = true
+    no-focus = true
     run = ['layout floating', 'move-node-to-workspace S']  # The callback itself
 ----
 
@@ -577,6 +578,21 @@ on-window-detected = [
     },
     # all other callbacks...
 ]
+----
+
+Additionally, `no-focus = true` prevents the newly detected window from stealing focus.
+For about a second after the window is detected, AeroSpace refuses to follow the window's native
+focus grabs (so the focused window and the visible workspace stay put) and pushes macOS focus back
+to the window you were working in.
+It is useful for apps that open windows in the background while you work elsewhere,
+e.g. a test runner driving a browser:
+
+[source,toml]
+----
+[[on-window-detected]]
+    if.app-id = 'com.google.chrome.for.testing' # Playwright-driven Chrome
+    no-focus = true
+    run = []
 ----
 
 A common use case is to match against app bundle ID in `on-window-detected` callback.
