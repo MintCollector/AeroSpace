@@ -433,6 +433,37 @@ final class ConfigTest: XCTestCase {
         assertEquals(result.errors, [])
     }
 
+    func testParseOnWindowDetectedNoFocus() {
+        let result = parseConfig(
+            """
+            on-window-detected = [
+                { if.app-id = 'com.google.chrome.for.testing', no-focus = true, run = [] },
+                { if = 'true', run = [] },
+            ]
+            """,
+        )
+        assertEquals(result.config.onWindowDetected, [
+            WindowDetectedCallback(
+                matcher: .legacy(LegacyWindowDetectedCallbackMatcher(
+                    appId: "com.google.chrome.for.testing",
+                )),
+                noFocus: true,
+                rawRun: .empty,
+            ),
+            WindowDetectedCallback( // no-focus defaults to false
+                matcher: .command(.cmd(TrueCommand.instance)),
+                rawRun: .empty,
+            ),
+        ])
+        assertEquals(result.strErrors, [])
+
+        // no-focus participates in equality
+        assertNotEquals(
+            WindowDetectedCallback(matcher: .command(.empty), noFocus: true, rawRun: .empty),
+            WindowDetectedCallback(matcher: .command(.empty), rawRun: .empty),
+        )
+    }
+
     func testParseInlineTables() {
         let errors = parseConfig(
             """

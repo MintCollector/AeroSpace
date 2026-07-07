@@ -3,6 +3,7 @@ import Common
 struct WindowDetectedCallback: ConvenienceMutable, Equatable {
     var matcher: WindowDetectedCallbackMatcher = .command(.empty)
     var checkFurtherCallbacks: Bool = false
+    var noFocus: Bool = false
     var rawRun: Shell<any Command>? = nil
 
     var run: Shell<any Command> {
@@ -18,11 +19,15 @@ struct WindowDetectedCallback: ConvenienceMutable, Equatable {
         if let commands = rawRun {
             result["commands"] = .string(commands.shellOfCommandsDescription)
         }
+        if noFocus {
+            result["no-focus"] = .bool(true)
+        }
         return .dict(result)
     }
 
     static func == (lhs: WindowDetectedCallback, rhs: WindowDetectedCallback) -> Bool {
-        lhs.matcher == rhs.matcher && lhs.checkFurtherCallbacks == rhs.checkFurtherCallbacks && lhs.run.strictEquals(rhs.run)
+        lhs.matcher == rhs.matcher && lhs.checkFurtherCallbacks == rhs.checkFurtherCallbacks &&
+            lhs.noFocus == rhs.noFocus && lhs.run.strictEquals(rhs.run)
     }
 }
 
@@ -117,6 +122,7 @@ enum WindowDetectedCallbackMatcher: Equatable {
 private let windowDetectedParser: [String: any ParserProtocol<WindowDetectedCallback>] = [
     "if": Parser(\.matcher, parseMatcher),
     "check-further-callbacks": Parser(\.checkFurtherCallbacks, parseBool),
+    "no-focus": Parser(\.noFocus, parseBool),
     "run": Parser(\.rawRun, parseShellOfCommandsForConfig),
 ]
 
