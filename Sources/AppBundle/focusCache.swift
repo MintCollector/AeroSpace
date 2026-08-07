@@ -42,7 +42,6 @@ func focusLog(_ msg: String) {
        macWindow.visualWorkspace != focus.workspace
     {
         lastKnownNativeFocusedWindowId = nativeFocused?.windowId
-        macWindow.macAppUnsafe.lastNativeFocusedWindowId = nativeFocused?.windowId
         return
     }
     if nativeFocused?.windowId != lastKnownNativeFocusedWindowId {
@@ -69,7 +68,6 @@ func focusLog(_ msg: String) {
                 // re-enter this branch (and re-issue nativeFocus) on every refresh until the
                 // bounce lands - a focus war with the app.
                 lastKnownNativeFocusedWindowId = nativeFocused.windowId
-                (nativeFocused.app as? MacApp)?.lastNativeFocusedWindowId = nativeFocused.windowId
                 // The user may have re-focused another window since detection: the live model
                 // focus (never contaminated, since we refuse adoption) beats the remembered id.
                 let bounceTarget: Window? = focus.windowOrNil
@@ -90,7 +88,6 @@ func focusLog(_ msg: String) {
         {
             focusLog("[focus-cache] suppressed cross-ws switch: window \(newId) (app: \(app), bundle: \(bundleId), parent: \(parentKind)) on ws '\(nativeWs)' — recent window destroy (focusWs: '\(currentWs)', prev: \(oldId))")
             lastKnownNativeFocusedWindowId = nativeFocused?.windowId
-            (nativeFocused?.app as? MacApp)?.lastNativeFocusedWindowId = nativeFocused?.windowId
             return
         }
         if nativeWs != currentWs {
@@ -101,9 +98,6 @@ func focusLog(_ msg: String) {
         _ = nativeFocused?.focusWindow()
         lastKnownNativeFocusedWindowId = nativeFocused?.windowId
     }
-    // Safe cast (was macAppUnsafe) so unit tests can drive updateFocusCache with TestWindow.
-    // In production, real windows always belong to a MacApp.
-    (nativeFocused?.app as? MacApp)?.lastNativeFocusedWindowId = nativeFocused?.windowId
 }
 
 // MARK: - 'no-focus' suppression ([[on-window-detected]] rules with no-focus = true)
