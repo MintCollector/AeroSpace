@@ -113,14 +113,19 @@ extension Window {
 }
 
 extension TilingContainer {
+    /// Children that take part in the layout. Windows still awaiting their `on-window-detected`
+    /// callbacks are left out: reserving space for a window that is about to be moved elsewhere
+    /// makes its siblings jump, and the space is handed back a moment later.
+    @MainActor
+    private var layoutChildren: [TreeNode] {
+        children.filter { ($0 as? Window)?.isAwaitingOnWindowDetected != true }
+    }
+
     @MainActor
     fileprivate func layoutTiles(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
         var point = point
         var virtualPoint = virtual.topLeftCorner
-
-        // Exclude windows awaiting on-window-detected from space allocation --
-        // their slot would otherwise shrink siblings while they sit invisible.
-        let effectiveChildren = children.filter { ($0 as? Window)?.isAwaitingOnWindowDetected != true }
+        let effectiveChildren = layoutChildren
 
         guard let delta = ((orientation == .h ? width : height) - CGFloat(effectiveChildren.sumOfDouble { $0.getWeight(orientation) }))
             .div(effectiveChildren.count) else { return }
@@ -171,7 +176,9 @@ extension TilingContainer {
 
     @MainActor
     fileprivate func layoutAccordion(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
-        guard let mruIndex: Int = mostRecentChild?.ownIndex else { return }
+        guard let mostRecentChild else { return }
+        let children = layoutChildren
+        let mruIndex: Int = children.firstIndex { $0 === mostRecentChild } ?? 0
         for (index, child) in children.enumerated() {
             let padding = CGFloat(config.accordionPadding)
             let (lPadding, rPadding): (CGFloat, CGFloat) = switch index {
