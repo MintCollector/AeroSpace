@@ -100,7 +100,7 @@ struct FocusCommand: Command {
     _ io: CmdIo,
     _ args: FocusCmdArgs,
     _ direction: CardinalDirection,
-    _ wrappedMonitor: Monitor,
+    _ wrappedMonitor: MonitorInfo,
 ) -> BinaryExitCode {
     switch args.boundariesAction {
         case .stop:
@@ -134,15 +134,25 @@ struct FocusCommand: Command {
 
         let tilingParent: TilingContainer
         let index: Int
+        // Ours: per-workspace outer gaps. Upstream: findIn -> findWindowRecursively, which gained
+        // fullscreenCoversAll (false here -- this projects floating windows into the tiling tree,
+        // it is not the focus-follows-mouse hit test).
         if let target = center.coerce(in: workspace.workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: workspace.name))?
-            .findIn(tree: workspace.rootTilingContainer, virtual: true)
+            .findWindowRecursively(in: workspace.rootTilingContainer, virtual: true, fullscreenCoversAll: false)
         {
             guard let targetCenter = try? await target.getCenter(.nonCancellable) else { continue }
             guard let _tilingParent = target.parent as? TilingContainer else { continue }
             tilingParent = _tilingParent
-            index = center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
-                ? target.ownIndex.orDie() + 1
-                : target.ownIndex.orDie()
+            index = switch tilingParent.layout {
+                case .tiles:
+                    center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
+                        ? target.ownIndex.orDie() + 1
+                        : target.ownIndex.orDie()
+                case .accordion:
+                    center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
+                        ? tilingParent.children.count
+                        : 0
+            }
         } else {
             index = 0
             tilingParent = workspace.rootTilingContainer

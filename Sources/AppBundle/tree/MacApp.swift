@@ -65,7 +65,12 @@ final class MacApp: AbstractApp {
         failedRegistrationFailures[pid] = nil
     }
 
-    private init(_ nsApp: NSRunningApplication, _ axApp: AXUIElement, _ axSubscriptions: [AxSubscription], _ thread: Thread) {
+    private init(
+        _ nsApp: NSRunningApplication,
+        _ axApp: AXUIElement,
+        _ axSubscriptions: [AxSubscription],
+        _ thread: Thread,
+    ) {
         self.nsApp = nsApp
         self.axApp = .init(axApp)
         self.pid = nsApp.processIdentifier
@@ -86,49 +91,57 @@ final class MacApp: AbstractApp {
         // AX requests crash if you send them to yourself
         if pid == myPid { return nil }
 
-        while true {
-            if let existing = allAppsMap[pid] { return existing }
-            if shouldThrottleFailedRegistration(pid) { return nil }
-            try checkCancellation()
-            if let wip = wipPids[pid] {
-                try await wip.await()
-                continue
-            }
-            let wip = AwaitableOneTimeBroadcastLatch()
-            wipPids[pid] = wip
+        if let existing = allAppsMap[pid] { return existing }
+        if shouldThrottleFailedRegistration(pid) { return nil }
+        try checkCancellation()
+        if let wip = wipPids[pid] {
+            try await wip.await()
+            return allAppsMap[pid]
+        }
+        let wip = AwaitableOneTimeBroadcastLatch()
+        wipPids[pid] = wip
 
-            let thread = Thread {
-                $axTaskLocalAppThreadToken.withValue(AxAppThreadToken(pid: pid, idForDebug: nsApp.idForDebug)) {
-                    let axApp = AXUIElementCreateApplication(nsApp.processIdentifier)
-                    // Bound every AX message to this app at 1s. The read path no longer uses AX
-                    // (list-tree reads CGWindowList), but mutations (setAxFrame etc.) still do —
-                    // a hung app then fails fast (~1s) instead of blocking the thread ~6s.
-                    AXUIElementSetMessagingTimeout(axApp, 1.0)
-                    let handlers: HandlerToNotifKeyMapping = unsafe [
-                        (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
-                    ]
-                    let job = RunLoopJob(.cancellable)
-                    let subscriptions = (try? unsafe AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers)) ?? []
-                    let isGood = !subscriptions.isEmpty
-                    let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
-                    Task.startUnstructured { @MainActor in
-                        if let app {
-                            allAppsMap[pid] = app
-                            clearFailedRegistration(pid)
-                        } else {
-                            recordFailedRegistration(pid)
-                        }
-                        await wip.signalToAll()
-                        wipPids[pid] = nil
-                    }
-                    if isGood {
-                        CFRunLoopRun()
-                    }
+        let thread = Thread {
+            $axTaskLocalAppThreadToken.withValue(AxAppThreadToken(pid: pid, idForDebug: nsApp.idForDebug)) {
+                let axApp = AXUIElementCreateApplication(nsApp.processIdentifier)
+                // Bound every AX message to this app at 1s. The read path no longer uses AX
+                // (list-tree reads CGWindowList), but mutations (setAxFrame etc.) still do —
+                // a hung app then fails fast (~1s) instead of blocking the thread ~6s.
+                AXUIElementSetMessagingTimeout(axApp, 1.0)
+                let handlers: HandlerToNotifKeyMapping = unsafe [
+                    (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
+                ]
+                let job = RunLoopJob(.cancellable)
+                let subscriptions = (try? unsafe AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers)) ?? []
+                let isGood = !subscriptions.isEmpty
+                let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
+
+                let appAxSubscriptionsThreadGuarded = app?.appAxSubscriptions
+                let windowsThreadGuarded = app?.windows
+                let axAppThreadGuarded = app?.axApp
+
+                Task.startUnstructured { @MainActor in
+                    allAppsMap[pid] = app
+                    if app != nil { clearFailedRegistration(pid) } else { recordFailedRegistration(pid) }
+                    wipPids[pid] = nil
+                    await wip.signalToAll()
+                }
+                if isGood {
+                    CFRunLoopRun()
+
+                    // Destroy AX objects in reverse order of their creation, and only after
+                    // CFRunLoopRun returns, so no queued job can touch a destroyed value.
+                    appAxSubscriptionsThreadGuarded?.destroy()
+                    windowsThreadGuarded?.destroy()
+                    axAppThreadGuarded?.destroy()
                 }
             }
-            thread.name = "AxAppThread \(nsApp.idForDebug)"
-            thread.start()
         }
+        thread.name = "AxAppThread \(nsApp.idForDebug)"
+        thread.start()
+
+        try await wip.await()
+        return allAppsMap[pid]
     }
 
     func closeAndUnregisterAxWindow(_ windowId: UInt32) {
@@ -168,7 +181,7 @@ final class MacApp: AbstractApp {
         // Performance optimization. If possible avoid doing AX requests
         // (important for apps which are slow at responding even such basic AX requests. E.g. Godot)
         // Beware of the macOS bug: https://github.com/nikitabobko/AeroSpace/issues/101
-        if (!NSScreen.screensHaveSeparateSpaces || monitors.count == 1) &&
+        if (!NSScreen.screensHaveSeparateSpaces || monitorInfos.count == 1) &&
             (lastNativeFocusedWindowId == windowId || windowsCount == 1)
         {
             nsApp.activate(options: .activateIgnoringOtherApps)
@@ -423,12 +436,7 @@ final class MacApp: AbstractApp {
             job.cancel()
         }
         setFrameJobs = [:]
-        thread?.runInLoopAsync(job: RunLoopJob(.nonCancellable)) { [windows, appAxSubscriptions, axApp] job in
-            appAxSubscriptions.destroy() // Destroy AX objects in reverse order of their creation
-            windows.destroy()
-            axApp.destroy()
-            CFRunLoopStop(CFRunLoopGetCurrent())
-        }
+        thread?.runInLoopAsync(job: RunLoopJob(.nonCancellable)) { job in CFRunLoopStop(CFRunLoopGetCurrent()) }
         thread = nil // Disallow all future job submissions
     }
 

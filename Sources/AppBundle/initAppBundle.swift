@@ -7,15 +7,18 @@ import Foundation
         initTerminationHandler()
         unsafe _isCli = false
         initServerArgs()
+        await waitForAccessibilityPermission_nonCancellable()
         if isDebug {
             await toggleReleaseServerIfDebug(.off)
             interceptTermination(SIGINT)
             interceptTermination(SIGKILL)
         }
+
         await bootstrapConfig_nonCancellable()
         _ = await reloadConfig_nonCancellable()
 
-        checkAccessibilityPermissions()
+        // Upstream replaced checkAccessibilityPermissions() with the
+        // waitForAccessibilityPermission_nonCancellable() flow above.
         requestScreenRecordingPermissionNonFatal() // for CGWindowList titles (list-tree); non-fatal
         startUnixSocketServer()
         GlobalObserver.initObserver()
@@ -53,7 +56,7 @@ private func smartLayoutAtStartup() {
     root.layout = config.defaultRootContainerLayout
 }
 
-var isStartup: Bool { refreshSessionEvent.orDie("refreshSessionEvent is not initialized").isStartup }
+var isStartup: Bool { refreshSessionEvent?.isStartup == true }
 
 struct ServerArgs: Sendable {
     var configLocation: String? = nil

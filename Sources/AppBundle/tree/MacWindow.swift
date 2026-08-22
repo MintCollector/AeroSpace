@@ -51,7 +51,7 @@ final class MacWindow: Window {
             windowId,
             macApp,
             isStartup
-                ? (rect?.center.monitorApproximation ?? mainMonitor).activeWorkspace
+                ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
                 : focus.workspace,
             window: nil,
             .cancellable,
@@ -237,6 +237,11 @@ final class MacWindow: Window {
             visibleRect: visibleRect,
         ) else { return false }
         prevUnhiddenProportionalPositionInsideWorkspaceRect = snapshot
+        // Upstream 649301b2: without this, unhide restores the position but not the size,
+        // and the window gets nudged away from the right/bottom monitor edges.
+        if isFloating {
+            lastFloatingSize = windowRect.size
+        }
         return true
     }
 

@@ -1,4 +1,4 @@
-extension Monitor {
+extension MonitorInfo {
     @MainActor
     func visibleRectPaddedByOuterGaps(forWorkspace workspaceName: String? = nil) -> Rect {
         let gapsConfig: Gaps = if let workspaceName, let wsGaps = config.workspaceGaps[workspaceName] {
@@ -17,7 +17,7 @@ extension Monitor {
     }
 
     var monitorId_oneBased: Int? {
-        let sorted = sortedMonitors
+        let sorted = sortedMonitorInfos
         let origin = self.rect.topLeftCorner
         return sorted.firstIndex { $0.rect.topLeftCorner == origin }.map { $0 + 1 }
     }

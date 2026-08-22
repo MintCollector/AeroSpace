@@ -40,7 +40,7 @@ struct ListTreeCommand: Command {
         let snap = readCgWindowSnapshot()
 
         var monitorNodes: [JsonTreeNode] = []
-        for monitor in sortedMonitors {
+        for monitor in sortedMonitorInfos {
             let monitorPoint = monitor.rect.topLeftCorner
             let monitorWorkspaces = Workspace.all.filter { $0.workspaceMonitor.rect.topLeftCorner == monitorPoint }
 
