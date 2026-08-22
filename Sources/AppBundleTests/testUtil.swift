@@ -51,6 +51,18 @@ extension ParsedCmd {
     var cmdOrDie: T { cmdOrNil ?? dieT("\(self)") }
 }
 
+extension Shell {
+    /// Unwrap a shell expression that is expected to be exactly one command.
+    var singleCmdOrNil: T? {
+        switch self {
+            case .cmd(let cmd): cmd
+            default: nil
+        }
+    }
+
+    var singleCmdOrDie: T { singleCmdOrNil ?? dieT("Expected a single command, got \(self)") }
+}
+
 func testParseCommandFail(_ command: String, msg expectedMsg: String, exitCode expectedExitCode: Int32, file: StaticString = #filePath, line: UInt = #line) {
     let parsed = parseCommand(command)
     switch parsed {

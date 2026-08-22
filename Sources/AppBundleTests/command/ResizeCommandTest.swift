@@ -170,7 +170,7 @@ final class ResizeCommandTest: XCTestCase {
     private func newFocusedFloatingWindow(rect: Rect) -> (Workspace, TestWindow) {
         let workspace = Workspace.get(byName: name)
         assertEquals(workspace.focusWorkspace(), true)
-        let window = TestWindow.new(id: 1, parent: workspace, rect: rect)
+        let window = TestWindow.new(id: 1, parent: workspace.floatingWindowsContainer, rect: rect)
         assertEquals(window.isFloating, true)
         assertEquals(window.focusWindow(), true)
         return (workspace, window)

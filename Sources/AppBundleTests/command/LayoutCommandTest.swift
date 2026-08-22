@@ -130,6 +130,7 @@ final class LayoutCommandTest: XCTestCase {
             .h_accordion([
                 .h_tiles([.window(1), .window(2)]),
             ]),
+            .floatingWindowsContainer([]),
         ]))
     }
 

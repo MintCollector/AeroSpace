@@ -182,6 +182,6 @@ final class WorkspaceCommandTest: XCTestCase {
         let args = WorkspaceCmdArgs(target: .relative(.next)).copy(\.commonState.explicitStdinFlag, true)
         let result = try await WorkspaceCommand(args: args).run(.defaultEnv, .init(focusedName))
         assertEquals(result.exitCode.rawValue, 2)
-        assertEquals(result.stderr, ["Can't resolve next or prev workspace"])
+        assertEquals(result.stderr, ["Reached the end of the supplied workspaces list"])
     }
 }

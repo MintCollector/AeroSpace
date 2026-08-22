@@ -25,18 +25,18 @@ final class SummonWorkspaceCommandTest: XCTestCase {
     }
 
     func testParseWhenVisibleDefault() {
-        let cmd = parseCommand("summon-workspace foo").cmdOrDie as! SummonWorkspaceCommand
+        let cmd = parseCommand("summon-workspace foo").cmdOrDie.singleCmdOrDie as! SummonWorkspaceCommand
         assertEquals(cmd.args.rawWhenVisibleAction, nil)
         assertEquals(cmd.args.whenVisible, .focus)
     }
 
     func testParseWhenVisibleFocus() {
-        let cmd = parseCommand("summon-workspace --when-visible focus foo").cmdOrDie as! SummonWorkspaceCommand
+        let cmd = parseCommand("summon-workspace --when-visible focus foo").cmdOrDie.singleCmdOrDie as! SummonWorkspaceCommand
         assertEquals(cmd.args.whenVisible, .focus)
     }
 
     func testParseWhenVisibleSwap() {
-        let cmd = parseCommand("summon-workspace --when-visible swap foo").cmdOrDie as! SummonWorkspaceCommand
+        let cmd = parseCommand("summon-workspace --when-visible swap foo").cmdOrDie.singleCmdOrDie as! SummonWorkspaceCommand
         assertEquals(cmd.args.whenVisible, .swap)
     }
 
