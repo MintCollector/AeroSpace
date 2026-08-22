@@ -402,10 +402,17 @@ final class MacApp: AbstractApp {
                     try job.checkCancellation()
                     try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
                 }
-                // GC windows that are still in CGWindowList but no longer in the app's AX tree
-                let axGone = alive.filter { !axWindowIds.contains($0.key) }
-                dead.merge(axGone) { _, new in new }
-                for key in axGone.keys { alive.removeValue(forKey: key) }
+                // Second line of defence against the lock screen (the first is closedWindowsCache).
+                // While the lock screen is frontmost, apps can transiently report a partial AX
+                // window list; GC'ing against it drops live windows and flickers on unlock.
+                // Upstream guards its equivalent partition the same way; our e24a68b7 rewrite
+                // replaced the partition and lost the guard with it.
+                if frontmostAppBundleId != lockScreenAppBundleId {
+                    // GC windows that are still in CGWindowList but no longer in the app's AX tree
+                    let axGone = alive.filter { !axWindowIds.contains($0.key) }
+                    dead.merge(axGone) { _, new in new }
+                    for key in axGone.keys { alive.removeValue(forKey: key) }
+                }
                 nativeTabGroups = alive.nativeTabGroups()
             } else {
                 // App is unresponsive — preserve existing alive set instead of GC'ing.

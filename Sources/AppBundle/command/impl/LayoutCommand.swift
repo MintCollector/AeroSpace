@@ -8,8 +8,11 @@ struct LayoutCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
 
+        // `matchesDescription` needs the window itself for `.sticky`, which is a property of the
+        // window rather than of its parent container.
+        let targetWindow: Window? = args.root ? nil : target.windowOrNil
         let node: ConventionalWindowParentCases
-        switch args.root ? nil : target.windowOrNil {
+        switch targetWindow {
             case let window?:
                 switch window.windowParentCases {
                     case .floatingWindowsContainer(let it):
@@ -31,9 +34,9 @@ struct LayoutCommand: Command {
                 node = .tilingContainer(target.workspace.rootTilingContainer)
         }
 
-        let targetDescription = args.toggleBetween.val.first(where: { !node.matchesDescription($0) })
+        let targetDescription = args.toggleBetween.val.first(where: { !node.matchesDescription($0, window: targetWindow) })
             ?? args.toggleBetween.val.first.orDie()
-        if node.matchesDescription(targetDescription) {
+        if node.matchesDescription(targetDescription, window: targetWindow) {
             switch args.failIfNoop {
                 case true: return .fail
                 case false:
@@ -128,7 +131,7 @@ struct LayoutCommand: Command {
 }
 
 extension ConventionalWindowParentCases {
-    fileprivate func matchesDescription(_ layout: LayoutCmdArgs.LayoutDescription) -> Bool {
+    fileprivate func matchesDescription(_ layout: LayoutCmdArgs.LayoutDescription, window: Window?) -> Bool {
         return switch layout {
             case .accordion:   tilingContainerOrNil?.layout == .accordion
             case .tiles:       tilingContainerOrNil?.layout == .tiles
@@ -141,7 +144,7 @@ extension ConventionalWindowParentCases {
             case .tiling:      tilingContainerOrNil != nil
             case .floating:    floatingWindowsContainerOrNil != nil
             case .unmanaged:   macosPopupWindowsContainerOrNil != nil
-            case .sticky:      floatingWindowsContainerOrNil != nil && (self as? MacWindow)?.isSticky == true
+            case .sticky:      floatingWindowsContainerOrNil != nil && (window as? MacWindow)?.isSticky == true
         }
     }
 }

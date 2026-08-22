@@ -178,7 +178,7 @@ final class ResizeCommandTest: XCTestCase {
 
     func testFloating_addWidth_growsAndRecenters() async throws {
         let (_, window) = newFocusedFloatingWindow(rect: Rect(topLeftX: 100, topLeftY: 100, width: 200, height: 200))
-        let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
+        let result = await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         let rect = try await window.getAxRect(.nonCancellable).orDie()
@@ -191,7 +191,7 @@ final class ResizeCommandTest: XCTestCase {
 
     func testFloating_addHeight_growsAndRecenters() async throws {
         let (_, window) = newFocusedFloatingWindow(rect: Rect(topLeftX: 100, topLeftY: 100, width: 200, height: 200))
-        let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
+        let result = await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         let rect = try await window.getAxRect(.nonCancellable).orDie()
@@ -203,7 +203,7 @@ final class ResizeCommandTest: XCTestCase {
 
     func testFloating_setWidth_shrinks() async throws {
         let (_, window) = newFocusedFloatingWindow(rect: Rect(topLeftX: 100, topLeftY: 100, width: 200, height: 200))
-        let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .set(100)))
+        let result = await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .set(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         let rect = try await window.getAxRect(.nonCancellable).orDie()
@@ -218,7 +218,7 @@ final class ResizeCommandTest: XCTestCase {
         // Window near the right edge: topLeftX + width + diff/2 exceeds monitor width (1920),
         // so newX is pinned to keep the grown window inside the monitor.
         let (_, window) = newFocusedFloatingWindow(rect: Rect(topLeftX: 1800, topLeftY: 100, width: 100, height: 100))
-        let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
+        let result = await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .width, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         let rect = try await window.getAxRect(.nonCancellable).orDie()
@@ -232,7 +232,7 @@ final class ResizeCommandTest: XCTestCase {
         // topLeftY + height + diff/2 below the monitor, so newY is pinned to keep the grown
         // window inside the monitor.
         let (_, window) = newFocusedFloatingWindow(rect: Rect(topLeftX: 100, topLeftY: 1000, width: 200, height: 100))
-        let result = try await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
+        let result = await ResizeCommand(args: ResizeCmdArgs(rawArgs: [], dimension: .height, units: .add(100)))
             .run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         let rect = try await window.getAxRect(.nonCancellable).orDie()

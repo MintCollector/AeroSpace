@@ -321,7 +321,7 @@ final class MoveCommandTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 1)
     }
 
-    func testCreateImplicitContainerOrFail_normalizationDisabled() async throws {
+    func testCreateImplicitContainerOrFail_normalizationDisabled() async {
         config.enableNormalizationFlattenContainers = false
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -329,7 +329,7 @@ final class MoveCommandTest: XCTestCase {
             assertEquals(TestWindow.new(id: 2, parent: $0).focusWindow(), true)
             TestWindow.new(id: 3, parent: $0)
         }
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(result.stdout.count, 1)
@@ -339,7 +339,7 @@ final class MoveCommandTest: XCTestCase {
         )
     }
 
-    func testCreateImplicitContainerOrFail_succeeds() async throws {
+    func testCreateImplicitContainerOrFail_succeeds() async {
         config.enableNormalizationFlattenContainers = true
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -347,7 +347,7 @@ final class MoveCommandTest: XCTestCase {
             assertEquals(TestWindow.new(id: 2, parent: $0).focusWindow(), true)
             TestWindow.new(id: 3, parent: $0)
         }
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(
@@ -356,7 +356,7 @@ final class MoveCommandTest: XCTestCase {
         )
     }
 
-    func testCreateImplicitContainerOrFail_fails() async throws {
+    func testCreateImplicitContainerOrFail_fails() async {
         config.enableNormalizationFlattenContainers = true
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -364,7 +364,7 @@ final class MoveCommandTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
         }
         let before = workspace.layoutDescription
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail left")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail left")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 2)
         assertEquals(workspace.layoutDescription, before)

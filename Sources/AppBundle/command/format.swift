@@ -36,12 +36,12 @@ struct WindowWithPrefetchedTitle {
                 if rectVarNames.contains(v.rawValue) { needsRect = true }
             }
         }
-        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
+        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect, cm)
     }
 
-    static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
-        let title: String? = needsTitle ? try await window.getTitle(.cancellable) : nil
-        let rect: Rect? = needsRect ? try await resolveRect(window) : nil
+    static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool, _ cm: CancellationMode = .cancellable) async throws -> Self {
+        let title: String? = needsTitle ? try await window.getTitle(cm) : nil
+        let rect: Rect? = needsRect ? try await resolveRect(window, cm) : nil
         return .init(window: window, title: title, rect: rect)
     }
 
@@ -70,9 +70,9 @@ struct WindowWithPrefetchedTitle {
     /// `setAxFrame` (see layoutRecursive). Floating/fullscreen windows have a nil cache and
     /// fall back to the live AX rect. This is the single rect source for list-windows and
     /// list-tree; it eliminates the per-poll AX rect walk that stalls the serialized MainActor.
-    static func resolveRect(_ window: Window) async throws -> Rect? {
+    static func resolveRect(_ window: Window, _ cm: CancellationMode = .cancellable) async throws -> Rect? {
         if let cached = window.lastAppliedLayoutPhysicalRect { return cached }
-        return try await window.getAxRect(.cancellable)
+        return try await window.getAxRect(cm)
     }
 
     static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {

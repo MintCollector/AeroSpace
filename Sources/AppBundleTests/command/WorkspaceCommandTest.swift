@@ -174,13 +174,13 @@ final class WorkspaceCommandTest: XCTestCase {
     }
 
     @MainActor
-    func testRelativeWorkspaceUnresolvableEmitsError() async throws {
+    func testRelativeWorkspaceUnresolvableEmitsError() async {
         // stdin lists only the focused workspace, so `next` (without wrap-around)
         // has no workspace to resolve to. The command must fail with an error message
         // instead of silently returning a non-zero code with empty stderr.
         let focusedName = focus.workspace.name
         let args = WorkspaceCmdArgs(target: .relative(.next)).copy(\.commonState.explicitStdinFlag, true)
-        let result = try await WorkspaceCommand(args: args).run(.defaultEnv, .init(focusedName))
+        let result = await WorkspaceCommand(args: args).run(.defaultEnv, .init(focusedName))
         assertEquals(result.exitCode.rawValue, 2)
         assertEquals(result.stderr, ["Reached the end of the supplied workspaces list"])
     }

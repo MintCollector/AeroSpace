@@ -175,7 +175,12 @@ func refreshObs(_: AXObserver, _ element: AXUIElement, notif: CFString, _: Unsaf
     let isFocusChange = notif == kAXFocusedWindowChangedNotification
     let eventWindowId: UInt32? = (isWindowCreated || isFocusChange) ? element.containingWindowId() : nil
     var elementPid: pid_t = 0
-    let havePid = isWindowCreated && AXUIElementGetPid(element, &elementPid) == .success
+    // Not `isWindowCreated && unsafe ...`: `unsafe` may not appear to the right of a
+    // non-assignment operator. The `if` keeps the AX call short-circuited all the same.
+    var havePid = false
+    if isWindowCreated {
+        havePid = unsafe AXUIElementGetPid(element, &elementPid) == .success
+    }
     Task.startUnstructured { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
         if let eventWindowId {
