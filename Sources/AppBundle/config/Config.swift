@@ -70,6 +70,7 @@ struct Config: ConvenienceMutable {
     var keyMapping = KeyMapping()
     var execConfig: ExecConfig = ExecConfig()
     var focusFollowsMouse: FocusFollowsMouse = FocusFollowsMouse()
+    var overview: OverviewConfig = OverviewConfig()
 
     var onFocusChanged: Shell<any Command> = .empty
     // var onFocusedWorkspaceChanged: [any Command] = []
@@ -85,6 +86,12 @@ struct Config: ConvenienceMutable {
 
 struct FocusFollowsMouse: ConvenienceMutable {
     var enabled: Bool = false
+}
+
+struct OverviewConfig: ConvenienceMutable {
+    /// `nil` disables the feature. That's the default. AeroSpace doesn't show anything unless asked to
+    var holdModifier: NSEvent.ModifierFlags? = nil
+    var holdDelayMs: Int = 500
 }
 
 enum ConfigVersion: Int, Comparable, CaseIterable, Sendable, CustomStringConvertible {
