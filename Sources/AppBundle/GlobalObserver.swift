@@ -13,7 +13,7 @@ enum GlobalObserver {
             return
         }
         let notifName = notification.name.rawValue
-        let activatedPid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+        let activatedPid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.resolvedProcessIdentifier
         Task.startUnstructured { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
