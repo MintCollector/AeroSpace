@@ -54,6 +54,7 @@ final class MacWindow: Window {
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
+        // Must be inside the atomic section because auto tiling may create a container for the new window
         let data = unbindAndGetBindingDataForNewWindow(windowType, workspace, window: nil)
         let parentKind: String = switch data.parent {
             case is TilingContainer: "tiling"
@@ -368,7 +369,7 @@ private func unbindAndGetBindingDataForNewWindow(_ windowType: AxUiElementWindow
 @MainActor
 private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
     window?.unbindFromParent() // It's important to unbind to get correct data from below
-    return workspace.prepareTilingWindowInsertion()
+    return workspace.prepareTilingWindowInsertion(autoTile: window == nil)
 }
 
 @MainActor
