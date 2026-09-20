@@ -35,10 +35,12 @@ final class LayoutContext {
     let workspace: Workspace
     let resolvedGaps: ResolvedGaps
     let maxWindowWidth: CGFloat?
+    let hideCorner: OptimalHideCorner
     var tabHeaderSnapshots: [TabHeaderSnapshot] = []
 
     init(_ workspace: Workspace) {
         self.workspace = workspace
+        self.hideCorner = workspace.workspaceMonitor.optimalHideCorner(monitors: monitorInfos)
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: workspace.workspaceMonitor)
 

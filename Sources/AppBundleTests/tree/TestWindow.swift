@@ -6,11 +6,10 @@ final class TestWindow: Window, CustomStringConvertible {
     var isMacosFullscreenForTest = false
     var onGetAxRect: (@MainActor () -> Void)?
     private var customTitle: String?
-    private(set) var setAxFrameCalls = 0
 
     @MainActor
     private init(_ id: UInt32, _ app: any AbstractApp, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?, _ customTitle: String?) {
-        _rect = rect
+        _rect = rect ?? Rect(topLeftX: 0, topLeftY: 0, width: 100, height: 100)
         self.customTitle = customTitle
         super.init(id: id, app, lastFloatingSize: nil, parent: parent, adaptiveWeight: adaptiveWeight, index: INDEX_BIND_LAST)
     }
@@ -62,7 +61,6 @@ final class TestWindow: Window, CustomStringConvertible {
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { isMacosFullscreenForTest }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
-        setAxFrameCalls += 1
         let cur = _rect ?? Rect(topLeftX: 0, topLeftY: 0, width: 0, height: 0)
         _rect = Rect(
             topLeftX: topLeft?.x ?? cur.topLeftX,
