@@ -177,6 +177,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
         }
         return .perColumnCount(result)
     },
+    "scrolling-peek-width": Parser(\.scrollingPeekWidth, parseInt),
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),

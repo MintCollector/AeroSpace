@@ -36,13 +36,19 @@ final class LayoutContext {
     let resolvedGaps: ResolvedGaps
     let maxWindowWidth: CGFloat?
     let hideCorner: OptimalHideCorner
+    /// The scrolling layout's peek page overflows the workspace rect to the right. Suppress it when that overflow
+    /// would land on another display
+    let suppressScrollingPeek: Bool
     var tabHeaderSnapshots: [TabHeaderSnapshot] = []
 
     init(_ workspace: Workspace) {
+        let monitor = workspace.workspaceMonitor
+        let monitors = monitorInfos // Both decisions must see the same monitor snapshot
         self.workspace = workspace
-        self.hideCorner = workspace.workspaceMonitor.optimalHideCorner(monitors: monitorInfos)
+        self.hideCorner = monitor.optimalHideCorner(monitors: monitors)
+        self.suppressScrollingPeek = monitor.hasMonitorInRightSpillBand(monitors: monitors)
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
-        self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: workspace.workspaceMonitor)
+        self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: monitor)
 
         let root = workspace.rootTilingContainer
         let columnCount = (root.layout == .accordion || root.orientation == .v) ? 1 : root.children.count

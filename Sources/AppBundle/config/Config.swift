@@ -65,6 +65,7 @@ struct Config: ConvenienceMutable {
     var focusedWindowBorderInset: Int = 0
     var accordionPadding: Int = 30
     var maxWindowWidth: MaxWindowWidth? = nil
+    var scrollingPeekWidth: Int = 0
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
     var enableNormalizationBinaryTree: Bool = false
     var persistentWorkspaces: OrderedSet<String> = []
