@@ -52,11 +52,14 @@ final class MacApp: AbstractApp {
 
     /// Records a failed registration for `pid`, throttling retries with exponential backoff:
     /// `base * 2^priorFailures`, capped at `failedRegistrationMaxRetryDelay`.
-    @MainActor static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) {
+    /// Returns the failure count (including this one) and the backoff delay applied.
+    @MainActor @discardableResult
+    static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) -> (failures: Int, delay: TimeInterval) {
         let priorFailures = failedRegistrationFailures[pid] ?? 0
         let delay = min(failedRegistrationMaxRetryDelay, failedRegistrationRetryDelay * pow(2, Double(priorFailures)))
         failedRegistrationFailures[pid] = priorFailures + 1
         failedRegistrationRetryAfter[pid] = now.addingTimeInterval(delay)
+        return (priorFailures + 1, delay)
     }
 
     /// Clears any throttle state for `pid` (called on successful registration and on destroy).
@@ -119,10 +122,16 @@ final class MacApp: AbstractApp {
                 let appAxSubscriptionsThreadGuarded = app?.appAxSubscriptions
                 let windowsThreadGuarded = app?.windows
                 let axAppThreadGuarded = app?.axApp
+                let idForDebug = nsApp.idForDebug
 
                 Task.startUnstructured { @MainActor in
                     allAppsMap[pid] = app
-                    if app != nil { clearFailedRegistration(pid) } else { recordFailedRegistration(pid) }
+                    if app != nil {
+                        clearFailedRegistration(pid)
+                    } else {
+                        let (failures, delay) = recordFailedRegistration(pid)
+                        focusLog("[app-register] \(idForDebug): AX subscribe failed (failure #\(failures)) — retry allowed after \(Int(delay * 1000))ms")
+                    }
                     wipPids[pid] = nil
                     await wip.signalToAll()
                 }
