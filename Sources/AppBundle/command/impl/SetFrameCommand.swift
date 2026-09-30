@@ -38,7 +38,7 @@ struct SetFrameCommand: Command {
         }
 
         let center = CGPoint(x: newX + newWidth / 2, y: newY + newHeight / 2)
-        let insideMonitor = monitors.contains { $0.rect.contains(center) }
+        let insideMonitor = monitorInfos.contains { $0.rect.contains(center) }
         if !insideMonitor {
             return .fail(io.err("Resulting frame center (\(Int(center.x)), \(Int(center.y))) is outside all monitors"))
         }

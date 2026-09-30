@@ -4,6 +4,20 @@ import XCTest
 
 @MainActor
 final class ConfigTest: XCTestCase {
+    func testAutoTilingSetting() {
+        assertEquals(parseConfig("").config.enableAutoTiling, false)
+        assertEquals(defaultConfig.enableAutoTiling, false)
+        let enabled = parseConfig("enable-auto-tiling = true")
+        assertEquals(enabled.errors, [])
+        assertEquals(enabled.config.enableAutoTiling, true)
+        let disabled = parseConfig("enable-auto-tiling = false")
+        assertEquals(disabled.errors, [])
+        assertEquals(disabled.config.enableAutoTiling, false)
+        assertEquals(parseConfig("enable-auto-tiling = 'true'").strErrors, [
+            "[ERROR] enable-auto-tiling: Expected type is 'Bool'. But actual type is 'String'",
+        ])
+    }
+
     func testParseI3Config() {
         let toml = try! String(contentsOf: projectRoot.appending(component: "docs/config-examples/i3-like-config-example.toml"), encoding: .utf8)
         let result = parseConfig(toml)
@@ -254,9 +268,9 @@ final class ConfigTest: XCTestCase {
     }
 
     func testParseTiles() {
-        let command = parseCommand("layout tiles h_tiles v_tiles list h_list v_list").cmdOrNil?.flatten().singleOrNil()
+        let command = parseCommand("layout tiles h_tiles v_tiles list h_list v_list tabs").cmdOrNil?.flatten().singleOrNil()
         XCTAssertTrue(command is LayoutCommand)
-        assertEquals((command as! LayoutCommand).args.toggleBetween.val, [.tiles, .h_tiles, .v_tiles, .tiles, .h_tiles, .v_tiles])
+        assertEquals((command as! LayoutCommand).args.toggleBetween.val, [.tiles, .h_tiles, .v_tiles, .tiles, .h_tiles, .v_tiles, .tabs])
 
         guard case .help = parseCommand("layout tiles -h") else {
             XCTFail()
@@ -849,6 +863,48 @@ final class ConfigTest: XCTestCase {
             1 = "big"
             """)
         assertEquals(result.strErrors, ["[ERROR] max-window-width.1: Expected type is 'Int'. But actual type is 'String'"])
+    }
+
+    func testParseOverview() {
+        assertNil(defaultConfig.overview.holdModifier)
+        assertEquals(defaultConfig.overview.holdDelayMs, 500)
+
+        let result = parseConfig(
+            """
+            overview.hold-modifier = 'alt-shift'
+            overview.hold-delay-ms = 200
+            """,
+        )
+        assertEquals(result.errors, [])
+        assertEquals(result.config.overview.holdModifier, [.option, .shift])
+        assertEquals(result.config.overview.holdDelayMs, 200)
+
+        let none = parseConfig(
+            """
+            overview.hold-modifier = 'none'
+            """,
+        )
+        assertEquals(none.errors, [])
+        assertNil(none.config.overview.holdModifier)
+    }
+
+    func testParseOverviewErrors() {
+        assertEquals(
+            parseConfig(
+                """
+                overview.hold-modifier = 'alt-unicorn'
+                """,
+            ).strErrors,
+            ["[ERROR] overview.hold-modifier: Can't parse modifiers in 'alt-unicorn'"],
+        )
+        assertEquals(
+            parseConfig(
+                """
+                overview.hold-delay-ms = 100500
+                """,
+            ).strErrors,
+            ["[ERROR] overview.hold-delay-ms: hold-delay-ms must be in [0, 5000] range"],
+        )
     }
 }
 

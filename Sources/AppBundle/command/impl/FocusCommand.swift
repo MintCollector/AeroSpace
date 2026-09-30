@@ -15,9 +15,16 @@ struct FocusCommand: Command {
             return .fail
         }
         // todo bug: floating windows break mru
-        let floatingWindows = args.floatingAsTiling ? await makeFloatingWindowsSeenAsTiling(workspace: target.workspace) : []
+        // Only targets whose semantics depend on the tree need floating windows
+        // temporarily bound into it: `.direction` navigates spatially, and the
+        // dfs targets walk rootTilingContainer. `.windowId` resolves through
+        // MacWindow.allWindowsMap and ignores the tree, so the preamble is pure
+        // overhead there -- one synchronous ax call per floating window.
+        var floatingAsTiling = args.floatingAsTiling
+        if case .windowId = args.target { floatingAsTiling = false }
+        let floatingWindows = floatingAsTiling ? await makeFloatingWindowsSeenAsTiling(workspace: target.workspace) : []
         defer {
-            if args.floatingAsTiling {
+            if floatingAsTiling {
                 restoreFloatingWindows(floatingWindows: floatingWindows, workspace: target.workspace)
             }
         }
@@ -100,7 +107,7 @@ struct FocusCommand: Command {
     _ io: CmdIo,
     _ args: FocusCmdArgs,
     _ direction: CardinalDirection,
-    _ wrappedMonitor: Monitor,
+    _ wrappedMonitor: MonitorInfo,
 ) -> BinaryExitCode {
     switch args.boundariesAction {
         case .stop:
@@ -134,20 +141,32 @@ struct FocusCommand: Command {
 
         let tilingParent: TilingContainer
         let index: Int
+        // Ours: per-workspace outer gaps. Upstream: findIn -> findWindowRecursively, which gained
+        // fullscreenCoversAll (false here -- this projects floating windows into the tiling tree,
+        // it is not the focus-follows-mouse hit test).
         if let target = center.coerce(in: workspace.workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: workspace.name))?
-            .findIn(tree: workspace.rootTilingContainer, virtual: true)
+            .findWindowRecursively(in: workspace.rootTilingContainer, virtual: true, fullscreenCoversAll: false)
         {
             guard let targetCenter = try? await target.getCenter(.nonCancellable) else { continue }
             guard let _tilingParent = target.parent as? TilingContainer else { continue }
             tilingParent = _tilingParent
-            index = center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
-                ? target.ownIndex.orDie() + 1
-                : target.ownIndex.orDie()
+            index = switch tilingParent.layout {
+                case .tiles, .scrolling:
+                    center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
+                        ? target.ownIndex.orDie() + 1
+                        : target.ownIndex.orDie()
+                case .accordion, .tabs:
+                    center.getProjection(tilingParent.orientation) >= targetCenter.getProjection(tilingParent.orientation)
+                        ? tilingParent.children.count
+                        : 0
+            }
         } else {
             index = 0
             tilingParent = workspace.rootTilingContainer
         }
 
+        // AX awaits above can let the window move or close before we unbind it
+        guard window.parent === workspace.floatingWindowsContainer else { continue }
         let data = window.unbindFromParent()
         let floatingWindowData = FloatingWindowData(
             window: window,
@@ -194,6 +213,9 @@ extension TreeNode {
             case .window(let window):
                 return window
             case .tilingContainer(let container):
+                if container.layout == .tabs {
+                    return container.mostRecentChild?.findLeafWindowRecursive(snappedTo: direction)
+                }
                 if direction.orientation == container.orientation {
                     return (direction.isPositive ? container.children.last : container.children.first)?
                         .findLeafWindowRecursive(snappedTo: direction)

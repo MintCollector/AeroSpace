@@ -36,6 +36,7 @@ let subcommandDescriptions = [
     ["  reload-config", "Reload currently active config"],
     ["  resize", "Resize the focused window"],
     ["  run-callback", "Run AeroSpace config callbacks on demand"],
+    ["  scroll", "Scroll the viewport of a workspace whose root container uses the scrolling layout"],
     ["  set-frame", "Set the position and/or size of a floating window"],
     ["  set-gaps", "Set gaps for the focused workspace"],
     ["  split", "Split focused window"],

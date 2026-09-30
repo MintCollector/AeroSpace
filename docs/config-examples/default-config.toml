@@ -20,19 +20,40 @@ auto-reload-config = false
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
+# When true, forces the tree to be binary and orients each container by the aspect ratio of its rect
+# (horizontal if wider than tall, vertical otherwise). Overrides the opposite-orientation normalization.
+enable-normalization-binary-tree = false
 
 # See: https://nikitabobko.github.io/AeroSpace/guide#layouts
 # The 'accordion-padding' specifies the size of accordion padding
 # You can set 0 to disable the padding feature
 accordion-padding = 30
 
-# Possible values: tiles|accordion
+# The 'scrolling-peek-width' specifies how many points of the next page are kept visible
+# at the right edge of the 'scrolling' layout, instead of the page being fully hidden.
+# The two fully visible pages shrink so that (2 * page + peek) fills the viewport.
+# The peek is a reservation inside the viewport, so what you actually see is
+# 'peek - gaps.inner.horizontal / 2 + gaps.outer.right' points wide: a window manager
+# cannot clip windows, so the peeking page also paints over the right outer gap.
+# You can set 0 to disable the peek feature.
+# The peek is automatically disabled when another monitor sits to the right of this one
+# (a window manager cannot clip windows, so the peeking window would bleed onto it), when
+# there is no next page, and when the requested width doesn't leave room for two pages.
+scrolling-peek-width = 0
+
+# Possible values: tiles|accordion|scrolling
 default-root-container-layout = 'tiles'
 
 # Possible values: horizontal|vertical|auto
 # 'auto' means: wide monitor (anything wider than high) gets horizontal orientation,
 #               tall monitor (anything higher than wide) gets vertical orientation
 default-root-container-orientation = 'auto'
+
+# Split the most recent tile (along its longer side) instead of adding one more sibling.
+# Applies to newly detected tiled windows, to windows moved to another workspace/monitor,
+# to floating windows that become tiling, and to windows dropped with mouse onto a side of a tile.
+# Works with both normalizations enabled.
+enable-auto-tiling = false
 
 # Mouse follows focus when focused monitor changes
 # Drop it from your config, if you don't like this behavior
@@ -45,6 +66,28 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 # Useful if you don't use this macOS feature, but accidentally hit cmd-h or cmd-alt-h key
 # Also see: https://nikitabobko.github.io/AeroSpace/goodies#disable-hide-app
 automatically-unhide-macos-hidden-apps = false
+
+# Draw a colored border around the currently focused window.
+# Native alternative to external tools like JankyBorders for the focused-window case.
+# Fallback value (if you omit the key): focused-window-border = false
+focused-window-border = false
+# Border color as 0xAARRGGBB (alpha, red, green, blue). Same format as JankyBorders.
+# Fallback value (if you omit the key): focused-window-border-color = '0xff12B981'
+focused-window-border-color = '0xff12B981'
+# Border thickness in points.
+# Fallback value (if you omit the key): focused-window-border-width = 4
+focused-window-border-width = 4
+# Border opacity as a percentage 0-100. Multiplies the alpha of the color above.
+# Fallback value (if you omit the key): focused-window-border-opacity = 100
+focused-window-border-opacity = 100
+# Corner radius (points) of the window the border hugs. macOS does not expose the
+# per-window corner radius, so this is a global value - tune it to match your apps.
+# Fallback value (if you omit the key): focused-window-border-radius = 10
+focused-window-border-radius = 10
+# Pull the border this many points back into the window so the window's own rounded
+# corner masks any radius mismatch (hides corner gaps). 0 = border fully outside.
+# Fallback value (if you omit the key): focused-window-border-inset = 0
+focused-window-border-inset = 0
 
 # List of workspaces that should stay alive even when they contain no windows,
 # even when they are invisible.
@@ -60,6 +103,12 @@ persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B",
 on-mode-changed = []
 
 focus-follows-mouse.enabled = false
+
+# Hold a modifier to see every open window and the workspace it lives on.
+# 'none' disables the overview. Other possible values are the same modifiers that bindings accept
+# See: https://nikitabobko.github.io/AeroSpace/guide#overview
+overview.hold-modifier = 'none'
+overview.hold-delay-ms = 500
 
 # Possible values: (qwerty|dvorak|colemak)
 # See https://nikitabobko.github.io/AeroSpace/guide#key-mapping
@@ -106,16 +155,15 @@ gaps.outer.right =      0
     # See: https://nikitabobko.github.io/AeroSpace/commands#exec-and-forget
     # You can uncomment the following lines to open up terminal with alt + enter shortcut
     # (like in i3)
-    # alt-enter = '''exec-and-forget osascript -e '
-    # tell application "Terminal"
-    #     do script
-    #     activate
-    # end tell'
-    # '''
+    # alt-enter = '''exec-and-forget osascript -e \
+    # 'tell application "Terminal" to tell (do script) to activate' '''
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#layout
     alt-slash = 'layout tiles horizontal vertical'
     alt-comma = 'layout accordion horizontal vertical'
+    # Useful when you switch a workspace to the scrolling layout with `layout scrolling`
+    alt-left = 'scroll left'
+    alt-right = 'scroll right'
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#focus
     alt-h = 'focus left'

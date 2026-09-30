@@ -138,13 +138,21 @@ private let configParser: [String: any ParserProtocol<Config>] = [
 
     "enable-normalization-flatten-containers": Parser(\.enableNormalizationFlattenContainers, parseBool),
     "enable-normalization-opposite-orientation-for-nested-containers": Parser(\.enableNormalizationOppositeOrientationForNestedContainers, parseBool),
+    "enable-normalization-binary-tree": Parser(\.enableNormalizationBinaryTree, parseBool),
 
     "default-root-container-layout": Parser(\.defaultRootContainerLayout, parseLayout),
     "default-root-container-orientation": Parser(\.defaultRootContainerOrientation, parseDefaultContainerOrientation),
+    "enable-auto-tiling": Parser(\.enableAutoTiling, parseBool),
 
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
+    "focused-window-border": Parser(\.focusedWindowBorder, parseBool),
+    "focused-window-border-color": Parser(\.focusedWindowBorderColor, parseString),
+    "focused-window-border-width": Parser(\.focusedWindowBorderWidth, parseInt),
+    "focused-window-border-opacity": Parser(\.focusedWindowBorderOpacity, parseInt),
+    "focused-window-border-radius": Parser(\.focusedWindowBorderRadius, parseInt),
+    "focused-window-border-inset": Parser(\.focusedWindowBorderInset, parseInt),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     "max-window-width": Parser(\.maxWindowWidth) { raw, backtrace, ctx in
         if let intValue = raw.asIntOrNil {
@@ -169,6 +177,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
         }
         return .perColumnCount(result)
     },
+    "scrolling-peek-width": Parser(\.scrollingPeekWidth, parseInt),
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),
@@ -179,6 +188,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "gaps": Parser(\.gaps, parseGaps),
     "focus-follows-mouse": Parser(\.focusFollowsMouse, parseFocusFollowsMouse),
     "workspace-gaps": Parser(\.workspaceGaps, parseWorkspaceGaps),
+    "overview": Parser(\.overview, parseOverview),
     "workspace-to-monitor-force-assignment": Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
     "on-window-detected": Parser(\.onWindowDetected, parseOnWindowDetectedArray),
 

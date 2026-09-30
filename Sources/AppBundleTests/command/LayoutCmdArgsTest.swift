@@ -4,12 +4,12 @@ import XCTest
 
 final class LayoutCmdArgsTest: XCTestCase {
     func testParseSticky() {
-        let cmd = parseCommand("layout sticky").cmdOrDie as! LayoutCommand
+        let cmd = parseCommand("layout sticky").cmdOrDie.singleCmdOrDie as! LayoutCommand
         assertEquals(cmd.args.toggleBetween.val, [.sticky])
     }
 
     func testParseStickyAmongOthers() {
-        let cmd = parseCommand("layout sticky floating").cmdOrDie as! LayoutCommand
+        let cmd = parseCommand("layout sticky floating").cmdOrDie.singleCmdOrDie as! LayoutCommand
         assertEquals(cmd.args.toggleBetween.val, [.sticky, .floating])
     }
 

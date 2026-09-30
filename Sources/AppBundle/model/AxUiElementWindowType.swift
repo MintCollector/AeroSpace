@@ -117,7 +117,7 @@ extension AxUiElementMock {
     ) -> Bool {
         if windowLevel != .normalWindow &&
             // Slowly roll out windowLevel for applications for which we have the appropriate dumps
-            (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex)
+            (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex || id == .wisprFlow)
         {
             return false
         }
@@ -147,7 +147,7 @@ extension AxUiElementMock {
             return false
         }
 
-        if id == .iterm2 && fullscreenButton == nil {
+        if id == .iterm2 && fullscreenButton == nil && get(Ax.identifierAttr) != "mainPreferencesWindow" {
             return false
         }
 

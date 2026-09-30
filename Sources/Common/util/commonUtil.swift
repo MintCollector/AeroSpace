@@ -14,6 +14,7 @@ private var recursionDetectorDuringTermination = false
 
 public func bugPrompt(
     _ __message: String = "",
+    isDie: Bool = false,
     file: StaticString = #fileID,
     line: Int = #line,
     column: Int = #column,
@@ -38,6 +39,7 @@ public func bugPrompt(
         Coordinate: \(file):\(line):\(column) \(function)
         recursionDetectorDuringTermination: \(recursionDetectorDuringTermination)
         cli: \(isCli)
+        die: \(isDie)
         Monitor count: \(NSScreen.screens.count)
         Displays have separate spaces: \(NSScreen.screensHaveSeparateSpaces)
 
@@ -53,7 +55,7 @@ public func dieT<T>(
     column: Int = #column,
     function: String = #function,
 ) -> T {
-    let message = bugPrompt(__message, file: file, line: line, column: column, function: function)
+    let message = bugPrompt(__message, isDie: true, file: file, line: line, column: column, function: function)
     if !isUnitTest && isServer {
         showMessageInGui(
             filenameIfConsoleApp: recursionDetectorDuringTermination
@@ -146,7 +148,13 @@ public func check(
     }
 }
 
-public var isUnitTest: Bool { NSClassFromString("XCTestCase") != nil }
+// Whether the process is a unit test bundle cannot change during the process
+// lifetime, so resolve it once. `isUnitTest` is read on hot paths (e.g. every
+// `mainMonitorInfo` / `monitorInfos` access via `rearrangeWorkspacesOnMonitors`),
+// and calling `NSClassFromString` there has been observed to crash with
+// EXC_BAD_ACCESS inside the dyld objc class lookup during display
+// reconfiguration. Caching the value removes that call from the hot path.
+public let isUnitTest: Bool = NSClassFromString("XCTestCase") != nil
 
 extension CaseIterable where Self: RawRepresentable, RawValue == String {
     public static var cliArgsCases: [String] { allCases.map(\.rawValue) }

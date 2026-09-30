@@ -5,16 +5,21 @@ extension Workspace {
         let containers = children.filterIsInstance(of: TilingContainer.self)
         switch containers.count {
             case 0:
-                let orientation: Orientation = switch config.defaultRootContainerOrientation {
-                    case .horizontal: .h
-                    case .vertical: .v
-                    case .auto: workspaceMonitor.then { $0.width >= $0.height } ? .h : .v
-                }
-                return TilingContainer(parent: self, adaptiveWeight: 1, orientation, config.defaultRootContainerLayout, index: INDEX_BIND_LAST)
+                let rootOrientation = config.defaultRootContainerLayout == .scrolling ? .h : defaultRootContainerOrientation
+                return TilingContainer(parent: self, adaptiveWeight: 1, rootOrientation, config.defaultRootContainerLayout, index: INDEX_BIND_LAST)
             case 1:
                 return containers.singleOrNil().orDie()
             default:
                 die("Workspace must contain zero or one tiling container as its child")
+        }
+    }
+
+    @MainActor
+    var defaultRootContainerOrientation: Orientation {
+        switch config.defaultRootContainerOrientation {
+            case .horizontal: .h
+            case .vertical: .v
+            case .auto: workspaceMonitor.then { $0.width >= $0.height } ? .h : .v
         }
     }
 
@@ -51,9 +56,9 @@ extension Workspace {
         }
     }
 
-    @MainActor var forceAssignedMonitor: Monitor? {
+    @MainActor var forceAssignedMonitor: MonitorInfo? {
         guard let monitorDescriptions = config.workspaceToMonitorForceAssignment[name] else { return nil }
-        let sortedMonitors = sortedMonitors
+        let sortedMonitors = sortedMonitorInfos
         return monitorDescriptions.lazy
             .compactMap { $0.resolveMonitor(sortedMonitors: sortedMonitors) }
             .first

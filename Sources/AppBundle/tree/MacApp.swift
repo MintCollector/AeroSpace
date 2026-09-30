@@ -13,10 +13,10 @@ final class MacApp: AbstractApp {
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]> // keep subscriptions in memory
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
     private var windowsCount = 0
-    var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
     @MainActor private static var focusJob: RunLoopJob? = nil
+    @MainActor private static var focusVerification: Task<Void, Never>? = nil
 
     /*conforms*/ var name: String? { nsApp.localizedName }
     /*conforms*/ var execPath: String? { nsApp.executableURL?.path }
@@ -52,11 +52,14 @@ final class MacApp: AbstractApp {
 
     /// Records a failed registration for `pid`, throttling retries with exponential backoff:
     /// `base * 2^priorFailures`, capped at `failedRegistrationMaxRetryDelay`.
-    @MainActor static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) {
+    /// Returns the failure count (including this one) and the backoff delay applied.
+    @MainActor @discardableResult
+    static func recordFailedRegistration(_ pid: pid_t, now: Date = Date()) -> (failures: Int, delay: TimeInterval) {
         let priorFailures = failedRegistrationFailures[pid] ?? 0
         let delay = min(failedRegistrationMaxRetryDelay, failedRegistrationRetryDelay * pow(2, Double(priorFailures)))
         failedRegistrationFailures[pid] = priorFailures + 1
         failedRegistrationRetryAfter[pid] = now.addingTimeInterval(delay)
+        return (priorFailures + 1, delay)
     }
 
     /// Clears any throttle state for `pid` (called on successful registration and on destroy).
@@ -65,10 +68,15 @@ final class MacApp: AbstractApp {
         failedRegistrationFailures[pid] = nil
     }
 
-    private init(_ nsApp: NSRunningApplication, _ axApp: AXUIElement, _ axSubscriptions: [AxSubscription], _ thread: Thread) {
+    private init(
+        _ nsApp: NSRunningApplication,
+        _ axApp: AXUIElement,
+        _ axSubscriptions: [AxSubscription],
+        _ thread: Thread,
+    ) {
         self.nsApp = nsApp
         self.axApp = .init(axApp)
-        self.pid = nsApp.processIdentifier
+        self.pid = nsApp.resolvedProcessIdentifier
         self.rawAppBundleId = nsApp.bundleIdentifier
         self.appId = nsApp.bundleIdentifier.flatMap { KnownBundleId.init(rawValue: $0) }
         assert(!axSubscriptions.isEmpty)
@@ -82,53 +90,67 @@ final class MacApp: AbstractApp {
         // Don't perceive any of the lock screen windows as real windows
         // Otherwise, false positive ax notifications might trigger that lead to gcWindows
         if nsApp.bundleIdentifier == lockScreenAppBundleId { return nil }
-        let pid = nsApp.processIdentifier
+        let pid = nsApp.resolvedProcessIdentifier
         // AX requests crash if you send them to yourself
         if pid == myPid { return nil }
 
-        while true {
-            if let existing = allAppsMap[pid] { return existing }
-            if shouldThrottleFailedRegistration(pid) { return nil }
-            try checkCancellation()
-            if let wip = wipPids[pid] {
-                try await wip.await()
-                continue
-            }
-            let wip = AwaitableOneTimeBroadcastLatch()
-            wipPids[pid] = wip
+        if let existing = allAppsMap[pid] { return existing }
+        if shouldThrottleFailedRegistration(pid) { return nil }
+        try checkCancellation()
+        if let wip = wipPids[pid] {
+            try await wip.await()
+            return allAppsMap[pid]
+        }
+        let wip = AwaitableOneTimeBroadcastLatch()
+        wipPids[pid] = wip
 
-            let thread = Thread {
-                $axTaskLocalAppThreadToken.withValue(AxAppThreadToken(pid: pid, idForDebug: nsApp.idForDebug)) {
-                    let axApp = AXUIElementCreateApplication(nsApp.processIdentifier)
-                    // Bound every AX message to this app at 1s. The read path no longer uses AX
-                    // (list-tree reads CGWindowList), but mutations (setAxFrame etc.) still do —
-                    // a hung app then fails fast (~1s) instead of blocking the thread ~6s.
-                    AXUIElementSetMessagingTimeout(axApp, 1.0)
-                    let handlers: HandlerToNotifKeyMapping = unsafe [
-                        (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
-                    ]
-                    let job = RunLoopJob(.cancellable)
-                    let subscriptions = (try? unsafe AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers)) ?? []
-                    let isGood = !subscriptions.isEmpty
-                    let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
-                    Task.startUnstructured { @MainActor in
-                        if let app {
-                            allAppsMap[pid] = app
-                            clearFailedRegistration(pid)
-                        } else {
-                            recordFailedRegistration(pid)
-                        }
-                        await wip.signalToAll()
-                        wipPids[pid] = nil
+        let thread = Thread {
+            $axTaskLocalAppThreadToken.withValue(AxAppThreadToken(pid: pid, idForDebug: nsApp.idForDebug)) {
+                let axApp = AXUIElementCreateApplication(pid)
+                // Bound every AX message to this app at 1s. The read path no longer uses AX
+                // (list-tree reads CGWindowList), but mutations (setAxFrame etc.) still do —
+                // a hung app then fails fast (~1s) instead of blocking the thread ~6s.
+                AXUIElementSetMessagingTimeout(axApp, 1.0)
+                let handlers: HandlerToNotifKeyMapping = unsafe [
+                    (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
+                ]
+                let job = RunLoopJob(.cancellable)
+                let subscriptions = (try? unsafe AxSubscription.bulkSubscribe(pid, axApp, job, handlers)) ?? []
+                let isGood = !subscriptions.isEmpty
+                let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
+
+                let appAxSubscriptionsThreadGuarded = app?.appAxSubscriptions
+                let windowsThreadGuarded = app?.windows
+                let axAppThreadGuarded = app?.axApp
+                let idForDebug = nsApp.idForDebug
+
+                Task.startUnstructured { @MainActor in
+                    allAppsMap[pid] = app
+                    if app != nil {
+                        clearFailedRegistration(pid)
+                    } else {
+                        let (failures, delay) = recordFailedRegistration(pid)
+                        focusLog("[app-register] \(idForDebug): AX subscribe failed (failure #\(failures)) — retry allowed after \(Int(delay * 1000))ms")
                     }
-                    if isGood {
-                        CFRunLoopRun()
-                    }
+                    wipPids[pid] = nil
+                    await wip.signalToAll()
+                }
+                if isGood {
+                    CFRunLoopRun()
+
+                    // Destroy AX objects in reverse order of their creation, and only after
+                    // CFRunLoopRun returns, so no queued job can touch a destroyed value.
+                    appAxSubscriptionsThreadGuarded?.destroy()
+                    windowsThreadGuarded?.destroy()
+                    axAppThreadGuarded?.destroy()
                 }
             }
-            thread.name = "AxAppThread \(nsApp.idForDebug)"
-            thread.start()
         }
+        thread.name = "AxAppThread \(nsApp.idForDebug)"
+        thread.start()
+
+        try await wip.await()
+        return allAppsMap[pid]
     }
 
     func closeAndUnregisterAxWindow(_ windowId: UInt32) {
@@ -163,21 +185,42 @@ final class MacApp: AbstractApp {
     }
 
     @MainActor func nativeFocus(_ windowId: UInt32) {
+        nativeFocus(windowId, allowRetry: true)
+    }
+
+    /// Focusing a window of an app that isn't frontmost is a race: the AX raise says which window
+    /// should be main, and activating the app makes macOS restore whichever window *it* still holds
+    /// as main. When macOS wins, focus lands on a sibling window — sometimes one parked off-screen
+    /// on another workspace, which drags AeroSpace there with it.
+    ///
+    /// The race can't be removed, so it is checked instead: shortly after asking, look at where
+    /// focus actually landed and ask once more if it went to the wrong window of this app.
+    @MainActor private func nativeFocus(_ windowId: UInt32, allowRetry: Bool) {
         if serverArgs.isReadOnly { return }
         MacApp.focusJob?.cancel()
+        MacApp.focusVerification?.cancel()
+        if allowRetry { verifyFocusLanded(on: windowId) }
         // Performance optimization. If possible avoid doing AX requests
         // (important for apps which are slow at responding even such basic AX requests. E.g. Godot)
         // Beware of the macOS bug: https://github.com/nikitabobko/AeroSpace/issues/101
-        if (!NSScreen.screensHaveSeparateSpaces || monitors.count == 1) &&
-            (lastNativeFocusedWindowId == windowId || windowsCount == 1)
-        {
+        //
+        // `activate` focuses whichever window macOS currently considers the app's main one, which
+        // is only the window being asked for when the app has exactly one. The last window AeroSpace
+        // observed as focused used to be accepted as evidence too, but that records an observation,
+        // and the app's main window drifts from it on its own — a background window taking a link,
+        // an app reordering its own windows. Focusing a window of a multi-window app then activated
+        // a different window of the same app, which reads as focus being stolen.
+        if (!NSScreen.screensHaveSeparateSpaces || monitorInfos.count == 1) && windowsCount == 1 {
             nsApp.activate(options: .activateIgnoringOtherApps)
         } else {
             MacApp.focusJob = withWindowAsync(windowId, .cancellable) { [nsApp] window, job in
                 // Raise firstly to make sure that by the time we activate the app, the window would be already on top
-                window.set(Ax.isMainAttr, true)
-                AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-                nsApp.activate(options: .activateIgnoringOtherApps)
+                try performNativeFocus(
+                    job: job,
+                    setMain: { window.set(Ax.isMainAttr, true) },
+                    raise: { AXUIElementPerformAction(window, kAXRaiseAction as CFString) },
+                    activate: { nsApp.activate(options: .activateIgnoringOtherApps) },
+                )
             }
         }
     }
@@ -187,6 +230,25 @@ final class MacApp: AbstractApp {
         if serverArgs.isReadOnly { return }
         _ = withWindowAsync(windowId, .cancellable) { window, job in
             AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        }
+    }
+
+    /// Ask the app where focus actually landed, and ask once more if macOS restored a different
+    /// window of its own. Bounded to a single retry: the second attempt runs with `allowRetry`
+    /// false, so a window that genuinely refuses focus can't turn this into a loop.
+    @MainActor private func verifyFocusLanded(on windowId: UInt32) {
+        MacApp.focusVerification = Task.startUnstructured { @MainActor [weak self] in
+            // Long enough for the activation to have settled, short enough that a wrong window
+            // never becomes something you can act on.
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self, !Task.isCancelled else { return }
+            // Focus moving to a different app is the user, not this bug. Dragging them back would
+            // be the very thing being fixed here.
+            guard self.nsApp.isActive else { return }
+            guard let landed = try? await self.getFocusedWindow(.nonCancellable),
+                  landed.windowId != windowId
+            else { return }
+            self.nativeFocus(windowId, allowRetry: false)
         }
     }
 
@@ -254,10 +316,29 @@ final class MacApp: AbstractApp {
     }
 
     func getAxUiElementWindowType(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> AxUiElementWindowType {
-        return try await withWindow(windowId, cm) { [nsApp, axApp, appId] window, job in
+        try await getAxUiElementWindowTypeAndReadiness(windowId, windowLevel, cm).type
+    }
+
+    /// The window type, plus whether the app actually answered the AX reads behind a `.dialog`
+    /// verdict. An app that is still launching (or otherwise busy) fails reads with
+    /// kAXErrorCannotComplete, which `Ax.get` flattens to nil — indistinguishable from an absent
+    /// attribute. A nil subrole or fullscreen button reads as "dialog", so a busy app's normal
+    /// document window would float for good. `isAxReady == false` flags that verdict as unreliable.
+    func getAxUiElementWindowTypeAndReadiness(
+        _ windowId: UInt32,
+        _ windowLevel: MacOsWindowLevel?,
+        _ cm: CancellationMode,
+    ) async throws -> (type: AxUiElementWindowType, isAxReady: Bool) {
+        return try await withWindow(windowId, cm) { [nsApp, axApp, appId] window, job -> (type: AxUiElementWindowType, isAxReady: Bool)? in
             guard let axApp = axApp.threadGuardedOrNil else { return nil }
-            return window.getWindowType(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
-        } ?? .window
+            let type = window.getWindowType(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
+            guard type == .dialog else { return (type, true) }
+            let isAxReady = [kAXSubroleAttribute, kAXFullScreenButtonAttribute].allSatisfy { key in
+                var raw: AnyObject?
+                return unsafe AXUIElementCopyAttributeValue(window, key as CFString, &raw) != .cannotComplete
+            }
+            return (type, isAxReady)
+        } ?? (.window, true)
     }
 
     func isDialogHeuristic(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> Bool {
@@ -334,8 +415,9 @@ final class MacApp: AbstractApp {
         return try await withThrowingTaskGroup(of: (pid_t, MacAppWindowsRefreshResult).self, returning: [MacApp: MacAppWindowsRefreshResult].self) { group in
             func refreshTheApp(_ nsApp: NSRunningApplication) {
                 group.addTask { @Sendable @MainActor in
-                    guard let app = try await MacApp.getOrRegister(nsApp) else { return (nsApp.processIdentifier, .empty) }
-                    return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
+                    let pid = nsApp.resolvedProcessIdentifier
+                    guard let app = try await MacApp.getOrRegister(nsApp) else { return (pid, .empty) }
+                    return (pid, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
                 }
             }
             // Register new apps
@@ -389,10 +471,17 @@ final class MacApp: AbstractApp {
                     try job.checkCancellation()
                     try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
                 }
-                // GC windows that are still in CGWindowList but no longer in the app's AX tree
-                let axGone = alive.filter { !axWindowIds.contains($0.key) }
-                dead.merge(axGone) { _, new in new }
-                for key in axGone.keys { alive.removeValue(forKey: key) }
+                // Second line of defence against the lock screen (the first is closedWindowsCache).
+                // While the lock screen is frontmost, apps can transiently report a partial AX
+                // window list; GC'ing against it drops live windows and flickers on unlock.
+                // Upstream guards its equivalent partition the same way; our e24a68b7 rewrite
+                // replaced the partition and lost the guard with it.
+                if frontmostAppBundleId != lockScreenAppBundleId {
+                    // GC windows that are still in CGWindowList but no longer in the app's AX tree
+                    let axGone = alive.filter { !axWindowIds.contains($0.key) }
+                    dead.merge(axGone) { _, new in new }
+                    for key in axGone.keys { alive.removeValue(forKey: key) }
+                }
                 nativeTabGroups = alive.nativeTabGroups()
             } else {
                 // App is unresponsive — preserve existing alive set instead of GC'ing.
@@ -423,12 +512,7 @@ final class MacApp: AbstractApp {
             job.cancel()
         }
         setFrameJobs = [:]
-        thread?.runInLoopAsync(job: RunLoopJob(.nonCancellable)) { [windows, appAxSubscriptions, axApp] job in
-            appAxSubscriptions.destroy() // Destroy AX objects in reverse order of their creation
-            windows.destroy()
-            axApp.destroy()
-            CFRunLoopStop(CFRunLoopGetCurrent())
-        }
+        thread?.runInLoopAsync(job: RunLoopJob(.nonCancellable)) { job in CFRunLoopStop(CFRunLoopGetCurrent()) }
         thread = nil // Disallow all future job submissions
     }
 
@@ -458,6 +542,21 @@ struct MacAppWindowsRefreshResult: Sendable {
     static let empty = MacAppWindowsRefreshResult(aliveWindowIds: [], nativeTabGroups: [])
 }
 
+func performNativeFocus(
+    job: RunLoopJob,
+    setMain: () -> Void,
+    raise: () -> Void,
+    activate: () -> Void,
+) throws {
+    try job.checkCancellation()
+    setMain()
+    // AX calls can block while another focus request cancels this job.
+    try job.checkCancellation()
+    raise()
+    try job.checkCancellation()
+    activate()
+}
+
 private final class AxWindow {
     let windowId: UInt32
     let ax: AXUIElement
@@ -477,7 +576,7 @@ private final class AxWindow {
             (movedObs, [kAXMovedNotification]),
             (resizedObs, [kAXResizedNotification]),
         ]
-        let subscriptions = try unsafe AxSubscription.bulkSubscribe(nsApp, ax, job, handlers)
+        let subscriptions = try unsafe AxSubscription.bulkSubscribe(nsApp.resolvedProcessIdentifier, ax, job, handlers)
         return !subscriptions.isEmpty ? AxWindow(windowId: windowId, ax, subscriptions) : nil
     }
 }

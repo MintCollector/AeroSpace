@@ -53,7 +53,7 @@ private struct FrozenFocus: AeroAny, Equatable, Sendable {
 @MainActor var windowFocusSequence: UInt64 = 0
 
 @MainActor private var _focus: FrozenFocus = {
-    let monitor = mainMonitor
+    let monitor = mainMonitorInfo
     return FrozenFocus(windowId: nil, workspaceName: monitor.activeWorkspace.name, monitorId_oneBased: monitor.monitorId_oneBased ?? 0)
 }()
 
@@ -62,6 +62,14 @@ private struct FrozenFocus: AeroAny, Equatable, Sendable {
 /// But, in general, commands must firstly check --window-id, --workspace, AEROSPACE_WINDOW_ID env and
 /// AEROSPACE_WORKSPACE env before accessing the global focus.
 @MainActor var focus: LiveFocus { _focus.live }
+
+@MainActor
+func resolveFocusAfterWindowRemoval(wasFocused: Bool, previousWindow: Window?, workspace: Workspace) -> LiveFocus {
+    if wasFocused, let previousWindow, previousWindow.visualWorkspace == workspace {
+        return LiveFocus(windowOrNil: previousWindow, workspace: workspace)
+    }
+    return workspace.toLiveFocus()
+}
 
 @MainActor func setFocus(to newFocus: LiveFocus) -> Bool {
     if _focus == newFocus.frozen { return true }
@@ -80,6 +88,7 @@ private struct FrozenFocus: AeroAny, Equatable, Sendable {
         windowFocusSequence += 1
         window.lastFocusedAt = windowFocusSequence
     }
+    newFocus.workspace.rootTilingContainer.reveal(newFocus.windowOrNil, preferRightPane: false)
     return status
 }
 extension Window {
@@ -137,6 +146,9 @@ extension Workspace {
 // Used by focus-back-and-forth
 @MainActor private var _prevFocus: FrozenFocus? = nil
 @MainActor var prevFocus: LiveFocus? { _prevFocus?.live.takeIf { $0 != focus } }
+@MainActor var previousFocusedWindowOrNil: Window? {
+    _prevFocus?.windowId.flatMap { Window.get(byId: $0) }
+}
 
 @MainActor private var onFocusChangedRecursionGuard = false
 // Should be called in refreshSession

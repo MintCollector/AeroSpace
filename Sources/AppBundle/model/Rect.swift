@@ -27,7 +27,7 @@ struct Rect: ConvenienceMutable, AeroAny {
 
 extension CGRect {
     func monitorFrameNormalized() -> Rect {
-        let mainMonitorHeight: CGFloat = mainMonitor.height
+        let mainMonitorHeight: CGFloat = mainMonitorInfo.height
         let rect = toRect()
         return rect.copy(\.topLeftY, mainMonitorHeight - rect.topLeftY)
     }
@@ -62,4 +62,27 @@ extension Rect {
     var size: CGSize { CGSize(width: width, height: height) }
 
     func getDimension(_ orientation: Orientation) -> CGFloat { orientation == .h ? width : height }
+
+    /// Slice this rect along `axis` into sub-rects sized proportionally to `weights`.
+    func sliced(along axis: Orientation, weights: [CGFloat]) -> [Rect] {
+        let span = getDimension(axis)
+        let total = weights.reduce(0, +)
+        var offset: CGFloat = 0
+        return weights.map { weight in
+            let portion = total > 0 ? span * weight / total : span / CGFloat(weights.count)
+            defer { offset += portion }
+            return axis == .h
+                ? Rect(topLeftX: topLeftX + offset, topLeftY: topLeftY, width: portion, height: height)
+                : Rect(topLeftX: topLeftX, topLeftY: topLeftY + offset, width: width, height: portion)
+        }
+    }
+
+    var nsRect: NSRect {
+        NSRect(
+            x: topLeftX,
+            y: mainMonitorInfo.height - topLeftY - height,
+            width: width,
+            height: height,
+        )
+    }
 }

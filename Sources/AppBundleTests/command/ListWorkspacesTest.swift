@@ -22,7 +22,7 @@ final class ListWorkspacesTest: XCTestCase {
         assertEquals(parseCommand("list-workspaces --all --format '%{all}'").errorOrNil, "'%{all}' format option requires --json flag")
         assertNotNil(parseCommand("list-workspaces --all --format '%{all}' --json").cmdOrNil)
         assertEquals(parseCommand("list-workspaces --all --format '%{all} %{workspace}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
-        assertEquals(parseCommand("list-workspaces --all --format '%{is-focused} %{all}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
+        assertEquals(parseCommand("list-workspaces --all --format '%{workspace-is-focused} %{all}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
         assertNotNil(parseCommand("list-workspaces --all --format ' %{all} ' --json").cmdOrNil)
     }
 

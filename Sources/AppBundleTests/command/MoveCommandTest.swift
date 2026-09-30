@@ -11,6 +11,31 @@ final class MoveCommandTest: XCTestCase {
         assertNil(parseCommand("move --fail-if-macos-native-fullscreen --window-id 1 right").errorOrNil)
     }
 
+    func testBinaryTree_edgeMoveHitsBoundaryInsteadOfUnnesting() async {
+        // With binary-tree normalization on, a window at the workspace edge (nothing in `direction`
+        // anywhere up the tree) must apply the boundary action instead of bubbling out of its
+        // container — otherwise normalization re-nests it and it can never cross to an adjacent
+        // monitor. Here --boundaries-action stop → no-op. (cf. testStop_onInnerNode without binary tree.)
+        config.enableNormalizationBinaryTree = true
+        let workspace = Workspace.get(byName: name)
+        workspace.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
+                assertEquals(TestWindow.new(id: 2, parent: $0).focusWindow(), true)
+                TestWindow.new(id: 3, parent: $0)
+            }
+        }
+
+        let result = await parseCommand("move --boundaries-action stop right").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(
+            workspace.layoutDescription,
+            .workspace([
+                .h_tiles([.window(1), .v_tiles([.window(2), .window(3)])]),
+            ]),
+        )
+        assertEquals(result.exitCode.rawValue, 0)
+    }
+
     func testFailIfFullscreen() async {
         let root = Workspace.get(byName: name).rootTilingContainer.apply {
             let window = TestWindow.new(id: 1, parent: $0)
@@ -167,6 +192,26 @@ final class MoveCommandTest: XCTestCase {
         assertEquals(result.exitCode.rawValue, 0)
     }
 
+    func testCreateImplicitContainerFailsInScrollingLayout() async {
+        let workspace = Workspace.get(byName: name)
+        workspace.rootTilingContainer.apply {
+            assertEquals(TestWindow.new(id: 1, parent: $0).focusWindow(), true)
+            TestWindow.new(id: 2, parent: $0)
+        }
+        workspace.rootTilingContainer.layout = .scrolling
+
+        let result = await parseCommand("move --boundaries-action create-implicit-container up").cmdOrDie
+            .run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 2)
+        assertEquals(result.stderr, ["move --boundaries-action create-implicit-container doesn't support the scrolling layout"])
+        assertEquals(
+            workspace.layoutDescription,
+            .workspace([
+                .scrolling([.window(1), .window(2)]),
+            ]),
+        )
+    }
+
     func testStop_onRootNode() async {
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -321,7 +366,7 @@ final class MoveCommandTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 1)
     }
 
-    func testCreateImplicitContainerOrFail_normalizationDisabled() async throws {
+    func testCreateImplicitContainerOrFail_normalizationDisabled() async {
         config.enableNormalizationFlattenContainers = false
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -329,7 +374,7 @@ final class MoveCommandTest: XCTestCase {
             assertEquals(TestWindow.new(id: 2, parent: $0).focusWindow(), true)
             TestWindow.new(id: 3, parent: $0)
         }
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(result.stdout.count, 1)
@@ -339,7 +384,7 @@ final class MoveCommandTest: XCTestCase {
         )
     }
 
-    func testCreateImplicitContainerOrFail_succeeds() async throws {
+    func testCreateImplicitContainerOrFail_succeeds() async {
         config.enableNormalizationFlattenContainers = true
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -347,7 +392,7 @@ final class MoveCommandTest: XCTestCase {
             assertEquals(TestWindow.new(id: 2, parent: $0).focusWindow(), true)
             TestWindow.new(id: 3, parent: $0)
         }
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail up")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
         assertEquals(
@@ -356,7 +401,7 @@ final class MoveCommandTest: XCTestCase {
         )
     }
 
-    func testCreateImplicitContainerOrFail_fails() async throws {
+    func testCreateImplicitContainerOrFail_fails() async {
         config.enableNormalizationFlattenContainers = true
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
@@ -364,7 +409,7 @@ final class MoveCommandTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
         }
         let before = workspace.layoutDescription
-        let result = try await parseCommand("move --boundaries-action create-implicit-container-or-fail left")
+        let result = await parseCommand("move --boundaries-action create-implicit-container-or-fail left")
             .cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 2)
         assertEquals(workspace.layoutDescription, before)
@@ -391,6 +436,10 @@ extension TreeNode {
                         container.orientation == .h
                             ? .h_accordion(container.children.map(\.layoutDescription))
                             : .v_accordion(container.children.map(\.layoutDescription))
+                    case .scrolling:
+                        .scrolling(container.children.map(\.layoutDescription))
+                    case .tabs:
+                        .tabs(container.children.map(\.layoutDescription))
                 }
         }
     }
@@ -403,6 +452,8 @@ enum LayoutDescription: Equatable {
     case h_accordion([LayoutDescription])
     case v_accordion([LayoutDescription])
     case floatingWindowsContainer([LayoutDescription])
+    case scrolling([LayoutDescription])
+    case tabs([LayoutDescription])
     case window(UInt32)
     case macosPopupWindowsContainer
     case macosMinimized

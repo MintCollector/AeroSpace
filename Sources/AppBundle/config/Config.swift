@@ -53,17 +53,27 @@ struct Config: ConvenienceMutable {
     var _nonEmptyWorkspacesRootContainersLayoutOnStartup: Void = ()
     var defaultRootContainerLayout: Layout = .tiles
     var defaultRootContainerOrientation: DefaultContainerOrientation = .auto
+    var enableAutoTiling: Bool = false
     var startAtLogin: Bool = false
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
+    var focusedWindowBorder: Bool = false
+    var focusedWindowBorderColor: String = "0xff12B981"
+    var focusedWindowBorderWidth: Int = 4
+    var focusedWindowBorderOpacity: Int = 100
+    var focusedWindowBorderRadius: Int = 10
+    var focusedWindowBorderInset: Int = 0
     var accordionPadding: Int = 30
     var maxWindowWidth: MaxWindowWidth? = nil
+    var scrollingPeekWidth: Int = 0
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
+    var enableNormalizationBinaryTree: Bool = false
     var persistentWorkspaces: OrderedSet<String> = []
     var execOnWorkspaceChange: [String] = [] // todo deprecate
     var keyMapping = KeyMapping()
     var execConfig: ExecConfig = ExecConfig()
     var focusFollowsMouse: FocusFollowsMouse = FocusFollowsMouse()
+    var overview: OverviewConfig = OverviewConfig()
 
     var onFocusChanged: Shell<any Command> = .empty
     // var onFocusedWorkspaceChanged: [any Command] = []
@@ -79,6 +89,12 @@ struct Config: ConvenienceMutable {
 
 struct FocusFollowsMouse: ConvenienceMutable {
     var enabled: Bool = false
+}
+
+struct OverviewConfig: ConvenienceMutable {
+    /// `nil` disables the feature. That's the default. AeroSpace doesn't show anything unless asked to
+    var holdModifier: NSEvent.ModifierFlags? = nil
+    var holdDelayMs: Int = 500
 }
 
 enum ConfigVersion: Int, Comparable, CaseIterable, Sendable, CustomStringConvertible {

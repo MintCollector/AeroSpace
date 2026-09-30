@@ -122,6 +122,58 @@ final class FocusCommandTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 3)
     }
 
+    func testFocusSkipsFloatingWindowUnboundWhileReadingItsRect() async {
+        let workspace = Workspace.get(byName: name)
+        let tiledWindow = TestWindow.new(
+            id: 1,
+            parent: workspace.rootTilingContainer,
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 100, height: 100),
+        )
+        let floatingWindow = TestWindow.new(
+            id: 2,
+            parent: workspace.floatingWindowsContainer,
+            rect: Rect(topLeftX: 10, topLeftY: 10, width: 100, height: 100),
+        )
+        floatingWindow.onGetAxRect = {
+            floatingWindow.unbindFromParent()
+        }
+        assertEquals(tiledWindow.focusWindow(), true)
+
+        let result = await parseCommand("focus right").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(focus.windowOrNil?.windowId, 1)
+        XCTAssertNil(floatingWindow.parent)
+    }
+
+    /// `focus --window-id` resolves through MacWindow.allWindowsMap, so unlike
+    /// the directional and dfs targets it does not depend on floating windows
+    /// being temporarily bound into the tiling tree. Pins the observable
+    /// behaviour: focus lands on the requested window, floating windows stay
+    /// floating, and the workspace mru points at whatever was focused last.
+    func testFocusWindowIdOverFloatingWindows() async {
+        assertEquals(focus.windowOrNil, nil)
+        let workspace = Workspace.get(byName: name)
+        TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        workspace.floatingWindowsContainer.apply {
+            assertEquals(TestWindow.new(id: 2, parent: $0, rect: Rect(topLeftX: 0, topLeftY: 0, width: 100, height: 100)).focusWindow(), true)
+            TestWindow.new(id: 3, parent: $0, rect: Rect(topLeftX: 20, topLeftY: 20, width: 100, height: 100))
+        }
+        assertEquals(focus.windowOrNil?.windowId, 2)
+
+        // floating -> floating
+        await parseCommand("focus --window-id 3").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(focus.windowOrNil?.windowId, 3)
+        assertEquals(workspace.floatingWindows.map(\.windowId).sorted(), [2, 3])
+        assertEquals(workspace.mostRecentWindowRecursive?.windowId, 3)
+
+        // floating -> tiling
+        await parseCommand("focus --window-id 1").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(focus.windowOrNil?.windowId, 1)
+        assertEquals(workspace.floatingWindows.map(\.windowId).sorted(), [2, 3])
+        assertEquals(workspace.mostRecentWindowRecursive?.windowId, 1)
+    }
+
     func testFocusAlongTheContainerOrientation() async {
         Workspace.get(byName: name).rootTilingContainer.apply {
             assertEquals(TestWindow.new(id: 1, parent: $0).focusWindow(), true)

@@ -76,6 +76,8 @@ extension CmdArgs {
                 command = ResizeCommand(args: self as! ResizeCmdArgs)
             case .runCallback:
                 command = RunCallbackCommand(args: self as! RunCallbackCmdArgs)
+            case .scroll:
+                command = ScrollCommand(args: self as! ScrollCmdArgs)
             case .setFrame:
                 command = SetFrameCommand(args: self as! SetFrameCmdArgs)
             case .setGaps:

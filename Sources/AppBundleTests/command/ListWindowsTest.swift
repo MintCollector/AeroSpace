@@ -35,12 +35,12 @@ final class ListWindowsTest: XCTestCase {
 
     func testParseSort() {
         // Default sort: empty == preserve tree traversal order (fork default)
-        assertEquals((parseCommand("list-windows --all").cmdOrNil as? ListWindowsCommand)?.args.sort, [SortOption]())
+        assertEquals((parseCommand("list-windows --all").cmdOrNil?.singleCmdOrNil as? ListWindowsCommand)?.args.sort, [SortOption]())
         // Single value
-        assertEquals((parseCommand("list-windows --all --sort recent").cmdOrNil as? ListWindowsCommand)?.args.sort, [.recent])
+        assertEquals((parseCommand("list-windows --all --sort recent").cmdOrNil?.singleCmdOrNil as? ListWindowsCommand)?.args.sort, [.recent])
         // Comma-separated multi value
         assertEquals(
-            (parseCommand("list-windows --all --sort recent,app-name,window-title").cmdOrNil as? ListWindowsCommand)?.args.sort,
+            (parseCommand("list-windows --all --sort recent,app-name,window-title").cmdOrNil?.singleCmdOrNil as? ListWindowsCommand)?.args.sort,
             [.recent, .appName, .windowTitle],
         )
         // Invalid value

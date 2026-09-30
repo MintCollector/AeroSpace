@@ -36,12 +36,12 @@ struct WindowWithPrefetchedTitle {
                 if rectVarNames.contains(v.rawValue) { needsRect = true }
             }
         }
-        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect)
+        return try await resolveWindow(window, needsTitle: needsTitle, needsRect: needsRect, cm)
     }
 
-    static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool) async throws -> Self {
-        let title: String? = needsTitle ? try await window.getTitle(.cancellable) : nil
-        let rect: Rect? = needsRect ? try await resolveRect(window) : nil
+    static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool, _ cm: CancellationMode = .cancellable) async throws -> Self {
+        let title: String? = needsTitle ? try await window.getTitle(cm) : nil
+        let rect: Rect? = needsRect ? try await resolveRect(window, cm) : nil
         return .init(window: window, title: title, rect: rect)
     }
 
@@ -70,9 +70,9 @@ struct WindowWithPrefetchedTitle {
     /// `setAxFrame` (see layoutRecursive). Floating/fullscreen windows have a nil cache and
     /// fall back to the live AX rect. This is the single rect source for list-windows and
     /// list-tree; it eliminates the per-poll AX rect walk that stalls the serialized MainActor.
-    static func resolveRect(_ window: Window) async throws -> Rect? {
+    static func resolveRect(_ window: Window, _ cm: CancellationMode = .cancellable) async throws -> Rect? {
         if let cached = window.lastAppliedLayoutPhysicalRect { return cached }
-        return try await window.getAxRect(.cancellable)
+        return try await window.getAxRect(cm)
     }
 
     static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
@@ -84,7 +84,7 @@ enum AeroObj {
     case window(WindowWithPrefetchedTitle)
     case workspace(Workspace)
     case app(any AbstractApp)
-    case monitor(Monitor)
+    case monitor(MonitorInfo)
 
     var kind: AeroObjKind {
         switch self {
@@ -309,13 +309,20 @@ private func toLayoutString(tc: TilingContainer) -> String {
         case (.tiles, .v): return LayoutCmdArgs.LayoutDescription.v_tiles.rawValue
         case (.accordion, .h): return LayoutCmdArgs.LayoutDescription.h_accordion.rawValue
         case (.accordion, .v): return LayoutCmdArgs.LayoutDescription.v_accordion.rawValue
+        case (.scrolling, _): return LayoutCmdArgs.LayoutDescription.scrolling.rawValue
+        case (.tabs, _): return LayoutCmdArgs.LayoutDescription.tabs.rawValue
     }
 }
 
 private func toLayoutResult(w: Window) -> Result<Primitive, InterVarExpansionError> {
     guard let parent = w.parent else { return .failure(.nullParent("NULL-PARENT")) }
     return switch getChildParentRelation(child: w, parent: parent) {
-        case .tiling(let tc): .success(.string(toLayoutString(tc: tc)))
+        case .tiling(let tc):
+            {
+                let rootContainer = w.parentsWithSelf.compactMap { $0 as? TilingContainer }.last
+                let layoutContainer = rootContainer?.layout == .scrolling ? rootContainer ?? tc : tc
+                return .success(.string(toLayoutString(tc: layoutContainer)))
+            }()
         case .floatingWindow: .success(.string(LayoutCmdArgs.LayoutDescription.floating.rawValue))
         case .macosNativeFullscreenWindow: .success(.string("macos_native_fullscreen"))
         case .macosNativeHiddenAppWindow: .success(.string("macos_native_window_of_hidden_app"))

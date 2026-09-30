@@ -3,7 +3,6 @@ import Common
 
 final class MacWindow: Window {
     let macApp: MacApp
-    private var prevUnhiddenProportionalPositionInsideWorkspaceRect: CGPoint?
     var isSticky: Bool = false
 
     @MainActor
@@ -47,18 +46,15 @@ final class MacWindow: Window {
             if let existing = allWindowsMap[group.activeWindowId] { return existing }
         }
         let rect = try await macApp.getAxRect(windowId, .cancellable)
-        let data = try await unbindAndGetBindingDataForNewWindow(
-            windowId,
-            macApp,
-            isStartup
-                ? (rect?.center.monitorApproximation ?? mainMonitor).activeWorkspace
-                : focus.workspace,
-            window: nil,
-            .cancellable,
-        )
+        let workspace = isStartup
+            ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
+            : focus.workspace
+        let (windowType, isAxReady) = try await macApp.getAxUiElementWindowTypeAndReadiness(windowId, getWindowLevel(for: windowId), .cancellable)
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
+        // Must be inside the atomic section because auto tiling may create a container for the new window
+        let data = unbindAndGetBindingDataForNewWindow(windowType, workspace, window: nil)
         let parentKind: String = switch data.parent {
             case is TilingContainer: "tiling"
             case is FloatingWindowsContainer: "floating"
@@ -69,10 +65,14 @@ final class MacWindow: Window {
         focusLog("[getOrRegister] NEW window id=\(windowId) app=\(macApp.name ?? "?") bundle=\(macApp.rawAppBundleId ?? "?") → \(parentKind) on ws '\(ws)'")
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         window.isAwaitingOnWindowDetected = true
+        if !isAxReady {
+            window.provisionalFloatDeadline = Date().addingTimeInterval(provisionalFloatRecheckWindow)
+            focusLog("[getOrRegister] provisional float id=\(windowId) app=\(macApp.name ?? "?"): AX not ready, will re-classify")
+        }
         allWindowsMap[windowId] = window
+        defer { window.isAwaitingOnWindowDetected = false }
 
         try await debugWindowsIfRecording(window, .cancellable)
-        defer { window.isAwaitingOnWindowDetected = false }
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             await tryOnWindowDetected(window)
         }
@@ -154,9 +154,11 @@ final class MacWindow: Window {
     //                        If you are unsure, it's better to pass `false`
     @MainActor
     func garbageCollect(skipClosedWindowsCache: Bool) {
+        let wasFocused = focus.windowOrNil == self
         if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
             return
         }
+        TabHeaderTitleCache.shared.invalidate(windowId: windowId)
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
         let destroyedWorkspaceName = nodeWorkspace?.name
         let tiledCount: Int? = {
@@ -181,7 +183,11 @@ final class MacWindow: Window {
         {
             switch parent.cases {
                 case .tilingContainer, .floatingWindowsContainer, .macosHiddenAppsWindowsContainer, .macosFullscreenWindowsContainer:
-                    let deadWindowFocus = deadWindowWorkspace.toLiveFocus()
+                    let deadWindowFocus = resolveFocusAfterWindowRemoval(
+                        wasFocused: wasFocused,
+                        previousWindow: previousFocusedWindowOrNil,
+                        workspace: deadWindowWorkspace,
+                    )
                     _ = setFocus(to: deadWindowFocus)
                     // Guard against "Apple Reminders popup" bug: https://github.com/nikitabobko/AeroSpace/issues/201
                     if focus.windowOrNil?.app.pid != app.pid {
@@ -210,114 +216,11 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
+        TabHeaderTitleCache.shared.invalidate(windowId: windowId)
         // Don't eagerly GC — the close may be intercepted (e.g., "save changes?" dialog).
         // The refresh cycle handles GC once the window is confirmed dead via
         // kAXUIElementDestroyedNotification or the scheduled heavy refresh.
         macApp.closeAndUnregisterAxWindow(windowId)
-    }
-
-    /// Save the current window position so it can be restored later by unhideFromCorner.
-    /// Returns false when current AX/screen state is unsafe, so caller must not move the window to a hide corner.
-    @MainActor
-    @discardableResult
-    func saveFloatingPositionIfNeeded() async throws -> Bool {
-        guard !isHiddenInCorner else { return true }
-        guard !screenSleepWakeInProgress else { return false }
-        guard let workspace = nodeWorkspace else { return false }
-        let workspaceRect = workspace.workspaceMonitor.rect
-        let visibleRect = workspace.workspaceMonitor.visibleRect
-        guard let windowRect = try await getAxRect(.cancellable) else { return false }
-        // Check again after the suspension point above. Another hideInCorner/unhideFromCorner
-        // cycle may have already saved the correct position while this AX read was awaiting.
-        guard !screenSleepWakeInProgress else { return false }
-        guard !isHiddenInCorner else { return true }
-        guard let snapshot = floatingPositionSnapshot(
-            windowRect: windowRect,
-            workspaceRect: workspaceRect,
-            visibleRect: visibleRect,
-        ) else { return false }
-        prevUnhiddenProportionalPositionInsideWorkspaceRect = snapshot
-        return true
-    }
-
-    private func floatingPositionSnapshot(windowRect: Rect, workspaceRect: Rect, visibleRect: Rect) -> CGPoint? {
-        if workspaceRect.width <= 0 || workspaceRect.height <= 0 { return nil }
-
-        let topLeftCorner = windowRect.topLeftCorner
-        let absolutePoint = topLeftCorner - workspaceRect.topLeftCorner
-        let snapshot = CGPoint(x: absolutePoint.x / workspaceRect.width, y: absolutePoint.y / workspaceRect.height)
-
-        // Reject positions that look like AeroSpace hide corners.
-        // Hide corners place window's top-left at visible monitor bottom edge, sometimes outside X bounds.
-        // This protects against saving wrong positions after macOS wake from sleep.
-        let tolerance: CGFloat = 5
-        let isNearBottomEdge = topLeftCorner.y >= visibleRect.maxY - tolerance
-        let isNearRightHideCorner = topLeftCorner.x >= visibleRect.maxX - tolerance
-        let isNearLeftHideCorner = topLeftCorner.x + windowRect.width <= visibleRect.minX + tolerance
-        let looksLikeHideCorner = isNearBottomEdge && (isNearLeftHideCorner || isNearRightHideCorner)
-        return looksLikeHideCorner ? nil : snapshot
-    }
-
-    // todo it's part of the window layout and should be moved to layoutRecursive.swift
-    @MainActor
-    func hideInCorner(_ corner: OptimalHideCorner) async throws {
-        guard !screenSleepWakeInProgress else { return }
-        guard let nodeMonitor else { return }
-        // Don't move a floating window to a hide corner unless we know how to restore it.
-        guard try await saveFloatingPositionIfNeeded() else { return }
-        guard !screenSleepWakeInProgress else { return }
-        let p: CGPoint
-        switch corner {
-            case .bottomLeftCorner:
-                guard let s = try await getAxSize(.cancellable) else { fallthrough }
-                // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/AeroSpace/issues/527
-                // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
-                let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: -1)
-                p = nodeMonitor.visibleRect.bottomLeftCorner + onePixelOffset + CGPoint(x: -s.width, y: 0)
-            case .bottomRightCorner:
-                // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/AeroSpace/issues/527
-                // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
-                let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
-                p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
-        }
-        setAxFrame(p, nil)
-    }
-
-    @MainActor
-    func unhideFromCorner() {
-        guard let prevUnhiddenProportionalPositionInsideWorkspaceRect else { return }
-        guard let nodeWorkspace else { return } // hiding only makes sense for workspace windows
-        guard let parent else { return }
-
-        switch getChildParentRelation(child: self, parent: parent) {
-            // Just a small optimization to avoid unnecessary AX calls for non floating windows
-            // Tiling windows should be unhidden with layoutRecursive anyway
-            case .floatingWindow:
-                let workspaceRect = nodeWorkspace.workspaceMonitor.rect
-                var newX = workspaceRect.topLeftX + workspaceRect.width * prevUnhiddenProportionalPositionInsideWorkspaceRect.x
-                var newY = workspaceRect.topLeftY + workspaceRect.height * prevUnhiddenProportionalPositionInsideWorkspaceRect.y
-                // todo we probably should replace lastFloatingSize with proper floating window sizing
-                // https://github.com/nikitabobko/AeroSpace/issues/1519
-                let windowWidth = lastFloatingSize?.width ?? 0
-                let windowHeight = lastFloatingSize?.height ?? 0
-                newX = newX.coerce(in: workspaceRect.minX ... max(workspaceRect.minX, workspaceRect.maxX - windowWidth))
-                newY = newY.coerce(in: workspaceRect.minY ... max(workspaceRect.minY, workspaceRect.maxY - windowHeight))
-
-                setAxFrame(CGPoint(x: newX, y: newY), nil)
-                self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
-            case .tiling, .rootTilingContainer:
-                // Tiling windows are positioned by layoutRecursive, safe to clear.
-                self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
-            case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow,
-                 .macosPopupWindow, .shimContainerRelation:
-                // Preserve saved position — window is in a temporary macOS state and will
-                // need the position when it returns to floating.
-                break
-        }
-    }
-
-    override var isHiddenInCorner: Bool {
-        prevUnhiddenProportionalPositionInsideWorkspaceRect != nil
     }
 
     override func getAxSize(_ cm: CancellationMode) async throws -> CGSize? {
@@ -334,20 +237,25 @@ final class MacWindow: Window {
 }
 
 extension Window {
+    /// - Parameter autoTile: enable-auto-tiling. The window (re)enters the tiling tree the same way as a new window
     @MainActor
-    func relayoutWindow(on workspace: Workspace, _ cm: CancellationMode, forceTile: Bool = false) async throws {
-        let data = forceTile
-            ? unbindAndGetBindingDataForNewTilingWindow(workspace, window: self)
-            : try await unbindAndGetBindingDataForNewWindow(self.asMacWindow().windowId, self.asMacWindow().macApp, workspace, window: self, cm)
+    func relayoutWindow(on workspace: Workspace, _ cm: CancellationMode, forceTile: Bool = false, autoTile: Bool = false) async throws {
+        let data: BindingData
+        if forceTile {
+            data = unbindAndGetBindingDataForNewTilingWindow(workspace, window: self, autoTile: autoTile)
+        } else {
+            let macWindow = self.asMacWindow()
+            let windowType = try await macWindow.macApp.getAxUiElementWindowType(macWindow.windowId, getWindowLevel(for: macWindow.windowId), cm)
+            data = unbindAndGetBindingDataForNewWindow(windowType, workspace, window: self)
+        }
         bind(to: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
     }
 }
 
 // The function is private because it's unsafe. It leaves the window in unbound state
 @MainActor
-private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?, _ cm: CancellationMode) async throws -> BindingData {
-    let windowLevel = getWindowLevel(for: windowId)
-    return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm) {
+private func unbindAndGetBindingDataForNewWindow(_ windowType: AxUiElementWindowType, _ workspace: Workspace, window: Window?) -> BindingData {
+    switch windowType {
         case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .dialog: BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .window: unbindAndGetBindingDataForNewTilingWindow(workspace, window: window)
@@ -356,22 +264,9 @@ private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: M
 
 // The function is private because it's unsafe. It leaves the window in unbound state
 @MainActor
-private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
+private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?, autoTile: Bool = false) -> BindingData {
     window?.unbindFromParent() // It's important to unbind to get correct data from below
-    let mruWindow = workspace.mostRecentWindowRecursive
-    if let mruWindow, let tilingParent = mruWindow.parent as? TilingContainer {
-        return BindingData(
-            parent: tilingParent,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: mruWindow.ownIndex.orDie() + 1,
-        )
-    } else {
-        return BindingData(
-            parent: workspace.rootTilingContainer,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: INDEX_BIND_LAST,
-        )
-    }
+    return workspace.prepareTilingWindowInsertion(autoTile: window == nil || autoTile)
 }
 
 @MainActor

@@ -8,8 +8,14 @@ struct LayoutCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
 
+        // `matchesDescription` needs the window itself for `.sticky`, which is a property of the
+        // window rather than of its parent container.
+        let targetWindow: Window? = args.root ? nil : target.windowOrNil
+        // An explicit layout (e.g. an on-window-detected `layout floating`) settles the window's
+        // placement, even when it is a no-op below; stop the provisional-float re-classification.
+        targetWindow?.provisionalFloatDeadline = nil
         let node: ConventionalWindowParentCases
-        switch args.root ? nil : target.windowOrNil {
+        switch targetWindow {
             case let window?:
                 switch window.windowParentCases {
                     case .floatingWindowsContainer(let it):
@@ -31,9 +37,9 @@ struct LayoutCommand: Command {
                 node = .tilingContainer(target.workspace.rootTilingContainer)
         }
 
-        let targetDescription = args.toggleBetween.val.first(where: { !node.matchesDescription($0) })
+        let targetDescription = args.toggleBetween.val.first(where: { !node.matchesDescription($0, window: targetWindow) })
             ?? args.toggleBetween.val.first.orDie()
-        if node.matchesDescription(targetDescription) {
+        if node.matchesDescription(targetDescription, window: targetWindow) {
             switch args.failIfNoop {
                 case true: return .fail
                 case false:
@@ -44,21 +50,25 @@ struct LayoutCommand: Command {
         }
         switch targetDescription {
             case .h_accordion:
-                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: .h, node: node)
+                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: .h, node: node, window: target.windowOrNil)
             case .v_accordion:
-                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: .v, node: node)
+                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: .v, node: node, window: target.windowOrNil)
             case .h_tiles:
-                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .h, node: node)
+                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .h, node: node, window: target.windowOrNil)
             case .v_tiles:
-                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .v, node: node)
+                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .v, node: node, window: target.windowOrNil)
             case .accordion:
-                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: nil, node: node)
+                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: nil, node: node, window: target.windowOrNil)
             case .tiles:
-                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: nil, node: node)
+                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: nil, node: node, window: target.windowOrNil)
+            case .scrolling:
+                return changeTilingLayout(io, targetLayout: .scrolling, targetOrientation: .h, node: node, window: target.windowOrNil)
+            case .tabs:
+                return changeTilingLayout(io, targetLayout: .tabs, targetOrientation: nil, node: node, window: target.windowOrNil)
             case .horizontal:
-                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .h, node: node)
+                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .h, node: node, window: target.windowOrNil)
             case .vertical:
-                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .v, node: node)
+                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .v, node: node, window: target.windowOrNil)
             case .tiling:
                 guard let window = target.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
                 switch node {
@@ -68,7 +78,7 @@ struct LayoutCommand: Command {
                         window.lastFloatingSize = (try? await window.getAxSize(.nonCancellable)) ?? window.lastFloatingSize
                         guard let workspace = container.nodeWorkspace else { return .fail(io.err(bugPrompt())) }
                         do {
-                            try await window.relayoutWindow(on: workspace, .nonCancellable, forceTile: true)
+                            try await window.relayoutWindow(on: workspace, .nonCancellable, forceTile: true, autoTile: true)
                         } catch {
                             return .fail(io.err(bugPrompt()))
                         }
@@ -112,6 +122,7 @@ struct LayoutCommand: Command {
     targetLayout: Layout?,
     targetOrientation: Orientation?,
     node: ConventionalWindowParentCases,
+    window: Window?,
 ) -> BinaryExitCode {
     switch node {
         case .floatingWindowsContainer:
@@ -119,19 +130,33 @@ struct LayoutCommand: Command {
         case .macosPopupWindowsContainer:
             return .fail(io.err("The window is unmanaged"))
         case .tilingContainer(let parent):
+            if targetLayout == .scrolling && !parent.isRootContainer {
+                return .fail(io.err("The 'scrolling' layout is only supported for workspace root containers"))
+            }
+            if parent.layout == .scrolling && targetLayout == nil && targetOrientation == .v {
+                return .fail(io.err("The scrolling layout is always horizontal"))
+            }
             let targetOrientation = targetOrientation ?? parent.orientation
             let targetLayout = targetLayout ?? parent.layout
             parent.layout = targetLayout
             parent.changeOrientation(targetOrientation)
+            if targetLayout == .scrolling {
+                parent.reveal(window, preferRightPane: true)
+            } else {
+                parent.clampScrollingIndex()
+            }
             return .succ
     }
 }
 
 extension ConventionalWindowParentCases {
-    fileprivate func matchesDescription(_ layout: LayoutCmdArgs.LayoutDescription) -> Bool {
+    fileprivate func matchesDescription(_ layout: LayoutCmdArgs.LayoutDescription, window: Window?) -> Bool {
         return switch layout {
             case .accordion:   tilingContainerOrNil?.layout == .accordion
             case .tiles:       tilingContainerOrNil?.layout == .tiles
+            case .tabs:        tilingContainerOrNil?.layout == .tabs
+            case .scrolling:
+                tilingContainerOrNil?.parentsWithSelf.compactMap { $0 as? TilingContainer }.last?.layout == .scrolling
             case .horizontal:  tilingContainerOrNil?.orientation == .h
             case .vertical:    tilingContainerOrNil?.orientation == .v
             case .h_accordion: tilingContainerOrNil.map { $0.layout == .accordion && $0.orientation == .h } == true
@@ -141,7 +166,7 @@ extension ConventionalWindowParentCases {
             case .tiling:      tilingContainerOrNil != nil
             case .floating:    floatingWindowsContainerOrNil != nil
             case .unmanaged:   macosPopupWindowsContainerOrNil != nil
-            case .sticky:      floatingWindowsContainerOrNil != nil && (self as? MacWindow)?.isSticky == true
+            case .sticky:      floatingWindowsContainerOrNil != nil && (window as? MacWindow)?.isSticky == true
         }
     }
 }

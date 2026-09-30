@@ -1,3 +1,5 @@
+import Foundation
+
 @MainActor
 func normalizeLayoutReason() async throws {
     for workspace in Workspace.all {
@@ -6,6 +8,36 @@ func normalizeLayoutReason() async throws {
     }
     try await _normalizeLayoutReason(workspace: focus.workspace, windows: macosMinimizedWindowsContainer.children.filterIsInstance(of: Window.self))
     try await validateStillPopups()
+    try await validateProvisionalFloats()
+}
+
+/// How long a window floated on unanswered AX reads keeps getting re-classified.
+let provisionalFloatRecheckWindow: TimeInterval = 15
+
+@MainActor
+private func validateProvisionalFloats() async throws {
+    let now = Date()
+    for window in MacWindow.allWindows {
+        guard let deadline = window.provisionalFloatDeadline else { continue }
+        guard window.parent is FloatingWindowsContainer, !window.isExplicitlyUnmanaged, let workspace = window.nodeWorkspace else {
+            window.provisionalFloatDeadline = nil
+            continue
+        }
+        let (type, isAxReady) = try await window.macApp.getAxUiElementWindowTypeAndReadiness(
+            window.windowId, getWindowLevel(for: window.windowId), .cancellable)
+        if !isAxReady {
+            if now > deadline {
+                window.provisionalFloatDeadline = nil
+                focusLog("[validate-provisional] giving up: id=\(window.windowId) app=\(window.app.name ?? "?") AX still not ready")
+            }
+            continue
+        }
+        window.provisionalFloatDeadline = nil
+        if type == .window {
+            focusLog("[validate-provisional] reclassifying float → tiling: id=\(window.windowId) app=\(window.app.name ?? "?") ws '\(workspace.name)'")
+            try await window.relayoutWindow(on: workspace, .cancellable, forceTile: true, autoTile: true)
+        }
+    }
 }
 
 @MainActor
@@ -69,7 +101,7 @@ func exitMacOsNativeUnconventionalState(
         case .workspace:
             break // Not possible
         case .tilingContainer:
-            try await window.relayoutWindow(on: workspace, cm, forceTile: true)
+            try await window.relayoutWindow(on: workspace, cm, forceTile: true, autoTile: true)
         case .macosPopupWindowsContainer: // Since the window was minimized/fullscreened it was mistakenly detected as popup. Relayout the window
             try await window.relayoutWindow(on: workspace, cm)
         case .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer: // wtf case, should never be possible. But If encounter it, let's just re-layout window

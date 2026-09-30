@@ -36,7 +36,10 @@ func runHeavyCompleteRefreshSession(
 ) async {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
-    if !TrayMenuModel.shared.isEnabled { return }
+    if !TrayMenuModel.shared.isEnabled {
+        TabHeadersPanelController.shared.closeAll()
+        return
+    }
     if screenSleepWakeInProgress { return }
     let res = await Result {
         try await $refreshSessionEvent.withValue(event) {
@@ -175,7 +178,12 @@ func refreshObs(_: AXObserver, _ element: AXUIElement, notif: CFString, _: Unsaf
     let isFocusChange = notif == kAXFocusedWindowChangedNotification
     let eventWindowId: UInt32? = (isWindowCreated || isFocusChange) ? element.containingWindowId() : nil
     var elementPid: pid_t = 0
-    let havePid = isWindowCreated && AXUIElementGetPid(element, &elementPid) == .success
+    // Not `isWindowCreated && unsafe ...`: `unsafe` may not appear to the right of a
+    // non-assignment operator. The `if` keeps the AX call short-circuited all the same.
+    var havePid = false
+    if isWindowCreated {
+        havePid = unsafe AXUIElementGetPid(element, &elementPid) == .success
+    }
     Task.startUnstructured { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
         if let eventWindowId {
@@ -199,43 +207,20 @@ enum OptimalHideCorner {
 private func layoutWorkspaces() async throws {
     if screenSleepWakeInProgress { return }
     if !TrayMenuModel.shared.isEnabled {
+        TabHeadersPanelController.shared.closeAll()
         for workspace in Workspace.all {
-            workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
-            try await workspace.layoutWorkspace() // Unhide tiling windows from corner
+            workspace.allLeafWindowsRecursive.forEach { $0.unhideFromCorner() }
+            _ = try await workspace.layoutWorkspace() // Unhide tiling windows from corner
         }
+        FocusedWindowBorderPanel.shared.hide()
         return
     }
-    let monitors = monitors
-    var monitorToOptimalHideCorner: [CGPoint: OptimalHideCorner] = [:]
-    for monitor in monitors {
-        let xOff = monitor.width * 0.1
-        let yOff = monitor.height * 0.1
-        // brc = bottomRightCorner
-        let brc1 = monitor.rect.bottomRightCorner + CGPoint(x: 2, y: -yOff)
-        let brc2 = monitor.rect.bottomRightCorner + CGPoint(x: -xOff, y: 2)
-        let brc3 = monitor.rect.bottomRightCorner + CGPoint(x: 2, y: 2)
-
-        // blc = bottomLeftCorner
-        let blc1 = monitor.rect.bottomLeftCorner + CGPoint(x: -2, y: -yOff)
-        let blc2 = monitor.rect.bottomLeftCorner + CGPoint(x: xOff, y: 2)
-        let blc3 = monitor.rect.bottomLeftCorner + CGPoint(x: -2, y: 2)
-
-        func contains(_ monitor: Monitor, _ point: CGPoint) -> Int { monitor.rect.contains(point) ? 1 : 0 }
-        let important = 10
-
-        let corner: OptimalHideCorner =
-            monitors.sumOfInt { contains($0, blc1) + contains($0, blc2) + important * contains($0, blc3) } <
-            monitors.sumOfInt { contains($0, brc1) + contains($0, brc2) + important * contains($0, brc3) }
-            ? .bottomLeftCorner
-            : .bottomRightCorner
-        monitorToOptimalHideCorner[monitor.rect.topLeftCorner] = corner
-    }
-
+    let monitors = monitorInfos
+    var tabHeaderSnapshots: [TabHeaderSnapshot] = []
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
-        workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
-        try await workspace.layoutWorkspace()
+        tabHeaderSnapshots += try await workspace.layoutWorkspace()
         // On workspace switch, raise floating windows above the tiled windows so they're visible on
         // arrival. Sorted ascending by lastFocusedAt so the most-recently-used float ends up topmost.
         // The focused window is raised on top of these afterwards by the caller (syncFocusToMacOs).
@@ -254,13 +239,15 @@ private func layoutWorkspaces() async throws {
     }
     // hide non-sticky windows from non-visible workspaces
     for workspace in Workspace.all where !workspace.isVisible {
-        let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
+        let corner = workspace.workspaceMonitor.optimalHideCorner(monitors: monitors)
         for window in workspace.allLeafWindowsRecursive {
-            let macWindow = window as! MacWindow
-            if macWindow.isSticky { continue }
-            try await macWindow.hideInCorner(corner) // todo as!
+            if (window as? MacWindow)?.isSticky == true { continue }
+            try await window.hideInCorner(corner)
         }
     }
+    TabHeadersPanelController.shared.refresh(with: tabHeaderSnapshots)
+
+    await refreshFocusedWindowBorder()
 }
 
 @MainActor

@@ -18,12 +18,12 @@ final class FlattenWorkspaceTreeCommandTest: XCTestCase {
         }
         assertEquals(workspace.focusWorkspace(), true)
 
-        try await FlattenWorkspaceTreeCommand(args: FlattenWorkspaceTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        await FlattenWorkspaceTreeCommand(args: FlattenWorkspaceTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
         // normalizeContainers() is now called inside the command, so no need to call it here.
         assertEquals(workspace.layoutDescription, .workspace([.h_tiles([.window(1), .window(2)]), .floatingWindowsContainer([.window(3)])]))
     }
 
-    func testDeeplyNested() async throws {
+    func testDeeplyNested() async {
         // Verify flatten fully normalizes a deeply nested tree (no residual containers).
         let workspace = Workspace.get(byName: name).apply {
             $0.rootTilingContainer.apply {
@@ -40,7 +40,7 @@ final class FlattenWorkspaceTreeCommandTest: XCTestCase {
         assertEquals(workspace.focusWorkspace(), true)
 
         // Before flatten: root → [window(1), v_tiles → [window(2), h_tiles → [window(3), window(4)]]]
-        try await FlattenWorkspaceTreeCommand(args: FlattenWorkspaceTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        await FlattenWorkspaceTreeCommand(args: FlattenWorkspaceTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
         // After flatten: all windows are direct children of root, no residual containers.
         assertEquals(workspace.layoutDescription, .workspace([.h_tiles([.window(1), .window(2), .window(3), .window(4)]), .floatingWindowsContainer([])]))
     }

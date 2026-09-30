@@ -1,4 +1,7 @@
 extension Dictionary {
+    // periphery:ignore - unused in this fork only: upstream calls it from
+    // MacApp.refreshAndGetAliveWindowIds, which e24a68b7 rewrote around a CGWindowList
+    // snapshot. Kept so that path stays mergeable.
     @inlinable public func partition(_ predicate: (Dictionary<Key, Value>.Element) throws -> Bool) rethrows -> ([Key: Value], [Key: Value]) {
         var matching = [Key: Value]()
         var nonMatching = [Key: Value]()

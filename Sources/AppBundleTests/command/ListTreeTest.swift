@@ -32,7 +32,7 @@ final class ListTreeTest: XCTestCase {
         // Cached layout rect differs from the AX rect on purpose; list-tree must report the cached one.
         w.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 200, width: 300, height: 400)
 
-        let result = try await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        let result = await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
 
         // Root is now an object: { "focused-window-id": Int?, "monitors": [...] }.

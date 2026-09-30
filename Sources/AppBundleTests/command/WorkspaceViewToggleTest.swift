@@ -152,7 +152,7 @@ final class WorkspaceViewToggleTest: XCTestCase {
 
     // MARK: - Command integration
 
-    func testWorkspaceCommandViewToggle() async throws {
+    func testWorkspaceCommandViewToggle() async {
         let ws1 = Workspace.get(byName: "1")
         let ws2 = Workspace.get(byName: "2")
         ws1.rootTilingContainer.apply {
@@ -166,13 +166,13 @@ final class WorkspaceViewToggleTest: XCTestCase {
         var args = WorkspaceCmdArgs(rawArgs: [])
         args.target = .initialized(.direct(.parse("2").getOrDie()))
         args.viewToggle = true
-        _ = try await WorkspaceCommand(args: args).run(.defaultEnv, .emptyStdin)
+        _ = await WorkspaceCommand(args: args).run(.defaultEnv, .emptyStdin)
 
         assertEquals(ws1.rootTilingContainer.children.count, 2)
         assertEquals(ws1.viewToggledStates.count, 1)
     }
 
-    func testWorkspaceSwitchDissolvesToggle() async throws {
+    func testWorkspaceSwitchDissolvesToggle() async {
         let ws1 = Workspace.get(byName: "1")
         let ws2 = Workspace.get(byName: "2")
         ws1.rootTilingContainer.apply {
@@ -186,19 +186,19 @@ final class WorkspaceViewToggleTest: XCTestCase {
         var toggleArgs = WorkspaceCmdArgs(rawArgs: [])
         toggleArgs.target = .initialized(.direct(.parse("2").getOrDie()))
         toggleArgs.viewToggle = true
-        _ = try await WorkspaceCommand(args: toggleArgs).run(.defaultEnv, .emptyStdin)
+        _ = await WorkspaceCommand(args: toggleArgs).run(.defaultEnv, .emptyStdin)
         assertEquals(ws1.rootTilingContainer.children.count, 2)
 
         var switchArgs = WorkspaceCmdArgs(rawArgs: [])
         switchArgs.target = .initialized(.direct(.parse("3").getOrDie()))
-        _ = try await WorkspaceCommand(args: switchArgs).run(.defaultEnv, .emptyStdin)
+        _ = await WorkspaceCommand(args: switchArgs).run(.defaultEnv, .emptyStdin)
 
         assertEquals(ws1.rootTilingContainer.children.count, 1)
         assertEquals(ws2.rootTilingContainer.children.count, 1)
         assertEquals(ws1.viewToggledStates.count, 0)
     }
 
-    func testWorkspaceBackAndForthDissolvesToggle() async throws {
+    func testWorkspaceBackAndForthDissolvesToggle() async {
         let ws1 = Workspace.get(byName: "1")
         let ws2 = Workspace.get(byName: "2")
         ws1.rootTilingContainer.apply {
@@ -214,7 +214,7 @@ final class WorkspaceViewToggleTest: XCTestCase {
         performViewToggle(hostWorkspace: ws1, donorWorkspaceName: "2")
         assertEquals(ws1.rootTilingContainer.children.count, 2)
 
-        _ = try await WorkspaceBackAndForthCommand(args: WorkspaceBackAndForthCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        _ = await WorkspaceBackAndForthCommand(args: WorkspaceBackAndForthCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
 
         assertEquals(ws1.viewToggledStates.count, 0)
         assertEquals(ws2.rootTilingContainer.children.count, 1)

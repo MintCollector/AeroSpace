@@ -7,8 +7,14 @@ struct ResizeCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
+        if target.workspace.rootTilingContainer.layout == .scrolling {
+            return .fail(io.err("resize command doesn't support the scrolling layout"))
+        }
 
         if let window = target.windowOrNil, window.isFloating {
+            if args.dimension.val.splitDirection != nil {
+                return .fail(io.err("split-* dimensions move the split between tiling windows. Floating windows have no split"))
+            }
             guard let rect = try? await window.getAxRect(.cancellable) else { return .fail }
             let size = rect.size
             let topLeftCorner = rect.topLeftCorner
@@ -36,6 +42,7 @@ struct ResizeCommand: Command {
                 case (.set(let unit), .height): CGFloat(unit) - size.height
                 case (.set(let unit), .smart): CGFloat(unit) - (isWidthDominant ? size.width : size.height)
                 case (.set(let unit), .smartOpposite): CGFloat(unit) - (isWidthDominant ? size.height : size.width)
+                case (.set, .splitLeft), (.set, .splitRight), (.set, .splitUp), (.set, .splitDown): 0 // Rejected above
                 case (.add(let unit), _): CGFloat(unit)
                 case (.subtract(let unit), _): -CGFloat(unit)
             }
@@ -61,6 +68,8 @@ struct ResizeCommand: Command {
                         CGSize(width: diff, height: diff * (size.height / size.width))
                     }
                     (newTopLeftCorner, newSize) = computeTopLeftCornerAndSize(diffSize)
+                case .splitLeft, .splitRight, .splitUp, .splitDown:
+                    return .fail // Rejected above
             }
             window.setAxFrame(newTopLeftCorner, newSize)
             return .succ
@@ -69,6 +78,10 @@ struct ResizeCommand: Command {
         let candidates = target.windowOrNil?.parentsWithSelf
             .filter { ($0.parent as? TilingContainer)?.layout == .tiles }
             ?? []
+
+        if let direction = args.dimension.val.splitDirection {
+            return moveSplit(candidates, direction, io)
+        }
 
         let orientation: Orientation?
         let parent: TilingContainer?
@@ -90,6 +103,8 @@ struct ResizeCommand: Command {
                 orientation = (candidates.first?.parent as? TilingContainer)?.orientation.opposite
                 node = candidates.first(where: { ($0.parent as? TilingContainer)?.orientation == orientation })
                 parent = node?.parent as? TilingContainer
+            case .splitLeft, .splitRight, .splitUp, .splitDown:
+                return .fail(io.err(bugPrompt())) // Handled above
         }
         guard let parent else {
             return .fail(io.err("resize command doesn't support floating windows yet https://github.com/nikitabobko/AeroSpace/issues/9"))
@@ -108,6 +123,44 @@ struct ResizeCommand: Command {
             .forEach { $0.setWeight(parent.orientation, $0.getWeight(parent.orientation) - childDiff) }
 
         node.setWeight(orientation, node.getWeight(orientation) + diff)
+        return .succ
+    }
+}
+
+extension ResizeCommand {
+    /// Move the split (the border between two neighbours) in the given direction. Unlike width/height, the effect on
+    /// the focused window depends on its position: the window on the left of the split grows when the split moves
+    /// right, and the window on the right of the split shrinks. Only the two neighbours that share the split are
+    /// resized.
+    ///
+    /// The split is the trailing (right/bottom) border of the focused node. If the node is the last one in its
+    /// container, it's the leading (left/top) border
+    @MainActor
+    private func moveSplit(_ candidates: [TreeNode], _ direction: CardinalDirection, _ io: CmdIo) -> BinaryExitCode {
+        let orientation = direction.orientation
+        let node = candidates.first {
+            guard let parent = $0.parent as? TilingContainer else { return false }
+            return parent.orientation == orientation && parent.children.count > 1
+        }
+        guard let node, let parent = node.parent as? TilingContainer, let index = node.ownIndex else {
+            return .fail(io.err("There is no split to move in the '\(direction.rawValue)' direction"))
+        }
+        let amount: CGFloat
+        switch args.units.val {
+            case .add(let unit): amount = CGFloat(unit)
+            case .subtract(let unit): amount = -CGFloat(unit)
+            case .set: return .fail(io.err("split-* dimensions require the number to be prefixed with '+' or '-'"))
+        }
+        // Positive delta moves the split right/down
+        let delta = direction.isPositive ? amount : -amount
+        let (before, after): (TreeNode, TreeNode) = index < parent.children.count - 1
+            ? (node, parent.children[index + 1])
+            : (parent.children[index - 1], node)
+        let newBefore = before.getWeight(orientation) + delta
+        let newAfter = after.getWeight(orientation) - delta
+        if newBefore <= 0 || newAfter <= 0 { return .fail }
+        before.setWeight(orientation, newBefore)
+        after.setWeight(orientation, newAfter)
         return .succ
     }
 }
