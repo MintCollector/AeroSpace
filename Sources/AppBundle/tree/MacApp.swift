@@ -316,10 +316,29 @@ final class MacApp: AbstractApp {
     }
 
     func getAxUiElementWindowType(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> AxUiElementWindowType {
-        return try await withWindow(windowId, cm) { [nsApp, axApp, appId] window, job in
+        try await getAxUiElementWindowTypeAndReadiness(windowId, windowLevel, cm).type
+    }
+
+    /// The window type, plus whether the app actually answered the AX reads behind a `.dialog`
+    /// verdict. An app that is still launching (or otherwise busy) fails reads with
+    /// kAXErrorCannotComplete, which `Ax.get` flattens to nil — indistinguishable from an absent
+    /// attribute. A nil subrole or fullscreen button reads as "dialog", so a busy app's normal
+    /// document window would float for good. `isAxReady == false` flags that verdict as unreliable.
+    func getAxUiElementWindowTypeAndReadiness(
+        _ windowId: UInt32,
+        _ windowLevel: MacOsWindowLevel?,
+        _ cm: CancellationMode,
+    ) async throws -> (type: AxUiElementWindowType, isAxReady: Bool) {
+        return try await withWindow(windowId, cm) { [nsApp, axApp, appId] window, job -> (type: AxUiElementWindowType, isAxReady: Bool)? in
             guard let axApp = axApp.threadGuardedOrNil else { return nil }
-            return window.getWindowType(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
-        } ?? .window
+            let type = window.getWindowType(axApp: axApp, appId, nsApp.activationPolicy, windowLevel)
+            guard type == .dialog else { return (type, true) }
+            let isAxReady = [kAXSubroleAttribute, kAXFullScreenButtonAttribute].allSatisfy { key in
+                var raw: AnyObject?
+                return unsafe AXUIElementCopyAttributeValue(window, key as CFString, &raw) != .cannotComplete
+            }
+            return (type, isAxReady)
+        } ?? (.window, true)
     }
 
     func isDialogHeuristic(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> Bool {

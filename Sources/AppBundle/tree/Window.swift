@@ -12,6 +12,11 @@ open class Window: TreeNode, Hashable {
     /// to another workspace, or make it floating. Laying it out in the meantime applies geometry
     /// that is about to be thrown away, and takes space away from its siblings for a frame.
     var isAwaitingOnWindowDetected: Bool = false
+    /// The window was floated as a dialog only because its app didn't answer the AX reads the
+    /// classification relies on (typical while an app is launching). Until this deadline passes,
+    /// refresh re-classifies it and tiles it if it turns out to be a regular window. Cleared once
+    /// the app answers, or when a `layout` command takes explicit control of the window.
+    var provisionalFloatDeadline: Date? = nil
     var isFullscreen: Bool = false
     var noOuterGapsInFullscreen: Bool = false
     var layoutReason: LayoutReason = .standard

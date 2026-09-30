@@ -11,6 +11,9 @@ struct LayoutCommand: Command {
         // `matchesDescription` needs the window itself for `.sticky`, which is a property of the
         // window rather than of its parent container.
         let targetWindow: Window? = args.root ? nil : target.windowOrNil
+        // An explicit layout (e.g. an on-window-detected `layout floating`) settles the window's
+        // placement, even when it is a no-op below; stop the provisional-float re-classification.
+        targetWindow?.provisionalFloatDeadline = nil
         let node: ConventionalWindowParentCases
         switch targetWindow {
             case let window?:

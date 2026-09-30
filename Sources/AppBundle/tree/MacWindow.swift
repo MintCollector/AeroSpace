@@ -49,7 +49,7 @@ final class MacWindow: Window {
         let workspace = isStartup
             ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
             : focus.workspace
-        let windowType = try await macApp.getAxUiElementWindowType(windowId, getWindowLevel(for: windowId), .cancellable)
+        let (windowType, isAxReady) = try await macApp.getAxUiElementWindowTypeAndReadiness(windowId, getWindowLevel(for: windowId), .cancellable)
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
@@ -65,6 +65,10 @@ final class MacWindow: Window {
         focusLog("[getOrRegister] NEW window id=\(windowId) app=\(macApp.name ?? "?") bundle=\(macApp.rawAppBundleId ?? "?") → \(parentKind) on ws '\(ws)'")
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         window.isAwaitingOnWindowDetected = true
+        if !isAxReady {
+            window.provisionalFloatDeadline = Date().addingTimeInterval(provisionalFloatRecheckWindow)
+            focusLog("[getOrRegister] provisional float id=\(windowId) app=\(macApp.name ?? "?"): AX not ready, will re-classify")
+        }
         allWindowsMap[windowId] = window
         defer { window.isAwaitingOnWindowDetected = false }
 
