@@ -2,7 +2,7 @@ extension Workspace {
     @MainActor func normalizeContainers() {
         rootTilingContainer.unbindEmptyAndAutoFlatten() // Beware! rootTilingContainer may change after this line of code
         if config.enableNormalizationBinaryTree {
-            rootTilingContainer.normalizeBinaryTree(rect: workspaceMonitor.visibleRectPaddedByOuterGaps)
+            rootTilingContainer.normalizeBinaryTree(rect: workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: name))
         } else if config.enableNormalizationOppositeOrientationForNestedContainers {
             rootTilingContainer.normalizeOppositeOrientationForNestedContainers()
         }
