@@ -9,6 +9,9 @@ struct ResizeCommand: Command {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
 
         if let window = target.windowOrNil, window.isFloating {
+            if args.dimension.val.splitDirection != nil {
+                return .fail(io.err("split-* dimensions move the split between tiling windows. Floating windows have no split"))
+            }
             guard let rect = try? await window.getAxRect(.cancellable) else { return .fail }
             let size = rect.size
             let topLeftCorner = rect.topLeftCorner
@@ -36,6 +39,7 @@ struct ResizeCommand: Command {
                 case (.set(let unit), .height): CGFloat(unit) - size.height
                 case (.set(let unit), .smart): CGFloat(unit) - (isWidthDominant ? size.width : size.height)
                 case (.set(let unit), .smartOpposite): CGFloat(unit) - (isWidthDominant ? size.height : size.width)
+                case (.set, .splitLeft), (.set, .splitRight), (.set, .splitUp), (.set, .splitDown): 0 // Rejected above
                 case (.add(let unit), _): CGFloat(unit)
                 case (.subtract(let unit), _): -CGFloat(unit)
             }
@@ -61,6 +65,8 @@ struct ResizeCommand: Command {
                         CGSize(width: diff, height: diff * (size.height / size.width))
                     }
                     (newTopLeftCorner, newSize) = computeTopLeftCornerAndSize(diffSize)
+                case .splitLeft, .splitRight, .splitUp, .splitDown:
+                    return .fail // Rejected above
             }
             window.setAxFrame(newTopLeftCorner, newSize)
             return .succ
