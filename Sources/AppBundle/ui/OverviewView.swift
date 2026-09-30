@@ -50,12 +50,20 @@ public final class OverviewPanel: NSPanelHud {
         self.close()
     }
 
-    /// Titles are AX requests. Don't block showing the panel on them, fill them in once they arrive.
+    /// Titles come from one WindowServer snapshot first (no AX, never blocks on a busy app). AX is
+    /// only the fallback for windows the snapshot has no title for (no Screen Recording permission).
+    /// Don't block showing the panel on the AX fallback, fill titles in once they arrive.
     /// The layout doesn't depend on the title text, so late titles don't resize the panel
     private func prefetchTitles() {
         titlesTask?.cancel()
+        let snapshot = readCgWindowSnapshot()
+        for window in model.workspaces.flatMap(\.windows) {
+            if let title = snapshot[window.windowId]?.title, !title.isEmpty {
+                model.titles[window.windowId] = title
+            }
+        }
         titlesTask = Task.startUnstructured { @MainActor in
-            for window in self.model.workspaces.flatMap(\.windows) {
+            for window in self.model.workspaces.flatMap(\.windows) where self.model.titles[window.windowId] == nil {
                 try checkCancellation()
                 guard let title = try await Window.get(byId: window.windowId)?.getTitle(.nonCancellable) else { continue }
                 self.model.titles[window.windowId] = title
