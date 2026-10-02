@@ -15,6 +15,8 @@ private func parentKindLabel(_ window: Window?) -> String {
 }
 
 private let focusCacheLogFile: FileHandle? = {
+    // Tests log too: recreating the file would orphan the running app's handle to the live log
+    if isUnitTest { return nil }
     let path = "/tmp/aerospace-focus-cache.log"
     FileManager.default.createFile(atPath: path, contents: nil)
     return FileHandle(forWritingAtPath: path)
