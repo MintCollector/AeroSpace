@@ -190,6 +190,7 @@ func refreshObs(_: AXObserver, _ element: AXUIElement, notif: CFString, _: Unsaf
             if isWindowCreated, havePid {
                 // Shield the window against focus stealing before the (slow) tree registration.
                 let app = NSRunningApplication(processIdentifier: elementPid)
+                _ = preArmWindowExpectations(windowId: eventWindowId, pid: elementPid, appBundleId: app?.bundleIdentifier, appName: app?.localizedName)
                 preArmNoFocusSuppression(windowId: eventWindowId, pid: elementPid, appBundleId: app?.bundleIdentifier, appName: app?.localizedName)
             } else if isFocusChange {
                 fastBounceNoFocusSuppression(windowId: eventWindowId, pid: nil)

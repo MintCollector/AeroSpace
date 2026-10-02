@@ -274,7 +274,11 @@ func tryOnWindowDetected(_ window: Window) async {
     switch window.windowParentCases {
         case .tilingContainer, .floatingWindowsContainer, .macosMinimizedWindowsContainer,
              .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:
-            _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+            if let expectation = await takeWindowExpectation(for: window) {
+                await runWindowExpectation(expectation, window)
+            } else {
+                _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+            }
         case .macosPopupWindowsContainer, .unbound:
             break
     }
@@ -282,13 +286,7 @@ func tryOnWindowDetected(_ window: Window) async {
 
 @MainActor
 func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int32ExitCode {
-    broadcastEvent(.windowDetected(
-        windowId: window.windowId,
-        workspace: window.nodeWorkspace?.name,
-        appBundleId: window.app.rawAppBundleId,
-        appName: window.app.name,
-        tiledWindowCount: window.nodeWorkspace?.rootTilingContainer.allLeafWindowsRecursive.count,
-    ))
+    broadcastWindowDetected(window)
     var lastExitCode = Int32ExitCode.succ
     for callback in config.onWindowDetected where await callback.matches(window) {
         if callback.noFocus {
@@ -302,6 +300,17 @@ func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int
         }
     }
     return lastExitCode
+}
+
+@MainActor
+func broadcastWindowDetected(_ window: Window) {
+    broadcastEvent(.windowDetected(
+        windowId: window.windowId,
+        workspace: window.nodeWorkspace?.name,
+        appBundleId: window.app.rawAppBundleId,
+        appName: window.app.name,
+        tiledWindowCount: window.nodeWorkspace?.rootTilingContainer.allLeafWindowsRecursive.count,
+    ))
 }
 
 extension WindowDetectedCallback {
