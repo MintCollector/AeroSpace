@@ -21,7 +21,8 @@ extension Workspace {
 extension TreeNode {
     @MainActor
     fileprivate func preview(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect,
-                             _ context: LayoutContext, into result: inout [UInt32: Rect]) {
+                             _ context: LayoutContext, into result: inout [UInt32: Rect])
+    {
         switch nodeCases {
             case .window(let window):
                 if window.isAwaitingOnWindowDetected { return }
@@ -42,8 +43,8 @@ extension TreeNode {
                                                       gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth)
                     case .accordion: container.accordionFrames(point, width: width, height: height, virtual: virtual)
                     case .scrolling, .tabs: container.children.map {
-                        .init(child: $0, point: point, width: width, height: height, virtual: virtual, weight: 0)
-                    }
+                            .init(child: $0, point: point, width: width, height: height, virtual: virtual, weight: 0)
+                        }
                 }
                 for f in frames {
                     f.child.preview(f.point, width: f.width, height: f.height, virtual: f.virtual, context, into: &result)

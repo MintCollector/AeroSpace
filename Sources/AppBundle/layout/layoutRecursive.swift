@@ -132,7 +132,8 @@ extension TilingContainer {
     /// The caller applies `weight` when it is laying out for real.
     @MainActor
     func tileFrames(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect,
-                    gaps: ResolvedGaps, maxWindowWidth: CGFloat?) -> [ChildFrame] {
+                    gaps: ResolvedGaps, maxWindowWidth: CGFloat?) -> [ChildFrame]
+    {
         var point = point
         var virtualPoint = virtual.topLeftCorner
         let effectiveChildren = layoutChildren
@@ -215,7 +216,8 @@ extension TilingContainer {
     @MainActor
     fileprivate func layoutTiles(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
         for f in tileFrames(point, width: width, height: height, virtual: virtual,
-                            gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth) {
+                            gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth)
+        {
             f.child.setWeight(orientation, f.weight)
             try await f.child.layoutRecursive(f.point, width: f.width, height: f.height, virtual: f.virtual, context)
         }

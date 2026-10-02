@@ -12,6 +12,10 @@ struct ListTreeCommand: Command {
         .window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight),
         .app(.appName), .app(.appBundleId), .app(.appPid), .app(.appExecPath), .app(.appBundlePath),
     ]
+    /// List-tree-only keys: where the window sits in its workspace's layout, relative to the top-left
+    /// of the workspace's monitor. Present for hidden workspaces too, so the helper's overview can draw
+    /// them to scale. Omitted when unknown (e.g. a floating window that was never shown).
+    static let layoutRectKeys = ["window-layout-x", "window-layout-y", "window-layout-width", "window-layout-height"]
     static let workspaceVars: [FormatVar] = [
         .workspace(.workspaceName), .workspace(.workspaceFocused),
         .workspace(.workspaceVisible), .workspace(.workspaceRootContainerLayout),
@@ -46,6 +50,8 @@ struct ListTreeCommand: Command {
 
             var workspaceNodes: [JsonTreeNode] = []
             for workspace in monitorWorkspaces {
+                let preview = workspace.previewLayoutRects()
+                let monitorOrigin = workspace.workspaceMonitor.rect.topLeftCorner
                 // Preserve allLeafWindowsRecursive order — the helper derives window-tree-index from it.
                 var windowNodes: [JsonTreeNode] = []
                 for window in workspace.allLeafWindowsRecursive where window.isBound {
@@ -56,7 +62,16 @@ struct ListTreeCommand: Command {
                         return .fail(io.err("Failed to resolve window: \(error)"))
                     }
                     switch fields(.window(resolved), Self.windowVars) {
-                        case .success(let f): windowNodes.append(JsonTreeNode(fields: f, childrenKey: nil, children: nil))
+                        case .success(var f):
+                            let layoutRect = preview[window.windowId]
+                                ?? (window.isFloating ? (window.isHiddenInCorner ? window.floatingRestoreRect : resolved.rect) : nil)
+                            if let r = layoutRect {
+                                f["window-layout-x"] = .int(Int64(r.topLeftX - monitorOrigin.x))
+                                f["window-layout-y"] = .int(Int64(r.topLeftY - monitorOrigin.y))
+                                f["window-layout-width"] = .int(Int64(r.width))
+                                f["window-layout-height"] = .int(Int64(r.height))
+                            }
+                            windowNodes.append(JsonTreeNode(fields: f, childrenKey: nil, children: nil))
                         case .failure(let e): return .fail(io.err(e))
                     }
                 }

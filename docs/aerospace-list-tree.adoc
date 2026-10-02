@@ -24,6 +24,12 @@ is an array of monitors, each containing its workspaces, each containing its win
 workspaces are included, even empty ones. `focused-window-id` is the id of the currently focused
 window, or `null` when no window is focused.
 
+Each window also has `window-layout-x`, `window-layout-y`, `window-layout-width` and
+`window-layout-height`: where the window sits in its workspace's layout, relative to the top-left
+corner of the workspace's monitor. Unlike `window-x`/`window-y`, they are meaningful for windows on
+workspaces that aren't visible, which AeroSpace parks in a screen corner. The keys are omitted when
+the position is unknown.
+
 Window titles and geometry are read from the WindowServer in a single non-blocking call rather
 than per-window Accessibility queries. Reading window _titles_ this way requires Screen Recording
 permission; without it, titles fall back to Accessibility (geometry never needs the permission).
