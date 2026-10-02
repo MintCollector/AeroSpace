@@ -33,7 +33,7 @@ final class WindowExpectationTest: XCTestCase {
 
     func testClaimsWindowAndRunsCommands() async {
         let workspace = setUpFocusedWindow()
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
         let detected = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
 
         await tryOnWindowDetected(detected)
@@ -47,7 +47,7 @@ final class WindowExpectationTest: XCTestCase {
     func testReplacesConfigRules() async {
         let workspace = setUpFocusedWindow()
         config.onWindowDetected = [moveRule(to: "Y")]
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
         let detected = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
 
         await tryOnWindowDetected(detected)
@@ -58,7 +58,7 @@ final class WindowExpectationTest: XCTestCase {
     func testOneShot() async {
         let workspace = setUpFocusedWindow()
         config.onWindowDetected = [moveRule(to: "Y")]
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
         let claimed = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
         await tryOnWindowDetected(claimed)
         let next = TestWindow.new(id: 3, parent: workspace.rootTilingContainer)
@@ -72,7 +72,7 @@ final class WindowExpectationTest: XCTestCase {
     func testNonMatchingWindowPassesThrough() async {
         let workspace = setUpFocusedWindow()
         config.onWindowDetected = [moveRule(to: "Y")]
-        _ = armWindowExpectation(
+        armWindowExpectation(
             matcher: LegacyWindowDetectedCallbackMatcher(appId: "com.other"),
             commands: commands("move-node-to-workspace X"),
             timeout: 10,
@@ -88,7 +88,7 @@ final class WindowExpectationTest: XCTestCase {
     func testTitleCondition() async {
         let workspace = setUpFocusedWindow()
         let matcher = LegacyWindowDetectedCallbackMatcher(appId: testAppId, windowTitleRegexSubstring: CaseInsensitiveRegex.new("PR #23").getOrDie())
-        _ = armWindowExpectation(matcher: matcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: matcher, commands: commands("move-node-to-workspace X"), timeout: 10)
         let inbox = TestWindow.new(id: 2, parent: workspace.rootTilingContainer, title: "inbox")
         await tryOnWindowDetected(inbox)
         let pr = TestWindow.new(id: 3, parent: workspace.rootTilingContainer, title: "Fix — PR #23")
@@ -102,8 +102,8 @@ final class WindowExpectationTest: XCTestCase {
 
     func testFifo() async {
         let workspace = setUpFocusedWindow()
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace Z"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace Z"), timeout: 10)
         let first = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
         await tryOnWindowDetected(first)
         let second = TestWindow.new(id: 3, parent: workspace.rootTilingContainer)
@@ -117,7 +117,7 @@ final class WindowExpectationTest: XCTestCase {
     func testExpiredExpectationIsDroppedAndDoesNotClaim() async {
         let workspace = setUpFocusedWindow()
         let t0 = Date()
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 1, now: t0)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 1, now: t0)
         let detected = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
 
         let taken = await takeWindowExpectation(for: detected, now: t0.addingTimeInterval(2))
@@ -127,7 +127,7 @@ final class WindowExpectationTest: XCTestCase {
     }
 
     func testPreArmDoesNotConsume() {
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
 
         assertEquals(preArmWindowExpectations(windowId: 9, pid: 1, appBundleId: testAppId, appName: nil), true)
 
@@ -137,7 +137,7 @@ final class WindowExpectationTest: XCTestCase {
 
     func testPreArmWithTitleOnlyExpectation() {
         let matcher = LegacyWindowDetectedCallbackMatcher(windowTitleRegexSubstring: CaseInsensitiveRegex.new("PR #23").getOrDie())
-        _ = armWindowExpectation(matcher: matcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: matcher, commands: commands("move-node-to-workspace X"), timeout: 10)
 
         assertEquals(preArmWindowExpectations(windowId: 9, pid: 1, appBundleId: "com.anything", appName: nil), true)
 
@@ -146,7 +146,7 @@ final class WindowExpectationTest: XCTestCase {
     }
 
     func testPreArmIgnoresNonMatchingApp() {
-        _ = armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
 
         assertEquals(preArmWindowExpectations(windowId: 9, pid: 1, appBundleId: "com.other", appName: nil), false)
 

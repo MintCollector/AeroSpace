@@ -19,12 +19,11 @@ struct WindowExpectation {
     commands: Shell<any Command>,
     timeout: TimeInterval,
     now: Date = Date(),
-) -> Int {
+) {
     let id = nextWindowExpectationId
     nextWindowExpectationId += 1
     pendingWindowExpectations.append(WindowExpectation(id: id, matcher: matcher, commands: commands, deadline: now.addingTimeInterval(timeout)))
     focusLog("[expect-window] #\(id) armed for \(timeout)s")
-    return id
 }
 
 @MainActor private func dropExpiredWindowExpectations(_ now: Date) {

@@ -19,7 +19,7 @@ struct ExpectWindowCommand: Command {
             appNameRegexSubstring: args.appNameRegexSubstring,
             windowTitleRegexSubstring: args.windowTitleRegexSubstring,
         )
-        _ = armWindowExpectation(
+        armWindowExpectation(
             matcher: matcher,
             commands: .newCompound(shells, Shell<any Command>.seq),
             timeout: TimeInterval(args.timeoutSeconds ?? 10),

@@ -10,6 +10,7 @@ let subcommandDescriptions = [
     ["  echo", "Print arguments and interpolation variables to stdout"],
     ["  enable", "Temporarily disable window management"],
     ["  eval", "Send multiple commands to AeroSpace at once"],
+    ["  expect-window", "Claim the next new window that matches the given conditions, keep it from taking focus, and run commands on it"],
     ["  false", "Return false value"],
     ["  flatten-workspace-tree", "Flatten the tree of the focused workspace"],
     ["  focus-back-and-forth", "Switch between the current and previously focused elements back and forth"],
