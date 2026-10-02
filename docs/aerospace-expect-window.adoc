@@ -39,6 +39,13 @@ Expectations that don't claim a window within `--timeout` seconds are dropped.
 This lets a script open a window in an app that you also use by hand (a browser, a terminal, Finder)
 and route only that window, without `on-window-detected` rules that would also hit your own windows.
 
+With `--app-id` or `--app-name-regex-substring`, focus protection starts as soon as the expectation is armed:
+while it's pending, AeroSpace refuses activations of a matching app (a cold launch, or `open -a` on a running app)
+and pushes focus back to the focused window.
+This also bounces you if you switch to that app yourself before the window appears,
+or before the timeout if the window never appears.
+Expectations with only `--window-title-regex-substring` don't guard app activation.
+
 Limitations:
 
 * The window title is known only once the window is detected, so `--window-title-regex-substring` is checked at detection.

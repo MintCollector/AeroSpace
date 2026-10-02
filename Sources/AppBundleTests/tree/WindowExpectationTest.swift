@@ -152,4 +152,63 @@ final class WindowExpectationTest: XCTestCase {
 
         assertEquals(noFocusSuppression[9] == nil, true)
     }
+
+    // MARK: - App activation guard
+
+    private func armExpectingOtherApp(now: Date = Date(), timeout: TimeInterval = 10) {
+        armWindowExpectation(
+            matcher: LegacyWindowDetectedCallbackMatcher(appId: "com.expected"),
+            commands: commands("move-node-to-workspace X"),
+            timeout: timeout,
+            now: now,
+        )
+    }
+
+    func testActivationOfExpectedAppBouncesBack() {
+        _ = setUpFocusedWindow()
+        armExpectingOtherApp()
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.expected", appName: nil), true)
+
+        assertEquals((TestApp.shared.focusedWindow as? TestWindow)?.windowId, 1) // Native focus pushed back
+        assertEquals(pendingWindowExpectations.count, 1) // Doesn't consume
+    }
+
+    func testActivationOfOtherAppIsLeftAlone() {
+        _ = setUpFocusedWindow()
+        armExpectingOtherApp()
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.other", appName: nil), false)
+    }
+
+    func testTitleOnlyExpectationDoesNotGuardActivation() {
+        _ = setUpFocusedWindow()
+        let matcher = LegacyWindowDetectedCallbackMatcher(windowTitleRegexSubstring: CaseInsensitiveRegex.new("PR #23").getOrDie())
+        armWindowExpectation(matcher: matcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.anything", appName: nil), false)
+    }
+
+    func testActivationWithSuppressionEntryIsLeftToFastBounce() {
+        _ = setUpFocusedWindow()
+        armExpectingOtherApp()
+        assertEquals(preArmWindowExpectations(windowId: 9, pid: 42, appBundleId: "com.expected", appName: nil), true)
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.expected", appName: nil), false)
+    }
+
+    func testActivationOfFocusedAppIsLeftAlone() {
+        _ = setUpFocusedWindow() // The focused window belongs to TestApp
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10)
+
+        assertEquals(bounceExpectedAppActivation(pid: TestApp.shared.pid, appBundleId: testAppId, appName: nil), false)
+    }
+
+    func testActivationAfterExpiryIsLeftAlone() {
+        _ = setUpFocusedWindow()
+        let t0 = Date()
+        armExpectingOtherApp(now: t0, timeout: 1)
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.expected", appName: nil, now: t0.addingTimeInterval(2)), false)
+    }
 }
