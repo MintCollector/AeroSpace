@@ -118,20 +118,33 @@ extension TilingContainer {
         children.filter { ($0 as? Window)?.isAwaitingOnWindowDetected != true }
     }
 
+    struct ChildFrame {
+        let child: TreeNode
+        let point: CGPoint
+        let width: CGFloat
+        let height: CGFloat
+        let virtual: Rect
+        /// Weight along the container orientation after normalization (tiles only)
+        let weight: CGFloat
+    }
+
+    /// Where each child of a `tiles` container goes. Pure: weights are read, not normalized in place.
+    /// The caller applies `weight` when it is laying out for real.
     @MainActor
-    fileprivate func layoutTiles(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
+    func tileFrames(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect,
+                    gaps: ResolvedGaps, maxWindowWidth: CGFloat?) -> [ChildFrame] {
         var point = point
         var virtualPoint = virtual.topLeftCorner
         let effectiveChildren = layoutChildren
 
         guard let delta = ((orientation == .h ? width : height) - CGFloat(effectiveChildren.sumOfDouble { $0.getWeight(orientation) }))
-            .div(effectiveChildren.count) else { return }
+            .div(effectiveChildren.count) else { return [] }
 
         let lastIndex = effectiveChildren.indices.last
-        let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
+        let rawGap = gaps.inner.get(orientation).toDouble()
 
         // Center clamped children as a group so excess space goes to outer edges
-        if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0 {
+        if orientation == .h, let maxWidth = maxWindowWidth, maxWidth > 0 {
             var totalOccupied: CGFloat = 0
             for (i, child) in effectiveChildren.enumerated() {
                 let adjustedWeight = CGFloat(child.getWeight(orientation) + delta)
@@ -141,43 +154,47 @@ extension TilingContainer {
             point = CGPoint(x: point.x + (width - totalOccupied) / 2, y: point.y)
         }
 
+        var frames: [ChildFrame] = []
         for (i, child) in effectiveChildren.enumerated() {
-            child.setWeight(orientation, child.getWeight(orientation) + delta)
+            let weight = child.getWeight(orientation) + delta
             let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
 
-            var childWidth = orientation == .h ? child.hWeight - gap : width
-            if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0, childWidth > maxWidth {
+            var childWidth = orientation == .h ? weight - gap : width
+            if orientation == .h, let maxWidth = maxWindowWidth, maxWidth > 0, childWidth > maxWidth {
                 childWidth = maxWidth
             }
 
-            try await child.layoutRecursive(
-                i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
+            frames.append(ChildFrame(
+                child: child,
+                point: i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
                 width: childWidth,
-                height: orientation == .v ? child.vWeight - gap : height,
+                height: orientation == .v ? weight - gap : height,
                 virtual: Rect(
                     topLeftX: virtualPoint.x,
                     topLeftY: virtualPoint.y,
-                    width: orientation == .h ? child.hWeight : width,
-                    height: orientation == .v ? child.vWeight : height,
+                    width: orientation == .h ? weight : width,
+                    height: orientation == .v ? weight : height,
                 ),
-                context,
-            )
-            virtualPoint = orientation == .h ? virtualPoint.addingXOffset(child.hWeight) : virtualPoint.addingYOffset(child.vWeight)
-            if orientation == .h, let maxWidth = context.maxWindowWidth, maxWidth > 0 {
-                point = point.addingXOffset(min(child.hWeight, maxWidth + gap))
+                weight: weight,
+            ))
+            virtualPoint = orientation == .h ? virtualPoint.addingXOffset(weight) : virtualPoint.addingYOffset(weight)
+            if orientation == .h, let maxWidth = maxWindowWidth, maxWidth > 0 {
+                point = point.addingXOffset(min(weight, maxWidth + gap))
             } else {
-                point = orientation == .h ? point.addingXOffset(child.hWeight) : point.addingYOffset(child.vWeight)
+                point = orientation == .h ? point.addingXOffset(weight) : point.addingYOffset(weight)
             }
         }
+        return frames
     }
 
+    /// Where each child of an `accordion` container goes. Pure.
     @MainActor
-    fileprivate func layoutAccordion(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
-        guard let mostRecentChild else { return }
+    func accordionFrames(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect) -> [ChildFrame] {
+        guard let mostRecentChild else { return [] }
         let children = layoutChildren
         let mruIndex: Int = children.firstIndex { $0 === mostRecentChild } ?? 0
-        for (index, child) in children.enumerated() {
-            let padding = CGFloat(config.accordionPadding)
+        let padding = CGFloat(config.accordionPadding)
+        return children.enumerated().map { index, child in
             let (lPadding, rPadding): (CGFloat, CGFloat) = switch index {
                 case 0 where children.count == 1: (0, 0)
                 case 0:                           (0, padding)
@@ -186,24 +203,28 @@ extension TilingContainer {
                 case mruIndex + 1:                (2 * padding, 0)
                 default:                          (padding, padding)
             }
-            switch orientation {
-                case .h:
-                    try await child.layoutRecursive(
-                        point + CGPoint(x: lPadding, y: 0),
-                        width: width - rPadding - lPadding,
-                        height: height,
-                        virtual: virtual,
-                        context,
-                    )
-                case .v:
-                    try await child.layoutRecursive(
-                        point + CGPoint(x: 0, y: lPadding),
-                        width: width,
-                        height: height - lPadding - rPadding,
-                        virtual: virtual,
-                        context,
-                    )
+            return switch orientation {
+                case .h: ChildFrame(child: child, point: point + CGPoint(x: lPadding, y: 0),
+                                    width: width - rPadding - lPadding, height: height, virtual: virtual, weight: 0)
+                case .v: ChildFrame(child: child, point: point + CGPoint(x: 0, y: lPadding),
+                                    width: width, height: height - lPadding - rPadding, virtual: virtual, weight: 0)
             }
+        }
+    }
+
+    @MainActor
+    fileprivate func layoutTiles(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
+        for f in tileFrames(point, width: width, height: height, virtual: virtual,
+                            gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth) {
+            f.child.setWeight(orientation, f.weight)
+            try await f.child.layoutRecursive(f.point, width: f.width, height: f.height, virtual: f.virtual, context)
+        }
+    }
+
+    @MainActor
+    fileprivate func layoutAccordion(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
+        for f in accordionFrames(point, width: width, height: height, virtual: virtual) {
+            try await f.child.layoutRecursive(f.point, width: f.width, height: f.height, virtual: f.virtual, context)
         }
     }
 
