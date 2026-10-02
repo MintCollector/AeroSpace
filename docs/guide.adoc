@@ -677,6 +677,9 @@ e.g. a test runner driving a browser:
     run = []
 ----
 
+To keep a single window that a script is about to open from stealing focus, and run commands on just that window,
+see xref:./commands.adoc#expect-window[expect-window].
+
 A common use case is to match against app bundle ID in `on-window-detected` callback.
 There are several ways to know `app-bundle-id`:
 
