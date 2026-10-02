@@ -2,12 +2,14 @@ import AppKit
 import Common
 
 /// One-shot expectation armed by `aerospace expect-window`: the next new window matching `matcher`
-/// doesn't take focus, skips [[on-window-detected]] rules, and runs `commands` instead.
+/// skips [[on-window-detected]] rules and runs `commands` instead. It doesn't take focus, unless
+/// `takeFocus` (`--focus`): then it's focused once the commands have placed it.
 struct WindowExpectation {
     let id: Int
     let matcher: LegacyWindowDetectedCallbackMatcher
     let commands: Shell<any Command>
     let deadline: Date
+    let takeFocus: Bool
 
     /// Whether the app conditions alone admit this app (the title is checked at detection).
     @MainActor func mayMatchApp(bundleId: String?, appName: String?) -> Bool {
@@ -29,12 +31,19 @@ struct WindowExpectation {
     matcher: LegacyWindowDetectedCallbackMatcher,
     commands: Shell<any Command>,
     timeout: TimeInterval,
+    takeFocus: Bool = false,
     now: Date = Date(),
 ) {
     let id = nextWindowExpectationId
     nextWindowExpectationId += 1
-    pendingWindowExpectations.append(WindowExpectation(id: id, matcher: matcher, commands: commands, deadline: now.addingTimeInterval(timeout)))
-    focusLog("[expect-window] #\(id) armed for \(timeout)s")
+    pendingWindowExpectations.append(WindowExpectation(
+        id: id,
+        matcher: matcher,
+        commands: commands,
+        deadline: now.addingTimeInterval(timeout),
+        takeFocus: takeFocus,
+    ))
+    focusLog("[expect-window] #\(id) armed for \(timeout)s\(takeFocus ? " (takes focus)" : "")")
 }
 
 @MainActor private func dropExpiredWindowExpectations(_ now: Date) {
@@ -47,11 +56,14 @@ struct WindowExpectation {
 
 /// AX windowCreated, before tree registration: shield a window that MAY be expected from focus
 /// stealing. Doesn't consume. The title isn't known yet and the window may turn out to be a popup;
-/// detection (takeWindowExpectation) decides.
+/// detection (takeWindowExpectation) decides. `--focus` expectations want the window focused, so they don't shield.
 @MainActor func preArmWindowExpectations(windowId: UInt32, pid: pid_t, appBundleId: String?, appName: String?, now: Date = Date()) -> Bool {
     dropExpiredWindowExpectations(now)
     guard noFocusSuppression[windowId] == nil else { return false }
-    guard pendingWindowExpectations.contains(where: { $0.mayMatchApp(bundleId: appBundleId, appName: appName) }) else { return false }
+    let mayMatch = pendingWindowExpectations.contains { expectation in
+        !expectation.takeFocus && expectation.mayMatchApp(bundleId: appBundleId, appName: appName)
+    }
+    guard mayMatch else { return false }
     noFocusSuppression[windowId] = NoFocusSuppressionEntry(
         restoreWindowId: focus.windowOrNil?.windowId,
         pid: pid,
@@ -64,13 +76,14 @@ struct WindowExpectation {
 /// App activation is the first focus steal of a cold launch (or of `open -a` on a running app), and it
 /// comes before AX windowCreated, so pre-arming can't cover it. While an expectation with an app
 /// condition is pending, refuse activations of a matching app: push native focus back to the focused
-/// window. Title-only expectations don't guard, since they'd bounce every app switch. Windows that
-/// already have a suppression entry are left to fastBounceNoFocusSuppression.
+/// window. Title-only expectations don't guard, since they'd bounce every app switch, and neither do
+/// `--focus` ones: their app is wanted in front, and a keystroke-driven new window needs it there.
+/// Windows that already have a suppression entry are left to fastBounceNoFocusSuppression.
 @MainActor func bounceExpectedAppActivation(pid: pid_t, appBundleId: String?, appName: String?, now: Date = Date()) -> Bool {
     dropExpiredWindowExpectations(now)
     guard !noFocusSuppression.values.contains(where: { $0.pid == pid }) else { return false }
     let expected = pendingWindowExpectations.contains { expectation in
-        expectation.hasAppCondition && expectation.mayMatchApp(bundleId: appBundleId, appName: appName)
+        !expectation.takeFocus && expectation.hasAppCondition && expectation.mayMatchApp(bundleId: appBundleId, appName: appName)
     }
     guard expected, let restore = focus.windowOrNil, restore.app.pid != pid else { return false }
     restore.nativeFocus()
@@ -92,9 +105,17 @@ struct WindowExpectation {
 
 @MainActor func runWindowExpectation(_ expectation: WindowExpectation, _ window: Window) async {
     broadcastWindowDetected(window)
-    armNoFocusSuppression(for: window) // Refreshes the pre-armed entry and its TTL
+    if expectation.takeFocus {
+        // A shield pre-armed for another pending expectation would bounce the focus below
+        noFocusSuppression[window.windowId] = nil
+    } else {
+        armNoFocusSuppression(for: window) // Refreshes the pre-armed entry and its TTL
+    }
     focusLog("[expect-window] #\(expectation.id) claimed window \(window.windowId) (app: \(window.app.name ?? "?"))")
     _ = await expectation.commands.run(.defaultEnv.withWindowId(window.windowId), CmdIoImpl.emptyStdinIgnoringOut)
+    if expectation.takeFocus {
+        _ = window.focusWindow() // Like `focus --window-id`: the refresh syncs native focus
+    }
 }
 
 /// Test-only.

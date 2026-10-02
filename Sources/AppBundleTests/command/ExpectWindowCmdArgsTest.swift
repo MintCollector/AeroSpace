@@ -14,6 +14,13 @@ final class ExpectWindowCmdArgsTest: XCTestCase {
         let args = parseExpectWindow(#"expect-window --window-title-regex-substring 'PR #\d+' --timeout 5"#)
         assertEquals(args.windowTitleRegexSubstring?.origin, #"PR #\d+"#)
         assertEquals(args.timeoutSeconds, 5)
+        assertEquals(args.takeFocus, false)
+    }
+
+    func testParseFocus() {
+        let args = parseExpectWindow("expect-window --app-id com.x --focus -- 'move-node-to-workspace 3'")
+        assertEquals(args.takeFocus, true)
+        assertEquals(args.commands, ["move-node-to-workspace 3"])
     }
 
     func testZeroCommandsIsValid() {

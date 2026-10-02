@@ -211,4 +211,57 @@ final class WindowExpectationTest: XCTestCase {
 
         assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.expected", appName: nil, now: t0.addingTimeInterval(2)), false)
     }
+
+    // MARK: - --focus
+
+    func testFocusModeMovesThenFocuses() async {
+        let workspace = setUpFocusedWindow()
+        config.onWindowDetected = [moveRule(to: "Y")]
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10, takeFocus: true)
+        let detected = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+
+        await tryOnWindowDetected(detected)
+
+        assertEquals(detected.nodeWorkspace?.name, "X") // Placed by the expectation, not the rule
+        assertEquals(focus.windowOrNil?.windowId, 2)
+        assertEquals(focus.workspace.name, "X")
+        assertEquals(noFocusSuppression[2] == nil, true)
+        assertEquals(pendingWindowExpectations.isEmpty, true)
+    }
+
+    func testFocusModeClearsShieldPreArmedForAnotherExpectation() async {
+        let workspace = setUpFocusedWindow()
+        let otherTitle = LegacyWindowDetectedCallbackMatcher(appId: testAppId, windowTitleRegexSubstring: CaseInsensitiveRegex.new("never").getOrDie())
+        armWindowExpectation(matcher: otherTitle, commands: commands("move-node-to-workspace Z"), timeout: 10)
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10, takeFocus: true)
+        assertEquals(preArmWindowExpectations(windowId: 2, pid: TestApp.shared.pid, appBundleId: testAppId, appName: nil), true)
+        let detected = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+
+        await tryOnWindowDetected(detected)
+
+        assertEquals(detected.nodeWorkspace?.name, "X")
+        assertEquals(focus.windowOrNil?.windowId, 2)
+        assertEquals(noFocusSuppression[2] == nil, true)
+        assertEquals(pendingWindowExpectations.count, 1) // The title-conditioned one is still waiting
+    }
+
+    func testFocusModeDoesNotPreArm() {
+        armWindowExpectation(matcher: appMatcher, commands: commands("move-node-to-workspace X"), timeout: 10, takeFocus: true)
+
+        assertEquals(preArmWindowExpectations(windowId: 9, pid: 1, appBundleId: testAppId, appName: nil), false)
+
+        assertEquals(noFocusSuppression[9] == nil, true)
+    }
+
+    func testFocusModeDoesNotGuardActivation() {
+        _ = setUpFocusedWindow()
+        armWindowExpectation(
+            matcher: LegacyWindowDetectedCallbackMatcher(appId: "com.expected"),
+            commands: commands("move-node-to-workspace X"),
+            timeout: 10,
+            takeFocus: true,
+        )
+
+        assertEquals(bounceExpectedAppActivation(pid: 42, appBundleId: "com.expected", appName: nil), false)
+    }
 }

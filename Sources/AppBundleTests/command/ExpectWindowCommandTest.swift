@@ -38,6 +38,14 @@ final class ExpectWindowCommandTest: XCTestCase {
 
         assertEquals(result.exitCode.rawValue, 0)
         assertDeadline(pendingWindowExpectations.first?.deadline, isAbout: 3, after: before)
+        assertEquals(pendingWindowExpectations.first?.takeFocus, false)
+    }
+
+    func testFocusFlagArmsFocusTakingExpectation() async {
+        let result = await parseCommand("expect-window --app-id com.x --focus").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(pendingWindowExpectations.first?.takeFocus, true)
     }
 
     func testUnparsableCommandArmsNothing() async {

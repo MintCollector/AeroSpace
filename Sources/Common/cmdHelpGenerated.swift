@@ -35,7 +35,8 @@ let exec_and_forget_help_generated = """
     """
 let expect_window_help_generated = """
     USAGE: expect-window [-h|--help] [--app-id <app-bundle-id>] [--app-name-regex-substring <regex>]
-                        [--window-title-regex-substring <regex>] [--timeout <seconds>] [--] [<command>...]
+                        [--window-title-regex-substring <regex>] [--timeout <seconds>] [--focus]
+                        [--] [<command>...]
     """
 let false_help_generated = """
     USAGE: false [-h|--help]

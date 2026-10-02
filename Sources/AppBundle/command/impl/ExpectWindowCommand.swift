@@ -23,6 +23,7 @@ struct ExpectWindowCommand: Command {
             matcher: matcher,
             commands: .newCompound(shells, Shell<any Command>.seq),
             timeout: TimeInterval(args.timeoutSeconds ?? 10),
+            takeFocus: args.takeFocus,
         )
         return .succ
     }
