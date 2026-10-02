@@ -165,7 +165,7 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
 extension LegacyWindowDetectedCallbackMatcher {
     /// Whether this matcher is fully decidable from the app alone (no Window in the tree yet)
     /// AND matches the given app. Window-title / workspace conditions force a "no".
-    @MainActor fileprivate func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
+    @MainActor func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
         if windowTitleRegexSubstring != nil || workspace != nil {
             return false
         }
