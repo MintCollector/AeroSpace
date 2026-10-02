@@ -68,6 +68,13 @@ include::aerospace-exec-and-forget.adoc[tags=synopsis]
 include::aerospace-exec-and-forget.adoc[tags=purpose]
 include::aerospace-exec-and-forget.adoc[tags=body]
 
+== expect-window
+----
+include::aerospace-expect-window.adoc[tags=synopsis]
+----
+include::aerospace-expect-window.adoc[tags=purpose]
+include::aerospace-expect-window.adoc[tags=body]
+
 == false
 ----
 include::aerospace-false.adoc[tags=synopsis]

@@ -274,7 +274,11 @@ func tryOnWindowDetected(_ window: Window) async {
     switch window.windowParentCases {
         case .tilingContainer, .floatingWindowsContainer, .macosMinimizedWindowsContainer,
              .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:
-            _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+            if let expectation = await takeWindowExpectation(for: window) {
+                await runWindowExpectation(expectation, window)
+            } else {
+                _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+            }
         case .macosPopupWindowsContainer, .unbound:
             break
     }
@@ -282,13 +286,7 @@ func tryOnWindowDetected(_ window: Window) async {
 
 @MainActor
 func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int32ExitCode {
-    broadcastEvent(.windowDetected(
-        windowId: window.windowId,
-        workspace: window.nodeWorkspace?.name,
-        appBundleId: window.app.rawAppBundleId,
-        appName: window.app.name,
-        tiledWindowCount: window.nodeWorkspace?.rootTilingContainer.allLeafWindowsRecursive.count,
-    ))
+    broadcastWindowDetected(window)
     var lastExitCode = Int32ExitCode.succ
     for callback in config.onWindowDetected where await callback.matches(window) {
         if callback.noFocus {
@@ -304,32 +302,50 @@ func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int
     return lastExitCode
 }
 
+@MainActor
+func broadcastWindowDetected(_ window: Window) {
+    broadcastEvent(.windowDetected(
+        windowId: window.windowId,
+        workspace: window.nodeWorkspace?.name,
+        appBundleId: window.app.rawAppBundleId,
+        appName: window.app.name,
+        tiledWindowCount: window.nodeWorkspace?.rootTilingContainer.allLeafWindowsRecursive.count,
+    ))
+}
+
 extension WindowDetectedCallback {
     @MainActor
     func matches(_ window: Window) async -> Bool {
         switch self.matcher {
             case .legacy(let matcher):
-                if let startupMatcher = matcher.duringAeroSpaceStartup, startupMatcher != isStartup {
-                    return false
-                }
-                if let regex = matcher.windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
-                    return false
-                }
-                if let appIds = matcher.appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {
-                    return false
-                }
-                if let regex = matcher.appIdRegexSubstring, !(window.app.rawAppBundleId ?? "").contains(caseInsensitiveRegex: regex) {
-                    return false
-                }
-                if let regex = matcher.appNameRegexSubstring, !(window.app.name ?? "").contains(caseInsensitiveRegex: regex) {
-                    return false
-                }
-                if let workspace = matcher.workspace, workspace != window.nodeWorkspace?.name {
-                    return false
-                }
-                return true
+                return await matcher.matches(window)
             case .command(let command):
                 return await command.run(.defaultEnv.withWindowId(window.windowId), .emptyStdin).exitCode.rawValue == 0
         }
+    }
+}
+
+extension LegacyWindowDetectedCallbackMatcher {
+    @MainActor
+    func matches(_ window: Window) async -> Bool {
+        if let startupMatcher = duringAeroSpaceStartup, startupMatcher != isStartup {
+            return false
+        }
+        if let regex = windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
+            return false
+        }
+        if let appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {
+            return false
+        }
+        if let regex = appIdRegexSubstring, !(window.app.rawAppBundleId ?? "").contains(caseInsensitiveRegex: regex) {
+            return false
+        }
+        if let regex = appNameRegexSubstring, !(window.app.name ?? "").contains(caseInsensitiveRegex: regex) {
+            return false
+        }
+        if let workspace, workspace != window.nodeWorkspace?.name {
+            return false
+        }
+        return true
     }
 }

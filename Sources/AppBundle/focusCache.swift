@@ -15,6 +15,8 @@ private func parentKindLabel(_ window: Window?) -> String {
 }
 
 private let focusCacheLogFile: FileHandle? = {
+    // Tests log too: recreating the file would orphan the running app's handle to the live log
+    if isUnitTest { return nil }
     let path = "/tmp/aerospace-focus-cache.log"
     FileManager.default.createFile(atPath: path, contents: nil)
     return FileHandle(forWritingAtPath: path)
@@ -165,7 +167,7 @@ let noFocusSuppressionTtl: TimeInterval = 1.0
 extension LegacyWindowDetectedCallbackMatcher {
     /// Whether this matcher is fully decidable from the app alone (no Window in the tree yet)
     /// AND matches the given app. Window-title / workspace conditions force a "no".
-    @MainActor fileprivate func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
+    @MainActor func matchesAppBeforeDetection(bundleId: String?, appName: String?) -> Bool {
         if windowTitleRegexSubstring != nil || workspace != nil {
             return false
         }

@@ -26,6 +26,8 @@ extension CmdArgs {
                 command = EvalCommand(args: self as! EvalCmdArgs)
             case .execAndForget:
                 return .failure("exec-and-forget is not a real command and it's NOT allowed in the shell", EXIT_CODE_TWO)
+            case .expectWindow:
+                command = ExpectWindowCommand(args: self as! ExpectWindowCmdArgs)
             case .flattenWorkspaceTree:
                 command = FlattenWorkspaceTreeCommand(args: self as! FlattenWorkspaceTreeCmdArgs)
             case .focus:

@@ -1,0 +1,97 @@
+= aerospace-expect-window(1)
+include::util/man-attributes.adoc[]
+:manname: aerospace-expect-window
+// tag::purpose[]
+:manpurpose: Claim the next new window that matches the given conditions, keep it from taking focus, and run commands on it
+// end::purpose[]
+
+// =========================================================== Synopsis
+== Synopsis
+[verse]
+// tag::synopsis[]
+aerospace expect-window [-h|--help] [--app-id <app-bundle-id>] [--app-name-regex-substring <regex>]
+                       [--window-title-regex-substring <regex>] [--timeout <seconds>] [--] [<command>...]
+
+// end::synopsis[]
+
+// =========================================================== Description
+== Description
+
+// tag::body[]
+Arm a one-shot expectation for a window that a script is about to open.
+The command returns immediately; it doesn't launch anything.
+Arm the expectation first, then open the window.
+
+The *next* new window that satisfies *all* given conditions is claimed by the expectation:
+
+* It never takes focus.
+The focused window and workspace stay as they were.
+* xref:guide.adoc#on-window-detected-callback[on-window-detected] rules are *skipped* for it.
+The `window-detected` event of xref:./commands.adoc#subscribe[subscribe] still fires.
+* Each `<command>` is run on it, in order, as if it were an entry of an `on-window-detected` `run` array.
+The claimed window is the target of the commands (`AEROSPACE_WINDOW_ID` is set for `exec-and-forget`).
+
+At least one condition is required.
+When several pending expectations match the same window, the oldest one claims it (first in, first out).
+Each expectation claims at most one window.
+Expectations that don't claim a window within `--timeout` seconds are dropped.
+
+This lets a script open a window in an app that you also use by hand (a browser, a terminal, Finder)
+and route only that window, without `on-window-detected` rules that would also hit your own windows.
+
+With `--app-id` or `--app-name-regex-substring`, focus protection starts as soon as the expectation is armed:
+while it's pending, AeroSpace refuses activations of a matching app (a cold launch, or `open -a` on a running app)
+and pushes focus back to the focused window.
+This also bounces you if you switch to that app yourself before the window appears,
+or before the timeout if the window never appears.
+Expectations with only `--window-title-regex-substring` don't guard app activation.
+
+Limitations:
+
+* The window title is known only once the window is detected, so `--window-title-regex-substring` is checked at detection.
+While an expectation is armed, *any* new window of a matching app is shielded from taking focus for up to one second
+after it's created, even one whose title doesn't match.
+* A `focus` command among the `<command>` arguments is bounced back by the focus protection.
+* Call `aerospace expect-window` directly from your script.
+Wrappers that join and re-split arguments on whitespace break the `<command>` arguments.
+
+// =========================================================== Options
+include::./util/conditional-options-header.adoc[]
+
+-h, --help:: Print help
+
+--app-id <app-bundle-id>::
+Only claim a window whose application has this exact bundle ID.
+
+--app-name-regex-substring <regex>::
+Only claim a window whose application name contains a case-insensitive match of `<regex>`.
+
+--window-title-regex-substring <regex>::
+Only claim a window whose title contains a case-insensitive match of `<regex>`.
+
+--timeout <seconds>::
+Drop the expectation if no matching window appears within `<seconds>`.
+The default is 10.
+
+// =========================================================== Arguments
+include::./util/conditional-arguments-header.adoc[]
+
+<command>::
+A command to run on the claimed window, e.g. `'move-node-to-workspace 3'` or `'layout floating'`.
+Pass each command as one argument.
+`exec-and-forget` is allowed.
+With no commands, the claimed window just doesn't take focus and skips `on-window-detected` rules.
+
+// =========================================================== Examples
+include::util/conditional-examples-header.adoc[]
+
+* Open a pull request in Chrome on workspace `PR`, floating, without leaving the current window: +
+`aerospace expect-window --app-id com.google.Chrome --window-title-regex-substring 'PR #23' -- 'move-node-to-workspace PR' 'layout floating'` +
+`open -g 'https://github.com/nikitabobko/AeroSpace/pull/23'`
+* Route a PR review window to a project workspace and label the workspace with a shell command: +
+`aerospace expect-window --app-id com.google.Chrome --window-title-regex-substring 'PR #23' -- 'move-node-to-workspace CC5-Aerospace' 'layout floating' 'exec-and-forget aero-helper label -s CC5-Aerospace "PR 23"'`
+
+// end::body[]
+
+// =========================================================== Footer
+include::util/man-footer.adoc[]

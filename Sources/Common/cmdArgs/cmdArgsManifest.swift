@@ -10,6 +10,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case enable
     case eval
     case execAndForget = "exec-and-forget"
+    case expectWindow = "expect-window"
 
     case _false = "false"
 
@@ -78,6 +79,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(EvalCmdArgs.init)
             case .execAndForget:
                 break // exec-and-forget is parsed separately
+            case .expectWindow:
+                result[kind.rawValue] = SubCommandParser(parseExpectWindowCmdArgs)
             case ._false:
                 result[kind.rawValue] = SubCommandParser(FalseCmdArgs.init)
             case .flattenWorkspaceTree:

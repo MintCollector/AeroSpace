@@ -29,6 +29,8 @@ aerospace -h;
 
     | eval [--stdin]
 
+    | expect-window (--app-id <app_bundle_id>|--app-name-regex-substring <regex>|--window-title-regex-substring <regex>|--timeout <number>)... [--] [<command>]...
+
     | false
 
     | flatten-workspace-tree [--workspace <workspace>]
@@ -125,6 +127,8 @@ aerospace -h;
 <mode_id> ::= {{{ aerospace config --get mode --keys }}};
 <workspace> ::= {{{ aerospace list-workspaces --monitor all --empty no }}};
 <number> ::= {{{ true }}};
+<regex> ::= {{{ true }}};
+<command> ::= {{{ true }}};
 <monitor_pattern> ::= {{{ true }}};
 <layouts> ::= h_tiles|v_tiles|h_accordion|v_accordion|tiles|accordion|scrolling|tabs|horizontal|vertical|tiling|floating|unmanaged|sticky;
 

@@ -19,7 +19,7 @@ build-release:
 	cd ./xcode && xcodebuild clean build -scheme AeroSpace -destination "generic/platform=macOS" -configuration Release -derivedDataPath .xcode-build CODE_SIGN_IDENTITY="$(CODESIGN_IDENTITY)" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual
 	rm -rf .release && mkdir .release
 	cp -r "xcode/.xcode-build/Build/Products/Release/AeroSpace.app" .release
-	cp -r .build/arm64-apple-macosx/release/aerospace .release
+	cp -r "$$(swift build -c release --arch arm64 --show-bin-path)/aerospace" .release
 	codesign --force --sign "$(CODESIGN_IDENTITY)" .release/aerospace
 	codesign --verify --strict .release/AeroSpace.app
 	codesign --verify --strict .release/aerospace
