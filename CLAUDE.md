@@ -42,6 +42,14 @@ bash script/generate-cmd-help.sh
 - Refresh cycle: `Sources/AppBundle/layout/refresh.swift` (`runHeavyCompleteRefreshSession`)
 - Layout normalization: `Sources/AppBundle/normalizeLayoutReason.swift` (includes `validateStillPopups()`)
 - Containers: workspace (floating), TilingContainer (tiled), macosPopupWindowsContainer (unmanaged/popups)
+- Focus-steal protection (`no-focus` rules): `Sources/AppBundle/focusCache.swift` (`noFocusSuppression` entries;
+  bounces in `updateFocusCache` and `fastBounceNoFocusSuppression`). Log: `/tmp/aerospace-focus-cache.log`.
+- `expect-window` (fork-only, one-shot scripted window claims): `Sources/AppBundle/windowExpectations.swift`, built on
+  the no-focus entries and hooked in three places, in time order:
+  app activation (`GlobalObserver`, `bounceExpectedAppActivation`), AX windowCreated (`refresh.swift`,
+  `preArmWindowExpectations`), and detection (`tryOnWindowDetected`, which consumes the expectation and skips config rules).
+  Hook detection in `tryOnWindowDetected`, not `onWindowDetected`: `run-callback` also calls the latter for existing windows.
+  User doc: `docs/aerospace-expect-window.adoc`.
 
 ## Config
 
