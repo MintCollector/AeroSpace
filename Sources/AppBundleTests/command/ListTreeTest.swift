@@ -50,6 +50,30 @@ final class ListTreeTest: XCTestCase {
         let win = allWindows.first { ($0["window-id"] as? Int) == 5 }!
         assertEquals(win["window-x"] as? Int, 100)      // cached layout rect, not the AX rect (1)
         assertEquals(win["window-width"] as? Int, 300)
-        assertEquals(Set(win.keys), Set(ListTreeCommand.windowVars.map { $0.rawValue }))
+        assertEquals(Set(win.keys), Set(ListTreeCommand.windowVars.map { $0.rawValue } + ListTreeCommand.layoutRectKeys))
+    }
+
+    @MainActor
+    func testLayoutRectForHiddenWorkspaceIsMonitorRelative() async throws {
+        setUpWorkspacesForTests()
+        let hidden = Workspace.get(byName: name)
+        TestWindow.new(id: 11, parent: hidden.rootTilingContainer)
+        TestWindow.new(id: 12, parent: hidden.rootTilingContainer)
+        assertTrue(!hidden.isVisible)
+
+        let result = await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 0)
+        let root = try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as! [String: Any]
+        let windows = (root["monitors"] as! [[String: Any]])
+            .flatMap { $0["workspaces"] as! [[String: Any]] }
+            .flatMap { $0["windows"] as! [[String: Any]] }
+        let w11 = windows.first { ($0["window-id"] as? Int) == 11 }!
+        let w12 = windows.first { ($0["window-id"] as? Int) == 12 }!
+        let preview = hidden.previewLayoutRects()
+        let origin = hidden.workspaceMonitor.rect.topLeftCorner
+        assertEquals(w11["window-layout-x"] as? Int, Int(preview[11]!.topLeftX - origin.x))
+        assertEquals(w11["window-layout-width"] as? Int, Int(preview[11]!.width))
+        assertTrue((w12["window-layout-x"] as! Int) > (w11["window-layout-x"] as! Int))
+        for key in ListTreeCommand.layoutRectKeys { assertTrue(w11[key] is Int) }
     }
 }

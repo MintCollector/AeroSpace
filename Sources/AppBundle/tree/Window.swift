@@ -133,25 +133,15 @@ open class Window: TreeNode, Hashable {
 
     @MainActor
     func unhideFromCorner() {
-        guard let prevUnhiddenProportionalPositionInsideWorkspaceRect else { return }
-        guard let nodeWorkspace else { return } // hiding only makes sense for workspace windows
+        guard prevUnhiddenProportionalPositionInsideWorkspaceRect != nil else { return }
+        guard nodeWorkspace != nil else { return } // hiding only makes sense for workspace windows
         guard let parent else { return }
 
         switch getChildParentRelation(child: self, parent: parent) {
             // Just a small optimization to avoid unnecessary AX calls for non floating windows
             // Tiling windows should be unhidden with layoutRecursive anyway
             case .floatingWindow:
-                let workspaceRect = nodeWorkspace.workspaceMonitor.rect
-                var newX = workspaceRect.topLeftX + workspaceRect.width * prevUnhiddenProportionalPositionInsideWorkspaceRect.x
-                var newY = workspaceRect.topLeftY + workspaceRect.height * prevUnhiddenProportionalPositionInsideWorkspaceRect.y
-                // todo we probably should replace lastFloatingSize with proper floating window sizing
-                // https://github.com/nikitabobko/AeroSpace/issues/1519
-                let windowWidth = lastFloatingSize?.width ?? 0
-                let windowHeight = lastFloatingSize?.height ?? 0
-                newX = newX.coerce(in: workspaceRect.minX ... max(workspaceRect.minX, workspaceRect.maxX - windowWidth))
-                newY = newY.coerce(in: workspaceRect.minY ... max(workspaceRect.minY, workspaceRect.maxY - windowHeight))
-
-                setAxFrame(CGPoint(x: newX, y: newY), nil)
+                if let restore = floatingRestoreRect { setAxFrame(restore.topLeftCorner, nil) }
                 self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
             case .tiling, .rootTilingContainer:
                 // Tiling windows are positioned by layoutRecursive, safe to clear.
@@ -169,6 +159,22 @@ open class Window: TreeNode, Hashable {
 
     var isHiddenInCorner: Bool {
         prevUnhiddenProportionalPositionInsideWorkspaceRect != nil
+    }
+
+    /// Where `unhideFromCorner` will put this hidden floating window back (global top-left points)
+    @MainActor
+    var floatingRestoreRect: Rect? {
+        guard let p = prevUnhiddenProportionalPositionInsideWorkspaceRect, let nodeWorkspace else { return nil }
+        let workspaceRect = nodeWorkspace.workspaceMonitor.rect
+        // todo we probably should replace lastFloatingSize with proper floating window sizing
+        // https://github.com/nikitabobko/AeroSpace/issues/1519
+        let windowWidth = lastFloatingSize?.width ?? 0
+        let windowHeight = lastFloatingSize?.height ?? 0
+        let x = (workspaceRect.topLeftX + workspaceRect.width * p.x)
+            .coerce(in: workspaceRect.minX ... max(workspaceRect.minX, workspaceRect.maxX - windowWidth))
+        let y = (workspaceRect.topLeftY + workspaceRect.height * p.y)
+            .coerce(in: workspaceRect.minY ... max(workspaceRect.minY, workspaceRect.maxY - windowHeight))
+        return Rect(topLeftX: x, topLeftY: y, width: windowWidth, height: windowHeight)
     }
 }
 
