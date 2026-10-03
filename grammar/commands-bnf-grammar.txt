@@ -29,7 +29,7 @@ aerospace -h;
 
     | eval [--stdin]
 
-    | expect-window (--app-id <app_bundle_id>|--app-name-regex-substring <regex>|--window-title-regex-substring <regex>|--timeout <number>)... [--] [<command>]...
+    | expect-window (--app-id <app_bundle_id>|--app-name-regex-substring <regex>|--window-title-regex-substring <regex>|--timeout <number>|--focus)... [--] [<command>]...
 
     | false
 

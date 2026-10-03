@@ -10,7 +10,8 @@ include::util/man-attributes.adoc[]
 [verse]
 // tag::synopsis[]
 aerospace expect-window [-h|--help] [--app-id <app-bundle-id>] [--app-name-regex-substring <regex>]
-                       [--window-title-regex-substring <regex>] [--timeout <seconds>] [--] [<command>...]
+                       [--window-title-regex-substring <regex>] [--timeout <seconds>] [--focus]
+                       [--] [<command>...]
 
 // end::synopsis[]
 
@@ -24,8 +25,8 @@ Arm the expectation first, then open the window.
 
 The *next* new window that satisfies *all* given conditions is claimed by the expectation:
 
-* It never takes focus.
-The focused window and workspace stay as they were.
+* It doesn't take focus: the focused window and workspace stay as they were.
+With `--focus`, it's focused instead, once the commands have run (see below).
 * xref:guide.adoc#on-window-detected-callback[on-window-detected] rules are *skipped* for it.
 The `window-detected` event of xref:./commands.adoc#subscribe[subscribe] still fires.
 * Each `<command>` is run on it, in order, as if it were an entry of an `on-window-detected` `run` array.
@@ -44,14 +45,14 @@ while it's pending, AeroSpace refuses activations of a matching app (a cold laun
 and pushes focus back to the focused window.
 This also bounces you if you switch to that app yourself before the window appears,
 or before the timeout if the window never appears.
-Expectations with only `--window-title-regex-substring` don't guard app activation.
+Expectations with only `--window-title-regex-substring` don't guard app activation, and neither do `--focus` ones.
 
 Limitations:
 
 * The window title is known only once the window is detected, so `--window-title-regex-substring` is checked at detection.
 While an expectation is armed, *any* new window of a matching app is shielded from taking focus for up to one second
 after it's created, even one whose title doesn't match.
-* A `focus` command among the `<command>` arguments is bounced back by the focus protection.
+* A `focus` command among the `<command>` arguments is bounced back by the focus protection. Use `--focus` instead.
 * Call `aerospace expect-window` directly from your script.
 Wrappers that join and re-split arguments on whitespace break the `<command>` arguments.
 
@@ -73,6 +74,13 @@ Only claim a window whose title contains a case-insensitive match of `<regex>`.
 Drop the expectation if no matching window appears within `<seconds>`.
 The default is 10.
 
+--focus::
+Focus the claimed window after the commands have run, like `focus --window-id` would,
+so focus follows it to wherever the commands put it.
+For when the script opens a window *for* you: rules are still skipped and the window still lands
+where the commands say, but it ends up in front instead of behind.
+There is no focus protection: the app may activate and the window may take focus as usual before it's claimed.
+
 // =========================================================== Arguments
 include::./util/conditional-arguments-header.adoc[]
 
@@ -84,6 +92,10 @@ With no commands, the claimed window just doesn't take focus and skips `on-windo
 
 // =========================================================== Examples
 include::util/conditional-examples-header.adoc[]
+
+* Open a new Chrome window on the current workspace and focus it, ignoring rules that route Chrome elsewhere: +
+`aerospace expect-window --app-id com.google.Chrome --focus -- "move-node-to-workspace $(aerospace list-workspaces --focused)"` +
+`osascript -e 'tell application id "com.google.Chrome" to make new window'`
 
 * Open a pull request in Chrome on workspace `PR`, floating, without leaving the current window: +
 `aerospace expect-window --app-id com.google.Chrome --window-title-regex-substring 'PR #23' -- 'move-node-to-workspace PR' 'layout floating'` +

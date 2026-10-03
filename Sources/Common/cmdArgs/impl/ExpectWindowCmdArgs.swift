@@ -9,6 +9,7 @@ public struct ExpectWindowCmdArgs: CmdArgs {
             "--app-name-regex-substring": singleValueSubArgParser(\.appNameRegexSubstring, "<regex>", CaseInsensitiveRegex.new),
             "--window-title-regex-substring": singleValueSubArgParser(\.windowTitleRegexSubstring, "<regex>", CaseInsensitiveRegex.new),
             "--timeout": singleValueSubArgParser(\.timeoutSeconds, "<seconds>", parseUInt32),
+            "--focus": trueBoolFlag(\.takeFocus),
         ],
         posArgs: [
             dashDashArg(mandatory: false),
@@ -21,6 +22,7 @@ public struct ExpectWindowCmdArgs: CmdArgs {
     public var appNameRegexSubstring: CaseInsensitiveRegex? = nil
     public var windowTitleRegexSubstring: CaseInsensitiveRegex? = nil
     public var timeoutSeconds: UInt32? = nil
+    public var takeFocus: Bool = false
     public var commands: [String] = []
 }
 
