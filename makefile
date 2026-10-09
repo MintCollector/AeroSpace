@@ -26,7 +26,10 @@ build-release:
 
 deploy: build-release install
 
+# The restart drops every window onto a visible workspace: keep-windows puts each one back
+# (workspace, order, layout, focus, aero-helper's labels). Retry with ./script/keep-windows.py restore
 install:
+	./script/keep-windows.py save
 	osascript -e 'tell application "AeroSpace" to quit' 2>/dev/null || true
 	pkill -x AeroSpace 2>/dev/null || true
 	sleep 1
@@ -34,6 +37,7 @@ install:
 	rsync -a --delete .release/AeroSpace.app/ /Applications/AeroSpace.app/
 	cp .release/aerospace /opt/homebrew/bin/aerospace
 	open /Applications/AeroSpace.app
+	./script/keep-windows.py restore
 
 test:
 	./test.sh
