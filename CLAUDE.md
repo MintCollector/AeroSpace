@@ -14,6 +14,16 @@ make install        # install the existing .release/ build WITHOUT rebuilding (r
 `make deploy` is the one to use after code changes — it rebuilds first. `make install` only copies
 the pre-built `.release/`, so it ships stale code unless you ran `build-release` yourself first.
 
+Installing restarts AeroSpace, which re-detects every window on the visible workspace of its
+monitor: the windows of every hidden workspace pile onto one, layouts reset, and aero-helper clears
+the labels of the emptied Claude session workspaces (`CC<N>`). `make install` wraps the restart in
+`script/keep-windows.py save` / `restore`, which puts each window back on its workspace in order,
+with each workspace's root layout and monitor, floating windows, aero-helper's workspace labels,
+the visible workspaces and focus (nested containers come back flat). It still shuffles the screen for
+~15s: ask James before installing. `restore --dry-run` shows what a restore would change; if one
+reports something off, `./script/keep-windows.py restore` tries again from the same snapshot.
+Tests (fake `aerospace`/`aero-helper`, no AeroSpace needed): `./script/keep-windows-test.py`.
+
 Install uses `rsync --delete` (not `rm -rf` + `cp`) to preserve the directory inode — TCC
 invalidates Accessibility grants when the app bundle gets a new inode.
 
