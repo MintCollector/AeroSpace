@@ -37,9 +37,11 @@ final class LayoutContext {
     let maxWindowWidth: CGFloat?
     let hideCorner: OptimalHideCorner
     let suppressScrollingPeek: Bool
+    /// Every container as tiles, no fullscreen: only `previewLayoutRects(asTiles:)` sets it
+    let asTiles: Bool
     var tabHeaderSnapshots: [TabHeaderSnapshot] = []
 
-    init(_ workspace: Workspace) {
+    init(_ workspace: Workspace, asTiles: Bool = false) {
         let monitor = workspace.workspaceMonitor
         let monitors = monitorInfos
         self.workspace = workspace
@@ -47,9 +49,10 @@ final class LayoutContext {
         self.suppressScrollingPeek = monitor.hasMonitorInRightSpillBand(monitors: monitors)
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: monitor)
+        self.asTiles = asTiles
 
         let root = workspace.rootTilingContainer
-        let columnCount = (root.layout == .accordion || root.orientation == .v) ? 1 : root.children.count
+        let columnCount = ((root.layout == .accordion && !asTiles) || root.orientation == .v) ? 1 : root.children.count
         self.maxWindowWidth = config.maxWindowWidth?.resolve(columnCount: columnCount)
     }
 }

@@ -5,13 +5,16 @@ extension Workspace {
     /// Rects are global top-left points, like `lastAppliedLayoutPhysicalRect`. Tiles and accordion
     /// are exact (they share `tileFrames`/`accordionFrames` with the live pass). Scrolling and tabs
     /// show one page at a time, so every page previews as the full container rect.
+    /// `asTiles` previews every container as tiles instead (same orientation and weights) and a
+    /// fullscreen window in its tile: where `layout tiles` everywhere would put each window, so no
+    /// window hides another. aero-helper's overview draws workspaces this way.
     /// Floating windows are not included; see `Window.floatingRestoreRect`.
     @MainActor
-    func previewLayoutRects() -> [UInt32: Rect] {
+    func previewLayoutRects(asTiles: Bool = false) -> [UInt32: Rect] {
         var result: [UInt32: Rect] = [:]
         if isEffectivelyEmpty { return result }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: name)
-        let context = LayoutContext(self)
+        let context = LayoutContext(self, asTiles: asTiles)
         rootTilingContainer.preview(rect.topLeftCorner, width: rect.width, height: rect.height - 1,
                                     virtual: rect, context, into: &result)
         return result
@@ -26,7 +29,9 @@ extension TreeNode {
         switch nodeCases {
             case .window(let window):
                 if window.isAwaitingOnWindowDetected { return }
-                if window.isFullscreen && window == context.workspace.rootTilingContainer.mostRecentWindowRecursive {
+                if !context.asTiles && window.isFullscreen
+                    && window == context.workspace.rootTilingContainer.mostRecentWindowRecursive
+                {
                     let monitor = context.workspace.workspaceMonitor
                     result[window.windowId] = window.noOuterGapsInFullscreen
                         ? monitor.visibleRect
@@ -35,9 +40,13 @@ extension TreeNode {
                     result[window.windowId] = Rect(topLeftX: point.x, topLeftY: point.y, width: width, height: height)
                 }
             case .tilingContainer(let container):
-                // Same layout substitution as layoutRecursive's .tilingContainer case
-                let layout = !TrayMenuModel.shared.isEnabled && (container.layout == .scrolling || container.layout == .tabs)
-                    ? Layout.accordion : container.layout
+                let layout: Layout = if context.asTiles {
+                    .tiles
+                } else if !TrayMenuModel.shared.isEnabled && (container.layout == .scrolling || container.layout == .tabs) {
+                    .accordion // Same layout substitution as layoutRecursive's .tilingContainer case
+                } else {
+                    container.layout
+                }
                 let frames: [TilingContainer.ChildFrame] = switch layout {
                     case .tiles: container.tileFrames(point, width: width, height: height, virtual: virtual,
                                                       gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth)

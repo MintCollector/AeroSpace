@@ -30,6 +30,11 @@ corner of the workspace's monitor. Unlike `window-x`/`window-y`, they are meanin
 workspaces that aren't visible, which AeroSpace parks in a screen corner. The keys are omitted when
 the position is unknown.
 
+`window-tiled-x`, `window-tiled-y`, `window-tiled-width` and `window-tiled-height` are the same,
+but as if every container on the workspace were laid out as tiles (keeping its orientation and
+sizes): accordion, scrolling and tabs pages sit side by side and a fullscreen window takes only its
+tile, so no tiled window covers another. A floating window's are its `window-layout-*` values.
+
 Window titles and geometry are read from the WindowServer in a single non-blocking call rather
 than per-window Accessibility queries. Reading window _titles_ this way requires Screen Recording
 permission; without it, titles fall back to Accessibility (geometry never needs the permission).

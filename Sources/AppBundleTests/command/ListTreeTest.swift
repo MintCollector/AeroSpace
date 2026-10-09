@@ -50,7 +50,8 @@ final class ListTreeTest: XCTestCase {
         let win = allWindows.first { ($0["window-id"] as? Int) == 5 }!
         assertEquals(win["window-x"] as? Int, 100)      // cached layout rect, not the AX rect (1)
         assertEquals(win["window-width"] as? Int, 300)
-        assertEquals(Set(win.keys), Set(ListTreeCommand.windowVars.map { $0.rawValue } + ListTreeCommand.layoutRectKeys))
+        assertEquals(Set(win.keys), Set(ListTreeCommand.windowVars.map { $0.rawValue }
+                + ListTreeCommand.layoutRectKeys + ListTreeCommand.tiledRectKeys))
     }
 
     @MainActor
@@ -75,5 +76,31 @@ final class ListTreeTest: XCTestCase {
         assertEquals(w11["window-layout-width"] as? Int, Int(preview[11]!.width))
         assertTrue((w12["window-layout-x"] as! Int) > (w11["window-layout-x"] as! Int))
         for key in ListTreeCommand.layoutRectKeys { assertTrue(w11[key] is Int) }
+    }
+
+    /// An accordion stacks its windows; window-tiled-* puts them side by side, as tiles would
+    @MainActor
+    func testTiledRectsSpreadAccordionWindows() async throws {
+        setUpWorkspacesForTests()
+        let hidden = Workspace.get(byName: name)
+        hidden.rootTilingContainer.layout = .accordion
+        TestWindow.new(id: 11, parent: hidden.rootTilingContainer)
+        TestWindow.new(id: 12, parent: hidden.rootTilingContainer)
+
+        let result = await ListTreeCommand(args: ListTreeCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 0)
+        let root = try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as! [String: Any]
+        let windows = (root["monitors"] as! [[String: Any]])
+            .flatMap { $0["workspaces"] as! [[String: Any]] }
+            .flatMap { $0["windows"] as! [[String: Any]] }
+        let w11 = windows.first { ($0["window-id"] as? Int) == 11 }!
+        let w12 = windows.first { ($0["window-id"] as? Int) == 12 }!
+        let tiled = hidden.previewLayoutRects(asTiles: true)
+        let origin = hidden.workspaceMonitor.rect.topLeftCorner
+        assertEquals(w12["window-tiled-x"] as? Int, Int(tiled[12]!.topLeftX - origin.x))
+        assertEquals(w12["window-tiled-width"] as? Int, Int(tiled[12]!.width))
+        func right(_ w: [String: Any], _ prefix: String) -> Int { (w["\(prefix)-x"] as! Int) + (w["\(prefix)-width"] as! Int) }
+        assertTrue((w12["window-layout-x"] as! Int) < right(w11, "window-layout")) // stacked
+        assertTrue((w12["window-tiled-x"] as! Int) >= right(w11, "window-tiled")) // side by side
     }
 }

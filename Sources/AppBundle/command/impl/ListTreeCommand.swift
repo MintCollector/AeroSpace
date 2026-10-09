@@ -16,6 +16,10 @@ struct ListTreeCommand: Command {
     /// of the workspace's monitor. Present for hidden workspaces too, so the helper's overview can draw
     /// them to scale. Omitted when unknown (e.g. a floating window that was never shown).
     static let layoutRectKeys = ["window-layout-x", "window-layout-y", "window-layout-width", "window-layout-height"]
+    /// The same with every container laid out as tiles (`previewLayoutRects(asTiles:)`): accordion,
+    /// scrolling and tabs pages side by side, a fullscreen window in its tile, so no window hides
+    /// another. The helper's overview draws these. A floating window's are its layout rect.
+    static let tiledRectKeys = ["window-tiled-x", "window-tiled-y", "window-tiled-width", "window-tiled-height"]
     static let workspaceVars: [FormatVar] = [
         .workspace(.workspaceName), .workspace(.workspaceFocused),
         .workspace(.workspaceVisible), .workspace(.workspaceRootContainerLayout),
@@ -51,6 +55,7 @@ struct ListTreeCommand: Command {
             var workspaceNodes: [JsonTreeNode] = []
             for workspace in monitorWorkspaces {
                 let preview = workspace.previewLayoutRects()
+                let tiled = workspace.previewLayoutRects(asTiles: true)
                 let monitorOrigin = workspace.workspaceMonitor.rect.topLeftCorner
                 // Preserve allLeafWindowsRecursive order — the helper derives window-tree-index from it.
                 var windowNodes: [JsonTreeNode] = []
@@ -63,14 +68,16 @@ struct ListTreeCommand: Command {
                     }
                     switch fields(.window(resolved), Self.windowVars) {
                         case .success(var f):
-                            let layoutRect = preview[window.windowId]
-                                ?? (window.isFloating ? (window.isHiddenInCorner ? window.floatingRestoreRect : resolved.rect) : nil)
-                            if let r = layoutRect {
-                                f["window-layout-x"] = .int(Int64(r.topLeftX - monitorOrigin.x))
-                                f["window-layout-y"] = .int(Int64(r.topLeftY - monitorOrigin.y))
-                                f["window-layout-width"] = .int(Int64(r.width))
-                                f["window-layout-height"] = .int(Int64(r.height))
+                            let floatingRect = window.isFloating
+                                ? (window.isHiddenInCorner ? window.floatingRestoreRect : resolved.rect) : nil
+                            // x, y, width, height under `keys`, relative to the monitor's top-left
+                            func put(_ rect: Rect?, _ keys: [String]) {
+                                guard let r = rect else { return }
+                                let values = [r.topLeftX - monitorOrigin.x, r.topLeftY - monitorOrigin.y, r.width, r.height]
+                                for (key, value) in zip(keys, values) { f[key] = .int(Int64(value)) }
                             }
+                            put(preview[window.windowId] ?? floatingRect, Self.layoutRectKeys)
+                            put(tiled[window.windowId] ?? floatingRect, Self.tiledRectKeys)
                             windowNodes.append(JsonTreeNode(fields: f, childrenKey: nil, children: nil))
                         case .failure(let e): return .fail(io.err(e))
                     }
