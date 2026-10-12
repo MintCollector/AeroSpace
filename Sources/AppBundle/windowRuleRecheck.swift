@@ -58,3 +58,61 @@ extension FormatVar {
         }
     }
 }
+
+extension Config {
+    var hasRecheckRules: Bool { onWindowDetected.contains { $0.recheck != nil } }
+}
+
+/// Bumped on every reload: rule numbers in a window's state refer to the config of their generation
+@MainActor var ruleRecheckGeneration = 0
+
+/// Rule numbers index `config.onWindowDetected` of `generation`
+struct RuleRecheckState {
+    let generation: Int
+    /// The title the baseline was taken with; a newer known title is a change
+    var title: String
+    /// The watched state at the last check. The rules are checked again only once it changes.
+    var baseline: WindowRuleSnapshot
+    /// `recheck` rules whose `if` matched at the last check. `every-match` fires on false → true.
+    var matched: Set<Int>
+    /// `until-matched` rules that have matched once. They never run again for this window.
+    var spent: Set<Int>
+    /// The rules are running. An overlapping check leaves the window for later.
+    var isBusy: Bool = false
+}
+
+extension Window {
+    /// The title to start tracking from: the latest title event's, else the app's title right now,
+    /// which also becomes the known title
+    @MainActor
+    func titleForRuleSeed() async -> String {
+        if hasTitleEvents, let lastKnownTitle { return lastKnownTitle }
+        let title = (try? await getTitle(.nonCancellable)) ?? ""
+        // A title event that landed while the app answered is at least as new
+        if hasTitleEvents, let lastKnownTitle { return lastKnownTitle }
+        lastKnownTitle = title
+        return title
+    }
+}
+
+/// Takes the window's state as it is now as the starting point, without running anything. Rules that
+/// match now count as applied, as at detection: `until-matched` ones are spent, `every-match` ones
+/// have to stop matching before they fire again.
+/// - Parameter alreadySpent: rules that ran just before; the `until-matched` ones among them are spent
+@MainActor
+func seededRuleRecheckState(_ window: Window, title: String, alreadySpent: Set<Int> = []) async -> RuleRecheckState {
+    let generation = ruleRecheckGeneration
+    let rules = config.onWindowDetected
+    var matched: Set<Int> = []
+    for (index, rule) in rules.enumerated() where rule.recheck != nil {
+        if await rule.matches(window, knownTitle: title) { matched.insert(index) }
+    }
+    let untilMatched = Set(rules.indices.filter { rules[$0].recheck == .untilMatched })
+    return RuleRecheckState(
+        generation: generation,
+        title: title,
+        baseline: ruleSnapshot(window, title: title, monitorValues: ruleMonitorValues(window.nodeWorkspace)),
+        matched: matched,
+        spent: alreadySpent.union(matched).intersection(untilMatched),
+    )
+}

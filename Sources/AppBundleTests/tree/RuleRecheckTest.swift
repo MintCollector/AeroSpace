@@ -49,4 +49,49 @@ final class RuleRecheckTest: XCTestCase {
         window.bindAsFloatingWindow(to: Workspace.get(byName: "other"))
         assertNotEquals(snapshot("a"), floating)
     }
+
+    private func detect(id: UInt32, title: String) async -> TestWindow {
+        let window = TestWindow.new(id: id, parent: Workspace.get(byName: name).rootTilingContainer, title: title)
+        await tryOnWindowDetected(window)
+        return window
+    }
+
+    func testDetectionStartsTrackingTheWindow() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Bitwarden", run: "move-node-to-workspace B")]
+        let window = await detect(id: 2, title: "Untitled")
+
+        assertEquals(window.nodeWorkspace?.name, name)
+        assertEquals(window.lastKnownTitle, "Untitled")
+        assertEquals(window.ruleRecheck?.title, "Untitled")
+        assertEquals(window.ruleRecheck?.matched, [])
+        assertEquals(window.ruleRecheck?.spent, [])
+    }
+
+    func testAnUntilMatchedRuleThatRunsAtDetectionIsSpent() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Bitwarden", run: "move-node-to-workspace B")]
+        let window = await detect(id: 2, title: "Bitwarden")
+
+        assertEquals(window.nodeWorkspace?.name, "B")
+        assertEquals(window.ruleRecheck?.spent, [0])
+    }
+
+    func testDetectionUsesTheTitleFromTitleEvents() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer, title: "stale")
+        window.hasTitleEvents = true
+        window.lastKnownTitle = "Meet"
+
+        await tryOnWindowDetected(window)
+
+        assertEquals(window.nodeWorkspace?.name, "M")
+    }
+
+    func testRunCallbackLeavesUntrackedWindowsUntracked() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "layout floating")]
+        let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer, title: "Inbox")
+
+        _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+
+        assertNil(window.ruleRecheck)
+    }
 }
