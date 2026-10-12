@@ -314,8 +314,14 @@ func broadcastWindowDetected(_ window: Window) {
 }
 
 extension WindowDetectedCallback {
+    /// - Parameter knownTitle: the title to match against instead of asking the app
     @MainActor
-    func matches(_ window: Window) async -> Bool {
+    func matches(_ window: Window, knownTitle: String? = nil) async -> Bool {
+        if let knownTitle {
+            return await $knownRuleTitle.withValue(KnownWindowTitle(windowId: window.windowId, title: knownTitle)) {
+                await matches(window)
+            }
+        }
         switch self.matcher {
             case .legacy(let matcher):
                 return await matcher.matches(window)
@@ -331,7 +337,7 @@ extension LegacyWindowDetectedCallbackMatcher {
         if let startupMatcher = duringAeroSpaceStartup, startupMatcher != isStartup {
             return false
         }
-        if let regex = windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
+        if let regex = windowTitleRegexSubstring, (try? await window.titleForRules(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
             return false
         }
         if let appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {
