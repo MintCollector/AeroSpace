@@ -33,4 +33,20 @@ final class RuleRecheckTest: XCTestCase {
         assertEquals(await legacy.matches(window), false)
         assertEquals(await legacy.matches(window, knownTitle: "known title"), true)
     }
+
+    func testSnapshotChangesWithTitleLayoutAndWorkspace() async {
+        let workspace = Workspace.get(byName: name)
+        let window = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+        let snapshot = { ruleSnapshot(window, title: $0, monitorValues: ruleMonitorValues(window.nodeWorkspace)) }
+        let tiled = snapshot("a")
+        assertEquals(snapshot("a"), tiled)
+        assertNotEquals(snapshot("b"), tiled)
+
+        window.bindAsFloatingWindow(to: workspace)
+        let floating = snapshot("a")
+        assertNotEquals(floating, tiled)
+
+        window.bindAsFloatingWindow(to: Workspace.get(byName: "other"))
+        assertNotEquals(snapshot("a"), floating)
+    }
 }

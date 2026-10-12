@@ -75,7 +75,8 @@ struct WindowWithPrefetchedTitle {
         return try await window.getAxRect(cm)
     }
 
-    static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
+    /// A window whose title (and rect) the caller already has
+    static func prefetched(window: Window, title: String?, rect: Rect? = nil) -> Self {
         .init(window: window, title: title, rect: rect)
     }
 }
