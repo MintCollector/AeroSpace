@@ -134,7 +134,7 @@ extension Workspace {
 
 @MainActor private var _lastKnownFocus: FrozenFocus = _focus
 
-// Used by workspace-back-and-forth
+// The previously focused workspace, on any monitor. workspace-back-and-forth goes by monitor: monitorWorkspaceHistory.swift
 @MainActor var _prevFocusedWorkspaceName: String? = nil {
     didSet {
         prevFocusedWorkspaceDate = .now
@@ -156,6 +156,7 @@ extension Workspace {
     if refreshSessionEvent?.isStartup == true {
         return
     }
+    trackVisibleWorkspaces()
     let focus = focus
     let frozenFocus = focus.frozen
     var hasFocusChanged = false

@@ -198,7 +198,7 @@ let volume_help_generated = """
        OR: volume [-h|--help] set <number> [--no-gui]
     """
 let workspace_back_and_forth_help_generated = """
-    USAGE: workspace-back-and-forth [-h|--help]
+    USAGE: workspace-back-and-forth [-h|--help] [--monitor <monitor>]
     """
 let workspace_help_generated = """
     USAGE: workspace [-h|--help] [--auto-back-and-forth] [--fail-if-noop] [--] <workspace-name>

@@ -1,7 +1,7 @@
 = aerospace-workspace-back-and-forth(1)
 include::util/man-attributes.adoc[]
 // tag::purpose[]
-:manpurpose: Switch between the focused workspace and previously focused workspace back and forth
+:manpurpose: Switch the monitor back to the workspace it showed before
 // end::purpose[]
 :manname: aerospace-workspace-back-and-forth
 
@@ -9,7 +9,7 @@ include::util/man-attributes.adoc[]
 == Synopsis
 [verse]
 // tag::synopsis[]
-aerospace workspace-back-and-forth [-h|--help]
+aerospace workspace-back-and-forth [-h|--help] [--monitor <monitor>]
 
 // end::synopsis[]
 
@@ -17,12 +17,23 @@ aerospace workspace-back-and-forth [-h|--help]
 == Description
 
 // tag::body[]
-{manpurpose}
+{manpurpose}, and focus it.
+The monitor is the focused one, unless `--monitor` names another.
 
-Unlike `focus-back-and-forth`, `workspace-back-and-forth` always succeeds.
-Because unlike windows, workspaces can not be "closed".
-Workspaces are name-addressable objects.
-They are created and destroyed on the fly.
+Each monitor keeps its own history.
+It changes only when the monitor shows another workspace:
+switching to a workspace on another monitor, or focusing another monitor, doesn't count.
+Running the command again switches back,
+so the monitor goes back and forth between the two workspaces it showed last.
+
+The command skips the workspaces that are on a screen now,
+and the ones `workspace-to-monitor-force-assignment` puts on another monitor.
+It also skips the workspaces whose name starts with a dot (like `.scratchpad`):
+they hold stashed windows and are on screen only for a moment.
+The workspace comes back on this monitor even if another monitor has shown it since,
+or it was empty and got removed.
+
+The command fails if the monitor has no workspace to go back to yet.
 
 Also see: <<focus-back-and-forth, focus-back-and-forth>>
 // end::body[]
@@ -31,6 +42,18 @@ Also see: <<focus-back-and-forth, focus-back-and-forth>>
 include::util/conditional-options-header.adoc[]
 
 -h, --help:: Print help
+
+--monitor <monitor>::
+Go back on this monitor instead of the focused one.
+Focus moves to it. +
++
+Possible values: +
++
+. `<monitor-id>` - 1-based index of a monitor as if monitors were ordered horizontally from left to right (`monitor-id` in `list-monitors`)
+. `main` - "Main" monitor ("main" as in `System Settings -> Displays -> Use as`)
+. `secondary` - Non-main monitor in case when there are only two monitors
+. `mouse` - The monitor with the mouse
+. `focused` - The focused monitor, the same as without `--monitor`
 
 // =========================================================== Footer
 include::util/man-footer.adoc[]

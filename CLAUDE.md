@@ -60,6 +60,11 @@ bash script/generate-cmd-help.sh
   `preArmWindowExpectations`), and detection (`tryOnWindowDetected`, which consumes the expectation and skips config rules).
   Hook detection in `tryOnWindowDetected`, not `onWindowDetected`: `run-callback` also calls the latter for existing windows.
   User doc: `docs/aerospace-expect-window.adoc`.
+- `workspace-back-and-forth` is per monitor (fork-only, `--monitor <monitor-id>|main|secondary|mouse|focused`;
+  `workspace --auto-back-and-forth` uses it too): `Sources/AppBundle/monitorWorkspaceHistory.swift` records the workspaces
+  each monitor showed, in every refresh session (`checkOnFocusChangedCallbacks_nonCancellable`), skipping dot workspaces
+  (`.scratchpad`). aero-helper has no back-and-forth of its own: ctrl-enter's `aero-helper workspace-back-and-forth`
+  reaches this command through `aero-helper run`.
 
 ## Config
 

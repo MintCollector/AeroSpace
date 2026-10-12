@@ -37,7 +37,8 @@ include::util/conditional-options-header.adoc[]
 --wrap-around:: Make it possible to jump between first and last workspaces using `(next|prev)`
 
 --auto-back-and-forth::
-Automatic `back-and-forth` when switching to already focused workspace.
+Automatic `back-and-forth` when switching to already focused workspace:
+back to the workspace its monitor showed before, as `workspace-back-and-forth` does.
 Incompatible with `--fail-if-noop`
 
 --fail-if-noop::

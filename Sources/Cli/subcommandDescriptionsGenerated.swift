@@ -49,6 +49,6 @@ let subcommandDescriptions = [
     ["  trigger-binding", "Trigger AeroSpace binding as if it was pressed by user"],
     ["  true", "Return true value"],
     ["  volume", "Manipulate volume"],
-    ["  workspace-back-and-forth", "Switch between the focused workspace and previously focused workspace back and forth"],
+    ["  workspace-back-and-forth", "Switch the monitor back to the workspace it showed before"],
     ["  workspace", "Focus the specified workspace"],
 ]

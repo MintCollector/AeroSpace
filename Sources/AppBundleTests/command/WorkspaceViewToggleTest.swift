@@ -208,7 +208,9 @@ final class WorkspaceViewToggleTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
         }
         check(ws1.focusWorkspace())
+        trackVisibleWorkspaces()
         check(ws2.focusWorkspace())
+        trackVisibleWorkspaces()
         check(ws1.focusWorkspace())
 
         performViewToggle(hostWorkspace: ws1, donorWorkspaceName: "2")
@@ -216,6 +218,7 @@ final class WorkspaceViewToggleTest: XCTestCase {
 
         _ = await WorkspaceBackAndForthCommand(args: WorkspaceBackAndForthCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
 
+        assertEquals(focus.workspace, ws2)
         assertEquals(ws1.viewToggledStates.count, 0)
         assertEquals(ws2.rootTilingContainer.children.count, 1)
     }
