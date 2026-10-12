@@ -216,3 +216,43 @@ func recheckWindowRules(_ windows: [Window]) async -> Bool {
     }
     return ranAny
 }
+
+@MainActor private var titleRecheckTask: Task<(), Never>? = nil
+@MainActor private var lastTitleRecheckAt: ContinuousClock.Instant? = nil
+/// A window can retitle many times a second (a spinner): title changes start a refresh at most this often
+private let titleRecheckInterval: Duration = .milliseconds(250)
+
+/// A title-changed notification. Most end at the in-memory check here; only one that makes a rule
+/// fire starts a refresh, whose check pass runs the rules in a session with a layout after it.
+@MainActor
+func windowTitleChanged(windowId: UInt32, title: String) async {
+    guard let window = Window.get(byId: windowId), recordTitleEvent(window, title) else { return }
+    guard TrayMenuModel.shared.isEnabled, config.hasRecheckRules else { return }
+    switch await checkRuleRecheck(window, monitorValues: ruleMonitorValues(window.nodeWorkspace)) {
+        case .unchanged: break
+        case .changed(let state): saveRuleRecheck(window, state)
+        case .busy, .fires: scheduleTitleRecheck()
+    }
+}
+
+@MainActor
+private func scheduleTitleRecheck() {
+    guard titleRecheckTask == nil else { return } // one is coming, and it reads the newest titles
+    let wait = lastTitleRecheckAt.map { titleRecheckInterval - $0.duration(to: .now) } ?? .zero
+    titleRecheckTask = Task.startUnstructured { @MainActor in
+        if wait > .zero { try? await Task.sleep(for: wait) }
+        titleRecheckTask = nil
+        lastTitleRecheckAt = .now
+        scheduleCancellableCompleteRefreshSession(.ax(kAXTitleChangedNotification))
+    }
+}
+
+/// kAXTitleChangedNotification, on the app's AX thread
+func titleChangedObs(_: AXObserver, _ element: AXUIElement, _: CFString, _: UnsafeMutableRawPointer?) {
+    // Rules see the window's title, not the titles of the elements inside it
+    guard element.get(Ax.roleAttr) == kAXWindowRole, let windowId = element.containingWindowId() else { return }
+    let title = element.get(Ax.titleAttr) ?? ""
+    Task.startUnstructured { @MainActor in
+        await windowTitleChanged(windowId: windowId, title: title)
+    }
+}

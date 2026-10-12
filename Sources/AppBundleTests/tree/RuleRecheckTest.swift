@@ -243,4 +243,26 @@ final class RuleRecheckTest: XCTestCase {
         assertEquals(await retitle(window, "Meet"), false)
         assertEquals(window.nodeWorkspace?.name, "X")
     }
+
+    // Only title paths that don't start a refresh: a scheduled refresh would run real AX code here
+
+    func testATitleEventForAnUntrackedWindowOnlyUpdatesItsTitle() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer, title: "Inbox")
+
+        await windowTitleChanged(windowId: 2, title: "Meet")
+
+        assertEquals(window.lastKnownTitle, "Meet")
+        assertEquals(window.nodeWorkspace?.name, name)
+    }
+
+    func testATitleChangeThatSetsOffNoRuleIsSavedRightAway() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = await detect(id: 2, title: "Inbox")
+
+        await windowTitleChanged(windowId: 2, title: "Inbox (1)")
+
+        assertEquals(window.ruleRecheck?.title, "Inbox (1)")
+        assertEquals(window.nodeWorkspace?.name, name)
+    }
 }

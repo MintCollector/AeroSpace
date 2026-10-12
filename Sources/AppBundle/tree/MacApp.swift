@@ -571,13 +571,18 @@ private final class AxWindow {
     }
 
     static func new(windowId: UInt32, _ ax: AXUIElement, _ nsApp: NSRunningApplication, _ job: RunLoopJob) throws -> AxWindow? {
+        let pid = nsApp.resolvedProcessIdentifier
         let handlers: HandlerToNotifKeyMapping = unsafe [
             (refreshObs, [kAXUIElementDestroyedNotification, kAXWindowDeminiaturizedNotification, kAXWindowMiniaturizedNotification]),
             (movedObs, [kAXMovedNotification]),
             (resizedObs, [kAXResizedNotification]),
         ]
-        let subscriptions = try unsafe AxSubscription.bulkSubscribe(nsApp.resolvedProcessIdentifier, ax, job, handlers)
-        return !subscriptions.isEmpty ? AxWindow(windowId: windowId, ax, subscriptions) : nil
+        let subscriptions = try unsafe AxSubscription.bulkSubscribe(pid, ax, job, handlers)
+        if subscriptions.isEmpty { return nil }
+        // Apart from the ones above, and allowed to fail: bulkSubscribe drops them all when the app
+        // refuses one notification, and refusing this one mustn't leave the window unmanaged.
+        let titleSubscriptions = try unsafe AxSubscription.bulkSubscribe(pid, ax, job, [(titleChangedObs, [kAXTitleChangedNotification])])
+        return AxWindow(windowId: windowId, ax, subscriptions + titleSubscriptions)
     }
 }
 
