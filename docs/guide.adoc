@@ -628,6 +628,7 @@ You can use `on-window-detected` config option to run commands every time a new 
     if.during-aerospace-startup = true
     check-further-callbacks = true
     no-focus = true
+    recheck = 'until-matched'
     run = ['layout floating', 'move-node-to-workspace S']  # The callback itself
 ----
 
@@ -677,6 +678,32 @@ e.g. a test runner driving a browser:
     run = []
 ----
 
+Additionally, `recheck` checks a rule again after the window was detected, whenever something its `if`
+can test changes: the window's title, workspace, monitor, layout or fullscreen state.
+Without `recheck`, a rule is checked once, when the window is detected.
+At detection, a rule with `recheck` behaves like any other rule.
+
+* `recheck = 'until-matched'` checks the rule on every change until it matches once, then never again for that window.
+Use it for windows that set their title after they appear.
+* `recheck = 'every-match'` runs the rule each time its `if` goes from not matching to matching.
+* `recheck = 'every-change'` runs the rule on every change while its `if` matches.
+It suits `exec-and-forget` scripts. With a move command, a window you move by hand goes back at its next change.
+A script that changes the same window through `aerospace` sets the rule off again, so don't toggle anything from one.
+
+[source,toml]
+----
+[[on-window-detected]]
+    if.window-title-regex-substring = 'bitwarden'
+    recheck = 'until-matched'
+    run = 'layout floating'
+----
+
+Rules with `recheck` are checked in the order of the list, and `check-further-callbacks` works as at detection.
+A rule's own commands don't count as changes, so two rules can't move a window back and forth.
+Position and size aren't watched: they change on every layout.
+A minimized or hidden window, or one in macOS fullscreen, is checked once it's back.
+`no-focus` only applies at detection, and windows claimed by xref:./commands.adoc#expect-window[expect-window] are never rechecked.
+
 To keep a single window that a script is about to open from stealing focus, and run commands on just that window,
 see xref:./commands.adoc#expect-window[expect-window].
 
@@ -688,7 +715,7 @@ There are several ways to know `app-bundle-id`:
 * `mdls -name kMDItemCFBundleIdentifier -r /Applications/App.app`
 
 IMPORTANT: Some windows initialize their title after the window appears.
-`window-title-regex-substring` may not work as expected for such windows
+`window-title-regex-substring` may not work as expected for such windows, unless the rule has `recheck = 'until-matched'`.
 
 Examples of automations:
 
