@@ -56,6 +56,11 @@ func runHeavyCompleteRefreshSession(
             updateTrayText()
             SecureInputPanel.shared.refresh()
             try await normalizeLayoutReason()
+            // After detection and normalization: the check sees where this refresh left every window
+            if await recheckWindowRules(MacWindow.allWindows) {
+                await refreshModel_nonCancellable()
+                updateTrayText()
+            }
             if shouldLayoutWorkspaces { try await layoutWorkspaces() }
         }
     }

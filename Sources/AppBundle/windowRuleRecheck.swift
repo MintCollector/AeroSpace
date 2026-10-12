@@ -117,6 +117,23 @@ func seededRuleRecheckState(_ window: Window, title: String, alreadySpent: Set<I
     )
 }
 
+/// Starts tracking the window over from its state now, without running anything
+@MainActor
+func restartRuleRecheck(_ window: Window) async {
+    let title = config.hasRecheckRules ? await window.titleForRuleSeed() : window.lastKnownTitle ?? ""
+    window.ruleRecheck = await seededRuleRecheckState(window, title: title)
+}
+
+/// The config's rules changed, and their numbers with them: starts every tracked window over
+/// against the new rules
+@MainActor
+func reseedRuleRechecks(_ windows: [Window]) async {
+    ruleRecheckGeneration += 1
+    for window in windows where window.ruleRecheck != nil {
+        await restartRuleRecheck(window)
+    }
+}
+
 /// Notes a title-changed notification. Returns whether the title changed: apps send repeats.
 @MainActor
 @discardableResult

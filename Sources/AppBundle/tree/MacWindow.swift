@@ -75,6 +75,8 @@ final class MacWindow: Window {
         try await debugWindowsIfRecording(window, .cancellable)
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             await tryOnWindowDetected(window)
+        } else {
+            await restartRuleRecheck(window) // a new object back from the cache: its rules don't run again
         }
         return window
     }

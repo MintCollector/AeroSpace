@@ -265,4 +265,41 @@ final class RuleRecheckTest: XCTestCase {
         assertEquals(window.ruleRecheck?.title, "Inbox (1)")
         assertEquals(window.nodeWorkspace?.name, name)
     }
+
+    func testReloadStartsTrackedWindowsOverAgainstTheNewRules() async {
+        config.onWindowDetected = []
+        let matching = await detect(id: 2, title: "Meet")
+        let other = await detect(id: 3, title: "Inbox")
+
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        await reseedRuleRechecks([matching, other])
+
+        // Already matching when the rule arrived: counts as applied, as at detection
+        assertEquals(await retitle(matching, "Meet (2)"), false)
+        assertEquals(matching.nodeWorkspace?.name, name)
+        assertEquals(await retitle(other, "Meet"), true)
+        assertEquals(other.nodeWorkspace?.name, "M")
+    }
+
+    func testAStateFromBeforeAReloadIsNotSaved() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = await detect(id: 2, title: "Inbox")
+        let stale = window.ruleRecheck!
+
+        await reseedRuleRechecks([window])
+        saveRuleRecheck(window, stale)
+
+        assertEquals(window.ruleRecheck?.generation, ruleRecheckGeneration)
+    }
+
+    func testARestoredWindowIsTrackedWithoutRunningItsRules() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer, title: "Inbox")
+
+        await restartRuleRecheck(window)
+        assertEquals(window.nodeWorkspace?.name, name)
+
+        assertEquals(await retitle(window, "Meet"), true)
+        assertEquals(window.nodeWorkspace?.name, "M")
+    }
 }

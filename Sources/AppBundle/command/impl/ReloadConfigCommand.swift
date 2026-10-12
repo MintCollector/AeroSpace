@@ -53,6 +53,7 @@ struct ReloadConfigResult {
         resetHotKeys()
         config = parseResult.config
         configUrl = result.configUrl
+        await reseedRuleRechecks(MacWindow.allWindows)
         await activateMode_nonCancellable(activeMode)
         syncStartAtLogin()
         syncFocusFollowsMouse(config)
