@@ -116,3 +116,103 @@ func seededRuleRecheckState(_ window: Window, title: String, alreadySpent: Set<I
         spent: alreadySpent.union(matched).intersection(untilMatched),
     )
 }
+
+/// Notes a title-changed notification. Returns whether the title changed: apps send repeats.
+@MainActor
+@discardableResult
+func recordTitleEvent(_ window: Window, _ title: String) -> Bool {
+    window.hasTitleEvents = true
+    if window.lastKnownTitle == title { return false }
+    window.lastKnownTitle = title
+    return true
+}
+
+enum RuleRecheckOutcome {
+    /// Not tracked, in a macOS native state, or nothing it watches changed
+    case unchanged
+    /// Its rules are running: check it again later
+    case busy
+    /// The watched state changed but no rule fires: the state to save
+    case changed(RuleRecheckState)
+    /// These rules fire, in order; the state is saved once they ran
+    case fires([WindowDetectedCallback], RuleRecheckState)
+}
+
+/// Checks the window's `recheck` rules against its newest state, without changing anything
+@MainActor
+func checkRuleRecheck(_ window: Window, monitorValues: [String]) async -> RuleRecheckOutcome {
+    guard var state = window.ruleRecheck else { return .unchanged }
+    if state.isBusy { return .busy }
+    // Minimized, hidden or in macOS fullscreen: its rules wait until it's back
+    guard window.layoutReason == .standard else { return .unchanged }
+    let title = window.lastKnownTitle ?? ""
+    let snapshot = ruleSnapshot(window, title: title, monitorValues: monitorValues)
+    if snapshot == state.baseline { return .unchanged }
+    state.title = title
+    state.baseline = snapshot
+    var matched: Set<Int> = []
+    var toRun: [WindowDetectedCallback] = []
+    var chainStopped = false
+    for (index, rule) in config.onWindowDetected.enumerated() {
+        guard let recheck = rule.recheck, await rule.matches(window, knownTitle: title) else { continue }
+        matched.insert(index)
+        let fires = switch recheck {
+            case .untilMatched: !state.spent.contains(index)
+            case .everyMatch: !state.matched.contains(index)
+            case .everyChange: true
+        }
+        if recheck == .untilMatched { state.spent.insert(index) }
+        // Same order and `check-further-callbacks` as at detection. A rule that fires behind one
+        // that stopped the chain is shadowed, and counts as matched, as it would at detection.
+        if fires && !chainStopped {
+            toRun.append(rule)
+            chainStopped = !rule.checkFurtherCallbacks
+        }
+    }
+    state.matched = matched
+    return toRun.isEmpty ? .changed(state) : .fires(toRun, state)
+}
+
+@MainActor
+func saveRuleRecheck(_ window: Window, _ state: RuleRecheckState) {
+    // A reload started the window over meanwhile: its state refers to newer rule numbers
+    guard state.generation == ruleRecheckGeneration else { return }
+    window.ruleRecheck = state
+}
+
+/// Runs the rules a check found, then takes the result as the new baseline: a rule's own changes
+/// don't count as changes, so rules can't bounce a window back and forth. The baseline keeps the
+/// check's title: rule commands don't retitle windows, so a newer title is a change still to check.
+@MainActor
+private func runRuleRecheck(_ window: Window, _ rules: [WindowDetectedCallback], _ checked: RuleRecheckState) async {
+    var running = checked
+    running.isBusy = true
+    saveRuleRecheck(window, running)
+    for rule in rules {
+        _ = await rule.run.run(.defaultEnv.withWindowId(window.windowId), CmdIoImpl.emptyStdinIgnoringOut)
+    }
+    guard checked.generation == ruleRecheckGeneration else { return }
+    window.ruleRecheck = await seededRuleRecheckState(window, title: checked.title, alreadySpent: checked.spent)
+}
+
+/// The check pass at the end of a heavy refresh: checks the `recheck` rules of each window whose
+/// watched state changed, and runs the ones that fire. Returns whether any rule ran.
+@MainActor
+func recheckWindowRules(_ windows: [Window]) async -> Bool {
+    guard config.hasRecheckRules else { return false }
+    var ranAny = false
+    var monitorValuesByWorkspace: [String: [String]] = [:]
+    for window in windows.sorted(by: { $0.windowId < $1.windowId }) {
+        let key = window.nodeWorkspace?.name ?? ""
+        let monitorValues = monitorValuesByWorkspace[key] ?? ruleMonitorValues(window.nodeWorkspace)
+        monitorValuesByWorkspace[key] = monitorValues
+        switch await checkRuleRecheck(window, monitorValues: monitorValues) {
+            case .unchanged, .busy: continue
+            case .changed(let state): saveRuleRecheck(window, state)
+            case .fires(let rules, let state):
+                await runRuleRecheck(window, rules, state)
+                ranAny = true
+        }
+    }
+    return ranAny
+}

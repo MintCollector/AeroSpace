@@ -94,4 +94,153 @@ final class RuleRecheckTest: XCTestCase {
 
         assertNil(window.ruleRecheck)
     }
+
+    private func move(_ window: Window, to workspace: String) {
+        window.bind(to: Workspace.get(byName: workspace).rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    }
+
+    /// A title-changed notification followed by the refresh's check pass
+    private func retitle(_ window: Window, _ title: String) async -> Bool {
+        recordTitleEvent(window, title)
+        return await recheckWindowRules([window])
+    }
+
+    func testTitleEventsIgnoreRepeatsOfTheSameTitle() async {
+        let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer)
+        assertEquals(recordTitleEvent(window, "a"), true)
+        assertEquals(recordTitleEvent(window, "a"), false)
+        assertEquals(recordTitleEvent(window, "b"), true)
+        assertEquals(window.lastKnownTitle, "b")
+        assertEquals(window.hasTitleEvents, true)
+    }
+
+    func testUntilMatchedCatchesALateTitleOnce() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Bitwarden", run: "move-node-to-workspace B")]
+        let window = await detect(id: 2, title: "Untitled")
+        assertEquals(window.nodeWorkspace?.name, name)
+
+        assertEquals(await retitle(window, "Bitwarden"), true)
+        assertEquals(window.nodeWorkspace?.name, "B")
+
+        move(window, to: name)
+        assertEquals(await retitle(window, "Untitled"), false)
+        assertEquals(await retitle(window, "Bitwarden"), false)
+        assertEquals(window.nodeWorkspace?.name, name)
+    }
+
+    func testEveryMatchRunsEachTimeTheIfStartsMatching() async {
+        config.onWindowDetected = [rule(.everyMatch, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = await detect(id: 2, title: "Inbox")
+
+        assertEquals(await retitle(window, "Meet - standup"), true)
+        assertEquals(window.nodeWorkspace?.name, "M")
+
+        move(window, to: name)
+        assertEquals(await retitle(window, "Meet - standup (2)"), false) // still matching: not a new match
+        assertEquals(await retitle(window, "Inbox"), false)
+        assertEquals(await retitle(window, "Meet - retro"), true)
+        assertEquals(window.nodeWorkspace?.name, "M")
+    }
+
+    func testEveryChangeRunsOnEveryChangeWhileMatching() async {
+        config.onWindowDetected = [rule(.everyChange, if: "test %{app-bundle-id} = \(testAppId)", run: "layout floating tiling")]
+        let window = await detect(id: 2, title: "a") // a recheck rule runs at detection like any rule
+        assertEquals(window.parent is FloatingWindowsContainer, true)
+
+        assertEquals(await retitle(window, "b"), true)
+        assertEquals(window.parent is TilingContainer, true)
+        assertEquals(await retitle(window, "c"), true)
+        assertEquals(window.parent is FloatingWindowsContainer, true)
+
+        assertEquals(await recheckWindowRules([window]), false) // nothing changed
+    }
+
+    func testOtherCriteriaAreCheckedWhenTheyChange() async {
+        config.onWindowDetected = [rule(.everyMatch, if: "test %{workspace} = W", run: "layout floating")]
+        let window = await detect(id: 2, title: "a")
+        assertEquals(window.parent is TilingContainer, true)
+
+        move(window, to: "W")
+        assertEquals(await recheckWindowRules([window]), true)
+        assertEquals(window.parent is FloatingWindowsContainer, true)
+    }
+
+    func testARulesOwnMoveDoesNotSetOffOtherRules() async {
+        config.onWindowDetected = [
+            rule(.everyMatch, if: "test %{workspace} = A", run: "move-node-to-workspace B"),
+            rule(.everyMatch, if: "test %{workspace} = B", run: "move-node-to-workspace A"),
+        ]
+        let window = await detect(id: 2, title: "a")
+
+        move(window, to: "A")
+        assertEquals(await recheckWindowRules([window]), true)
+        assertEquals(window.nodeWorkspace?.name, "B")
+        assertEquals(await recheckWindowRules([window]), false)
+        assertEquals(window.nodeWorkspace?.name, "B")
+    }
+
+    func testTheFirstRuleToFireShadowsTheRest() async {
+        config.onWindowDetected = [
+            rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace X"),
+            rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace Y"),
+        ]
+        let window = await detect(id: 2, title: "Inbox")
+
+        assertEquals(await retitle(window, "Meet"), true)
+        assertEquals(window.nodeWorkspace?.name, "X")
+
+        move(window, to: name)
+        assertEquals(await recheckWindowRules([window]), false)
+        assertEquals(window.nodeWorkspace?.name, name)
+    }
+
+    func testCheckFurtherCallbacksLetsLaterRulesRun() async {
+        config.onWindowDetected = [
+            rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace X", checkFurther: true),
+            rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "layout floating"),
+        ]
+        let window = await detect(id: 2, title: "Inbox")
+
+        assertEquals(await retitle(window, "Meet"), true)
+        assertEquals(window.nodeWorkspace?.name, "X")
+        assertEquals(window.parent is FloatingWindowsContainer, true)
+    }
+
+    func testRulesWithoutRecheckOnlyRunAtDetection() async {
+        config.onWindowDetected = [rule(nil, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = await detect(id: 2, title: "Inbox")
+
+        assertEquals(await retitle(window, "Meet"), false)
+        assertEquals(window.nodeWorkspace?.name, name)
+    }
+
+    func testWindowsInAMacosNativeStateWait() async {
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        let window = await detect(id: 2, title: "Inbox")
+        window.layoutReason = .macos(prevParentKind: .tilingContainer) // minimized, say
+
+        assertEquals(await retitle(window, "Meet"), false)
+        window.layoutReason = .standard
+        assertEquals(await recheckWindowRules([window]), true)
+        assertEquals(window.nodeWorkspace?.name, "M")
+    }
+
+    func testWindowsClaimedByExpectWindowAreLeftAlone() async {
+        let workspace = Workspace.get(byName: name)
+        assertEquals(TestWindow.new(id: 1, parent: workspace.rootTilingContainer).focusWindow(), true)
+        config.onWindowDetected = [rule(.untilMatched, if: "test %{window-title} ~= Meet", run: "move-node-to-workspace M")]
+        armWindowExpectation(
+            matcher: LegacyWindowDetectedCallbackMatcher(appId: testAppId),
+            commands: parseCommand("move-node-to-workspace X").cmdOrDie,
+            timeout: 10,
+        )
+        let window = TestWindow.new(id: 2, parent: workspace.rootTilingContainer, title: "Inbox")
+
+        await tryOnWindowDetected(window)
+        assertEquals(window.nodeWorkspace?.name, "X")
+        assertNil(window.ruleRecheck)
+
+        assertEquals(await retitle(window, "Meet"), false)
+        assertEquals(window.nodeWorkspace?.name, "X")
+    }
 }
