@@ -34,7 +34,7 @@ final class RuleRecheckTest: XCTestCase {
         assertEquals(await legacy.matches(window, knownTitle: "known title"), true)
     }
 
-    func testSnapshotChangesWithTitleLayoutAndWorkspace() async {
+    func testSnapshotChangesWithTitleLayoutAndWorkspace() {
         let workspace = Workspace.get(byName: name)
         let window = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
         let snapshot = { ruleSnapshot(window, title: $0, monitorValues: ruleMonitorValues(window.nodeWorkspace)) }
@@ -105,7 +105,7 @@ final class RuleRecheckTest: XCTestCase {
         return await recheckWindowRules([window])
     }
 
-    func testTitleEventsIgnoreRepeatsOfTheSameTitle() async {
+    func testTitleEventsIgnoreRepeatsOfTheSameTitle() {
         let window = TestWindow.new(id: 2, parent: Workspace.get(byName: name).rootTilingContainer)
         assertEquals(recordTitleEvent(window, "a"), true)
         assertEquals(recordTitleEvent(window, "a"), false)
