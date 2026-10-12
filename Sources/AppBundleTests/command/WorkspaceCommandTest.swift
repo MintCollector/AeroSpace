@@ -66,10 +66,9 @@ final class WorkspaceCommandTest: XCTestCase {
     }
 
     func testAutoBackAndForth_alreadyFocused_focusesPrev() async {
-        // Make "b" alive so it can be focused as the back-and-forth target.
-        _ = Workspace.get(byName: "b")
+        assertTrue(Workspace.get(byName: "b").focusWorkspace())
+        trackVisibleWorkspaces() // A refresh session runs after every switch
         assertTrue(Workspace.get(byName: "a").focusWorkspace())
-        _prevFocusedWorkspaceName = "b"
 
         let result = await parseCommand("workspace --auto-back-and-forth a").cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
@@ -78,7 +77,7 @@ final class WorkspaceCommandTest: XCTestCase {
 
     func testAutoBackAndForth_alreadyFocused_noPrev_fails() async {
         assertTrue(Workspace.get(byName: "a").focusWorkspace())
-        // _prevFocusedWorkspaceName is nil from setUp — WorkspaceBackAndForthCommand has nothing to focus.
+        // setUp clears each monitor's history: WorkspaceBackAndForthCommand has nothing to focus.
 
         let result = await parseCommand("workspace --auto-back-and-forth a").cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 2)
@@ -86,10 +85,11 @@ final class WorkspaceCommandTest: XCTestCase {
     }
 
     func testAutoBackAndForth_differentWorkspace_focusesTarget() async {
+        assertTrue(Workspace.get(byName: "c").focusWorkspace())
+        trackVisibleWorkspaces()
         assertTrue(Workspace.get(byName: "a").focusWorkspace())
         // --auto-back-and-forth only kicks in when the target equals the focused workspace.
-        // Otherwise it's a regular direct focus.
-        _prevFocusedWorkspaceName = "c" // should be ignored
+        // Otherwise it's a regular direct focus: "c", the workspace to go back to, is ignored.
 
         let result = await parseCommand("workspace --auto-back-and-forth b").cmdOrDie.run(.defaultEnv, .emptyStdin)
         assertEquals(result.exitCode.rawValue, 0)
