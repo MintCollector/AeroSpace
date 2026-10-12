@@ -478,6 +478,42 @@ final class ConfigTest: XCTestCase {
         )
     }
 
+    func testParseOnWindowDetectedRecheck() {
+        let result = parseConfig(
+            """
+            on-window-detected = [
+                { if.window-title-regex-substring = 'bitwarden', recheck = 'until-matched', run = [] },
+                { if = 'true', recheck = 'every-match', run = [] },
+                { if = 'true', recheck = 'every-change', run = [] },
+                { if = 'true', run = [] },
+            ]
+            """,
+        )
+        assertEquals(result.strErrors, [])
+        assertEquals(result.config.onWindowDetected.map(\.recheck), [.untilMatched, .everyMatch, .everyChange, nil])
+
+        // recheck participates in equality
+        assertNotEquals(
+            WindowDetectedCallback(matcher: .command(.empty), recheck: .everyMatch, rawRun: .empty),
+            WindowDetectedCallback(matcher: .command(.empty), rawRun: .empty),
+        )
+    }
+
+    func testParseOnWindowDetectedRecheckRejectsUnknownValues() {
+        let result = parseConfig(
+            """
+            [[on-window-detected]]
+                if = 'true'
+                recheck = 'always'
+                run = []
+            """,
+        )
+        assertEquals(result.strErrors, [
+            "[ERROR] on-window-detected[0].recheck: Can't parse recheck 'always'. Possible values: until-matched, every-match, every-change",
+        ])
+        assertEquals(result.config.onWindowDetected, [])
+    }
+
     func testParseInlineTables() {
         let errors = parseConfig(
             """
