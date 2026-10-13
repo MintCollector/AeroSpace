@@ -97,6 +97,37 @@ final class SplitMonitorsTest: XCTestCase {
         assertEquals(right.activeWorkspace, monitorInfos.singleOrNil()!.activeWorkspace)
     }
 
+    func testSeamsGetHalfTheInnerGap() {
+        config.gaps = Gaps(inner: .init(vertical: 10, horizontal: 10), outer: .init(left: 75, bottom: 5, top: 5, right: 5))
+        splitTestMonitor()
+        let (left, center, right) = testColumns
+        assertEquals(left.visibleRectPaddedByOuterGaps().minX, 75)
+        assertEquals(left.visibleRectPaddedByOuterGaps().maxX, 475)
+        assertEquals(center.visibleRectPaddedByOuterGaps().minX, 485)
+        assertEquals(center.visibleRectPaddedByOuterGaps().maxX, 1435)
+        assertEquals(right.visibleRectPaddedByOuterGaps().minX, 1445)
+        assertEquals(right.visibleRectPaddedByOuterGaps().maxX, 1915)
+        assertEquals(center.visibleRectPaddedByOuterGaps().minY, 5)
+        assertEquals(center.visibleRectPaddedByOuterGaps().maxY, 1075)
+    }
+
+    func testPerMonitorGapsNameTheScreen() {
+        // `main` is the main screen, whose left edge is the left column's, not the main column (the center one)
+        let leftGap: DynamicConfigValue<Int> = .perMonitor([PerMonitorValue(description: .main, value: 75)], default: 5)
+        config.gaps = Gaps(inner: .init(vertical: 10, horizontal: 10), outer: .init(left: leftGap, bottom: .constant(5), top: .constant(5), right: .constant(5)))
+        splitTestMonitor()
+        let (left, center, _) = testColumns
+        assertEquals(left.visibleRectPaddedByOuterGaps().minX, 75)
+        assertEquals(center.visibleRectPaddedByOuterGaps().minX, 485)
+    }
+
+    func testMainAndSecondaryResolveInTheGivenList() {
+        splitTestMonitor()
+        assertEquals(MonitorDescription.main.resolveMonitor(sortedMonitors: sortedMonitorInfos)?.name, "Test Monitor 2")
+        assertEquals(MonitorDescription.main.resolveMonitor(sortedMonitors: sortedScreenInfos)?.name, "Test Monitor")
+        assertNil(MonitorDescription.secondary.resolveMonitor(sortedMonitors: sortedMonitorInfos)) // Three monitors
+    }
+
     private func runCommand(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }
