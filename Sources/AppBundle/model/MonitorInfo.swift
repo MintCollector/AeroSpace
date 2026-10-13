@@ -46,8 +46,8 @@ final class LazyMonitorInfo: MonitorInfo {
     init(monitorAppKitNsScreenScreensId: Int, isMain: Bool, _ screen: NSScreen) {
         self.monitorAppKitNsScreenScreensId = monitorAppKitNsScreenScreensId
         self.name = screen.localizedName
-        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainMonitor init
-        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainMonitor init
+        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainScreenInfo init
+        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainScreenInfo init
         self.nsScreen = screen
         self.isMain = isMain
     }
