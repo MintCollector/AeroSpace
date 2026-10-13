@@ -44,6 +44,62 @@ final class SplitMonitorsTest: XCTestCase {
         assertEquals(monitorInfos.map(\.name), ["Test Monitor"])
         assertEquals(mainMonitorInfo.name, "Test Monitor")
     }
+
+    func testEachColumnShowsItsOwnWorkspace() {
+        splitTestMonitor()
+        let (left, center, right) = testColumns
+        assertTrue(Workspace.get(byName: "a").focusWorkspace()) // A new workspace opens on the main monitor
+        assertEquals(center.activeWorkspace.name, "a")
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "b")))
+        assertTrue(right.setActiveWorkspace(Workspace.get(byName: "c")))
+        assertEquals(sortedMonitorInfos.map(\.activeWorkspace.name), ["b", "a", "c"])
+        assertEquals(Workspace.get(byName: "b").workspaceMonitor.name, "Test Monitor 1")
+    }
+
+    func testFocusMonitorMovesBetweenColumns() async {
+        splitTestMonitor()
+        let (left, _, right) = testColumns
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "b")))
+        assertTrue(right.setActiveWorkspace(Workspace.get(byName: "c")))
+        assertTrue(Workspace.get(byName: "a").focusWorkspace())
+        assertEquals(await runCommand("focus-monitor right").exitCode.rawValue, 0)
+        assertEquals(focus.workspace.name, "c")
+        assertEquals(await runCommand("focus-monitor left").exitCode.rawValue, 0)
+        assertEquals(focus.workspace.name, "a")
+    }
+
+    func testPinToAColumn() {
+        splitTestMonitor()
+        config.workspaceToMonitorForceAssignment["pinned"] = [.pattern("test monitor 3")!, .main]
+        assertTrue(Workspace.get(byName: "pinned").focusWorkspace())
+        assertEquals(focus.workspace.workspaceMonitor.name, "Test Monitor 3")
+        assertFalse(testColumns.center.setActiveWorkspace(Workspace.get(byName: "pinned")))
+    }
+
+    func testSplittingDifferentlyRearranges() {
+        splitTestMonitor()
+        _ = monitorInfos.map(\.activeWorkspace) // Every column shows a workspace
+        config.splitMonitors = [splitMonitorRule("test monitor", columns: [1, 1, 2], main: 1)]
+        gcMonitors() // Same count, other corners
+        assertEquals(sortedMonitorInfos.map(\.rect.topLeftX), [0, 480, 960])
+        // Without the rearrange, the new column at 960 has no workspace and one is still visible at the old 1440
+        assertEquals(sortedMonitorInfos.map { $0.activeWorkspaceOrNil != nil }, [true, true, true])
+        assertEquals(Workspace.all.filter(\.isVisible).count, 3)
+    }
+
+    func testActiveWorkspaceOfAColumnThatIsGone() {
+        splitTestMonitor()
+        // Captured before the merge, like the monitors of a layout pass that awaits while the split toggles
+        let right = testColumns.right
+        splitMonitorsEnabled = false
+        gcMonitors()
+        // The workspace of the monitor that is there now, the whole screen, instead of recursing forever
+        assertEquals(right.activeWorkspace, monitorInfos.singleOrNil()!.activeWorkspace)
+    }
+
+    private func runCommand(_ command: String) async -> CmdResult {
+        await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
+    }
 }
 
 /// James's C49RG9x: menu bar on top, Dock on the right

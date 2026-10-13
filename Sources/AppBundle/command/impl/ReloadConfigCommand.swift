@@ -52,6 +52,7 @@ struct ReloadConfigResult {
         TrayMenuModel.shared.lastReloadConfigContainedWarnings = containsWarnings
         resetHotKeys()
         config = parseResult.config
+        gcMonitors() // A changed [split-monitors] changes the monitors
         configUrl = result.configUrl
         await reseedRuleRechecks(MacWindow.allWindows)
         await activateMode_nonCancellable(activeMode)
