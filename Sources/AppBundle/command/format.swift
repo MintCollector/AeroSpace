@@ -40,7 +40,7 @@ struct WindowWithPrefetchedTitle {
     }
 
     static func resolveWindow(_ window: Window, needsTitle: Bool, needsRect: Bool, _ cm: CancellationMode = .cancellable) async throws -> Self {
-        let title: String? = needsTitle ? try await window.getTitle(cm) : nil
+        let title: String? = needsTitle ? try await window.titleForRules(cm) : nil
         let rect: Rect? = needsRect ? try await resolveRect(window, cm) : nil
         return .init(window: window, title: title, rect: rect)
     }
@@ -75,7 +75,8 @@ struct WindowWithPrefetchedTitle {
         return try await window.getAxRect(cm)
     }
 
-    static func forTest(window: Window, title: String?, rect: Rect? = nil) -> Self {
+    /// A window whose title (and rect) the caller already has
+    static func prefetched(window: Window, title: String?, rect: Rect? = nil) -> Self {
         .init(window: window, title: title, rect: rect)
     }
 }

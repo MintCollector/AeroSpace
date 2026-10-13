@@ -4,6 +4,7 @@ struct WindowDetectedCallback: ConvenienceMutable, Equatable {
     var matcher: WindowDetectedCallbackMatcher = .command(.empty)
     var checkFurtherCallbacks: Bool = false
     var noFocus: Bool = false
+    var recheck: RuleRecheck? = nil
     var rawRun: Shell<any Command>? = nil
 
     var run: Shell<any Command> {
@@ -22,13 +23,27 @@ struct WindowDetectedCallback: ConvenienceMutable, Equatable {
         if noFocus {
             result["no-focus"] = .bool(true)
         }
+        if let recheck {
+            result["recheck"] = .string(recheck.rawValue)
+        }
         return .dict(result)
     }
 
     static func == (lhs: WindowDetectedCallback, rhs: WindowDetectedCallback) -> Bool {
         lhs.matcher == rhs.matcher && lhs.checkFurtherCallbacks == rhs.checkFurtherCallbacks &&
-            lhs.noFocus == rhs.noFocus && lhs.run.strictEquals(rhs.run)
+            lhs.noFocus == rhs.noFocus && lhs.recheck == rhs.recheck && lhs.run.strictEquals(rhs.run)
     }
+}
+
+/// When a rule is checked again after its window was detected. Without it, a rule is checked once,
+/// at detection. See windowRuleRecheck.swift.
+enum RuleRecheck: String, CaseIterable, Equatable, Sendable {
+    /// On every change until the rule matches once, then never again for that window
+    case untilMatched = "until-matched"
+    /// Each time the rule's `if` goes from not matching to matching
+    case everyMatch = "every-match"
+    /// On every change while the rule's `if` matches
+    case everyChange = "every-change"
 }
 
 struct LegacyWindowDetectedCallbackMatcher: ConvenienceMutable, Equatable {
@@ -123,6 +138,7 @@ private let windowDetectedParser: [String: any ParserProtocol<WindowDetectedCall
     "if": Parser(\.matcher, parseMatcher),
     "check-further-callbacks": Parser(\.checkFurtherCallbacks, parseBool),
     "no-focus": Parser(\.noFocus, parseBool),
+    "recheck": Parser(\.recheck, upcast(parseRuleRecheck)),
     "run": Parser(\.rawRun, parseShellOfCommandsForConfig),
 ]
 
@@ -152,6 +168,15 @@ func parseOnWindowDetectedArray(_ raw: OrderedJson, _ backtrace: ConfigBacktrace
 
 private func parseCaseInsensitiveRegex(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<CaseInsensitiveRegex> {
     parseString(raw, backtrace).flatMap { CaseInsensitiveRegex.new($0).toParsedConfig(backtrace) }
+}
+
+private func parseRuleRecheck(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<RuleRecheck> {
+    parseString(raw, backtrace).flatMap {
+        RuleRecheck(rawValue: $0).toResult(.init(
+            backtrace,
+            "Can't parse recheck '\($0)'. Possible values: \(RuleRecheck.allCases.map(\.rawValue).joined(separator: ", "))",
+        ))
+    }
 }
 
 private func parseAppIds(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<[String]> {

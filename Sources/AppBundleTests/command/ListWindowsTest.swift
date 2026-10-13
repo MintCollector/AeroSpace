@@ -58,9 +58,9 @@ final class ListWindowsTest: XCTestCase {
             w2.lastFocusedAt = 1
             w3.lastFocusedAt = 2
 
-            let o1 = WindowWithPrefetchedTitle.forTest(window: w1, title: "b")
-            let o2 = WindowWithPrefetchedTitle.forTest(window: w2, title: "a")
-            let o3 = WindowWithPrefetchedTitle.forTest(window: w3, title: "c")
+            let o1 = WindowWithPrefetchedTitle.prefetched(window: w1, title: "b")
+            let o2 = WindowWithPrefetchedTitle.prefetched(window: w2, title: "a")
+            let o3 = WindowWithPrefetchedTitle.prefetched(window: w3, title: "c")
 
             // recent => most recently focused first (descending lastFocusedAt): w1(3), w3(2), w2(1)
             let byRecent = [o1, o2, o3].sorted { ListWindowsCommand.sortLess($0, $1, by: [.recent]) }
@@ -103,24 +103,24 @@ final class ListWindowsTest: XCTestCase {
     func testFormat() {
         Workspace.get(byName: name).rootTilingContainer.apply {
             let windows = [
-                AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
-                AeroObj.window(.forTest(window: TestWindow.new(id: 1, parent: $0), title: "")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 1, parent: $0), title: "")),
             ]
             assertSucc(windows.format([.interVar(.formatVar(.window(.windowTitle)))]), ["non-empty", ""])
         }
 
         Workspace.get(byName: name).rootTilingContainer.apply {
             let windows = [
-                AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
-                AeroObj.window(.forTest(window: TestWindow.new(id: 10, parent: $0), title: "")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 2, parent: $0), title: "non-empty")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 10, parent: $0), title: "")),
             ]
             assertSucc(windows.format([.interVar(.formatVar(.window(.windowId))), .interVar(.plainInterVar(.rightPadding)), .interVar(.formatVar(.window(.windowTitle)))]), ["2 non-empty", "10"])
         }
 
         Workspace.get(byName: name).rootTilingContainer.apply {
             let windows = [
-                AeroObj.window(.forTest(window: TestWindow.new(id: 2, parent: $0), title: "title1")),
-                AeroObj.window(.forTest(window: TestWindow.new(id: 10, parent: $0), title: "title2")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 2, parent: $0), title: "title1")),
+                AeroObj.window(.prefetched(window: TestWindow.new(id: 10, parent: $0), title: "title2")),
             ]
             assertSucc(windows.format([.interVar(.formatVar(.window(.windowId))), .interVar(.plainInterVar(.rightPadding)), .literal(" | "), .interVar(.formatVar(.window(.windowTitle)))]), ["2  | title1", "10 | title2"])
         }
@@ -256,7 +256,7 @@ final class ListWindowsTest: XCTestCase {
         Workspace.get(byName: name).rootTilingContainer.apply {
             $0.changeOrientation(.h)
             let window = TestWindow.new(id: 1, parent: $0)
-            let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
+            let windows = [AeroObj.window(.prefetched(window: window, title: "test"))]
             assertSucc(
                 windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 ["horizontal"],
@@ -266,7 +266,7 @@ final class ListWindowsTest: XCTestCase {
         Workspace.get(byName: name).rootTilingContainer.apply {
             $0.changeOrientation(.v)
             let window = TestWindow.new(id: 2, parent: $0)
-            let windows = [AeroObj.window(.forTest(window: window, title: "test"))]
+            let windows = [AeroObj.window(.prefetched(window: window, title: "test"))]
             assertSucc(
                 windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 ["vertical"],
@@ -297,7 +297,7 @@ final class ListWindowsTest: XCTestCase {
             root.changeOrientation(.h)
             let nestedContainer = TilingContainer.newVTiles(parent: root, adaptiveWeight: 1, index: 0)
             let window = TestWindow.new(id: 3, parent: nestedContainer)
-            let windows = [AeroObj.window(.forTest(window: window, title: "nested"))]
+            let windows = [AeroObj.window(.prefetched(window: window, title: "nested"))]
             assertSucc(
                 windows.format([.interVar(.formatVar(.window(.windowParentContainerOrientation)))]),
                 ["vertical"],
@@ -307,7 +307,7 @@ final class ListWindowsTest: XCTestCase {
         Workspace.get(byName: name).rootTilingContainer.apply {
             $0.changeOrientation(.h)
             let window = TestWindow.new(id: 4, parent: $0)
-            let windows = [AeroObj.window(.forTest(window: window, title: "combined"))]
+            let windows = [AeroObj.window(.prefetched(window: window, title: "combined"))]
             assertSucc(
                 windows.format([
                     .interVar(.formatVar(.window(.windowParentContainerOrientation))),

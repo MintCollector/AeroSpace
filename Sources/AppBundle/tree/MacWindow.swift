@@ -75,6 +75,8 @@ final class MacWindow: Window {
         try await debugWindowsIfRecording(window, .cancellable)
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             await tryOnWindowDetected(window)
+        } else {
+            await restartRuleRecheck(window) // a new object back from the cache: its rules don't run again
         }
         return window
     }
@@ -277,27 +279,38 @@ func tryOnWindowDetected(_ window: Window) async {
             if let expectation = await takeWindowExpectation(for: window) {
                 await runWindowExpectation(expectation, window)
             } else {
-                _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
+                _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window, isDetection: true)
             }
         case .macosPopupWindowsContainer, .unbound:
             break
     }
 }
 
+/// - Parameter isDetection: the window was just detected, not handed over by `run-callback`. Its
+///   `recheck` rules start following it then; `run-callback` re-seeds only windows already followed,
+///   so popups and windows claimed by expect-window stay untracked.
 @MainActor
-func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int32ExitCode {
+func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window, isDetection: Bool = false) async -> Int32ExitCode {
     broadcastWindowDetected(window)
+    let tracks = isDetection || window.ruleRecheck != nil
+    // With `recheck` rules in the config, read the title once: these rules and the baseline for
+    // later checks then see the same title, so a change that lands meanwhile still counts as one.
+    let title = tracks && config.hasRecheckRules ? await window.titleForRuleSeed() : nil
     var lastExitCode = Int32ExitCode.succ
-    for callback in config.onWindowDetected where await callback.matches(window) {
+    var ran: Set<Int> = []
+    for (index, callback) in config.onWindowDetected.enumerated() {
+        guard await callback.matches(window, knownTitle: title) else { continue }
+        ran.insert(index)
         if callback.noFocus {
             // Arm before (and regardless of) the run commands, so the suppression is active
             // even if a run command fails or moves the window.
             armNoFocusSuppression(for: window)
         }
         lastExitCode = await callback.run.run(env.withWindowId(window.windowId), io)
-        if !callback.checkFurtherCallbacks {
-            return lastExitCode
-        }
+        if !callback.checkFurtherCallbacks { break }
+    }
+    if tracks {
+        window.ruleRecheck = await seededRuleRecheckState(window, title: title ?? window.lastKnownTitle ?? "", alreadySpent: ran)
     }
     return lastExitCode
 }
@@ -314,8 +327,14 @@ func broadcastWindowDetected(_ window: Window) {
 }
 
 extension WindowDetectedCallback {
+    /// - Parameter knownTitle: the title to match against instead of asking the app
     @MainActor
-    func matches(_ window: Window) async -> Bool {
+    func matches(_ window: Window, knownTitle: String? = nil) async -> Bool {
+        if let knownTitle {
+            return await $knownRuleTitle.withValue(KnownWindowTitle(windowId: window.windowId, title: knownTitle)) {
+                await matches(window)
+            }
+        }
         switch self.matcher {
             case .legacy(let matcher):
                 return await matcher.matches(window)
@@ -331,7 +350,7 @@ extension LegacyWindowDetectedCallbackMatcher {
         if let startupMatcher = duringAeroSpaceStartup, startupMatcher != isStartup {
             return false
         }
-        if let regex = windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
+        if let regex = windowTitleRegexSubstring, (try? await window.titleForRules(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
             return false
         }
         if let appIds, !appIds.contains(window.app.rawAppBundleId ?? "") {

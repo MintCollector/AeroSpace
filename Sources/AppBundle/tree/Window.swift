@@ -12,6 +12,14 @@ open class Window: TreeNode, Hashable {
     /// to another workspace, or make it floating. Laying it out in the meantime applies geometry
     /// that is about to be thrown away, and takes space away from its siblings for a frame.
     var isAwaitingOnWindowDetected: Bool = false
+    /// The latest title from the app's title-changed notifications, else from the last read. Rule
+    /// rechecks match against it, so they never ask the app. See windowRuleRecheck.swift.
+    var lastKnownTitle: String? = nil
+    /// Title-changed notifications have arrived for this window, so `lastKnownTitle` is current
+    var hasTitleEvents: Bool = false
+    /// State of this window's `recheck` rules. nil: not tracked (claimed by expect-window, a popup,
+    /// or its `on-window-detected` callbacks haven't run yet)
+    var ruleRecheck: RuleRecheckState? = nil
     /// The window was floated as a dialog only because its app didn't answer the AX reads the
     /// classification relies on (typical while an app is launching). Until this deadline passes,
     /// refresh re-classifies it and tiles it if it turns out to be a regular window. Cleared once

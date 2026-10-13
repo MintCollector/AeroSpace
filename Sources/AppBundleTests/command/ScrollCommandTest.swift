@@ -363,7 +363,7 @@ final class ScrollCommandTest: XCTestCase {
         }
         root.layout = .scrolling
 
-        let windows = root.allLeafWindowsRecursive.map { AeroObj.window(.forTest(window: $0, title: "w\($0.windowId)")) }
+        let windows = root.allLeafWindowsRecursive.map { AeroObj.window(.prefetched(window: $0, title: "w\($0.windowId)")) }
         assertSucc(windows.format([.interVar(.formatVar(.window(.windowLayout)))]), ["scrolling", "scrolling"])
     }
 }

@@ -65,6 +65,11 @@ bash script/generate-cmd-help.sh
   each monitor showed, in every refresh session (`checkOnFocusChangedCallbacks_nonCancellable`), skipping dot workspaces
   (`.scratchpad`). aero-helper has no back-and-forth of its own: ctrl-enter's `aero-helper workspace-back-and-forth`
   reaches this command through `aero-helper run`.
+- `recheck` rules (fork-only, `recheck = until-matched|every-match|every-change` on an `on-window-detected` rule):
+  `Sources/AppBundle/windowRuleRecheck.swift`. Rules run only in the check pass at the end of
+  `runHeavyCompleteRefreshSession`; title notifications (`AxWindow.new`, best effort) check in memory and start a
+  refresh (at most every 250 ms) only when a rule would fire. Checks match against `Window.lastKnownTitle` through the
+  `knownRuleTitle` task-local, never asking the app. User doc: `docs/guide.adoc`, on-window-detected.
 
 ## Config
 
