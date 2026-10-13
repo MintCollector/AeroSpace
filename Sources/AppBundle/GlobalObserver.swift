@@ -110,7 +110,7 @@ enum GlobalObserver {
                 switch true {
                     // Detect clicks on desktop of different monitors
                     case clickedMonitor.visibleRect.contains(mouseLocation) && clickedMonitor.activeWorkspace != focus.workspace &&
-                        !isNormalWindowUnderMouse(mouseLocation):
+                    !isNormalWindowUnderMouse(mouseLocation):
                         _ = try await runLightSession(.globalObserverLeftMouseUp, token) {
                             clickedMonitor.activeWorkspace.focusWorkspace()
                         }
