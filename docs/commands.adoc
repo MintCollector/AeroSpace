@@ -266,6 +266,13 @@ include::aerospace-split.adoc[tags=synopsis]
 include::aerospace-split.adoc[tags=purpose]
 include::aerospace-split.adoc[tags=body]
 
+== split-monitors
+----
+include::aerospace-split-monitors.adoc[tags=synopsis]
+----
+include::aerospace-split-monitors.adoc[tags=purpose]
+include::aerospace-split-monitors.adoc[tags=body]
+
 == subscribe
 ----
 include::aerospace-subscribe.adoc[tags=synopsis]

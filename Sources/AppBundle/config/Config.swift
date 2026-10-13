@@ -82,6 +82,7 @@ struct Config: ConvenienceMutable {
     var gaps: Gaps = .zero
     var workspaceGaps: [String: Gaps] = [:]
     var workspaceToMonitorForceAssignment: [String: [MonitorDescription]] = [:]
+    var splitMonitors: [SplitMonitorRule] = []
     var modes: [String: Mode] = [:]
     var onWindowDetected: [WindowDetectedCallback] = []
     var onModeChanged: Shell<any Command> = .empty

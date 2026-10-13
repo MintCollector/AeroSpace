@@ -909,6 +909,34 @@ The first matching pattern will be used
 
 xref:commands.adoc#move-workspace-to-monitor[move-workspace-to-monitor] command has no effect for workspaces that have monitor assignment
 
+[#split-monitors]
+=== Split a monitor into columns
+
+An ultrawide monitor can show several workspaces side by side: `split-monitors` cuts it into columns,
+and each column is a monitor of its own.
+It shows its own workspace, `focus-monitor left|right` moves between columns,
+and workspaces are assigned to columns like to any monitor.
+
+[source,toml]
+----
+[split-monitors.C49RG9x]   # Case insensitive regex substring of the monitor's name
+    columns = [1, 2, 1]    # Relative widths, left to right: 1280 | 2560 | 1280 on a 5120 wide monitor
+    main = 2               # Optional, default 1. The column that is the main monitor
+----
+
+* Columns are named after their monitor and number, left to right: `C49RG9x 1`, `C49RG9x 2`, `C49RG9x 3`.
+Assign workspaces to them by name, with a fallback for when the split is off:
+`CC3 = ['C49RG9x 3', 'main']`.
+A pattern that matches the monitor's name, such as `'C49RG9x'`, matches every column and picks the leftmost
+* `main` makes the column the main monitor when its monitor is the main one:
+new workspaces open there, and `main` in `workspace-to-monitor-force-assignment` and `--monitor main` mean it.
+* `secondary` needs exactly two monitors, and every column counts
+* Gaps belong to the whole monitor: `monitor` patterns in `gaps` name monitors, not columns,
+the outer gaps are at the monitor's edges, and two columns meet with half the inner gap on each side
+* The key is a monitor name pattern. `main`, `secondary` and monitor numbers aren't allowed:
+they'd split whichever monitor has that role (the laptop, with the ultrawide unplugged)
+* xref:commands.adoc#split-monitors[split-monitors] turns the split off and on
+
 == Dialog heuristics
 
 * Apple provides accessibility API for apps to let others know which of their windows are dialogs

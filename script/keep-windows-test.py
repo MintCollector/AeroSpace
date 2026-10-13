@@ -70,7 +70,9 @@ def fake_aerospace(args):
                                  "window-layout": "floating" if wid in s["floating"] else w["root"]}
                                 for wid in w["windows"]]}
                    for name, w in s["workspaces"].items() if w["monitor"] == m]
-            monitors.append({"monitor-id": m, "workspaces": wss})
+            # Split (split-monitors), the fake's monitors are the columns of one screen
+            monitors.append({"monitor-id": m, "monitor-appkit-nsscreen-screens-id": 1 if s.get("split") else m,
+                             "workspaces": wss})
         print(json.dumps({"focused-window-id": s["focused_window"], "monitors": monitors}))
         return 0
     log("aerospace", *args)
@@ -112,6 +114,8 @@ def fake_aerospace(args):
         wid = int(args[2])
         show(s, where(s, wid))
         s["focused_window"] = wid
+    elif args[0] == "split-monitors":
+        s["split"] = args[1] == "on"
     else:
         print(f"fake aerospace: unknown {args}", file=sys.stderr)
         return 2
@@ -338,6 +342,19 @@ def test_dry_run(root):
     return problems + differences(env, BASE)[0] + exit_ok(code, out)
 
 
+def test_split_state(root):
+    s = copy.deepcopy(BASE)  # no "split": off
+    env = Env(root, s)
+    env.run("save")
+    r = restart(s)
+    r["split"] = True  # split-monitors is on after a restart
+    env.put(r)
+    code, out = env.run("restore")
+    log = env.log()
+    problems = [] if log[:1] == ["aerospace split-monitors off"] else [f"didn't turn the split off first: {log}"]
+    return problems + differences(env, s)[0] + exit_ok(code, out)
+
+
 TESTS = [
     ("no-op: nothing moved, nothing changed", test_no_op),
     ("restart: everything back (order, layouts, floating, monitors, labels, visible, focus)", test_restart),
@@ -346,6 +363,7 @@ TESTS = [
     ("restore without a snapshot does nothing", test_nothing_saved),
     ("a stale snapshot needs --force", test_stale_snapshot),
     ("dry run: prints the moves and labels, changes nothing, keeps the snapshot", test_dry_run),
+    ("saved with the split off: restore turns it off first", test_split_state),
 ]
 
 

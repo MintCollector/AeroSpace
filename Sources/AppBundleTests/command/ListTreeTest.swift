@@ -20,7 +20,7 @@ final class ListTreeTest: XCTestCase {
         ])
         assertEquals(Set(ListTreeCommand.monitorVars.map { $0.rawValue }), [
             "monitor-id", "monitor-appkit-nsscreen-screens-id",
-            "monitor-name", "monitor-is-main", "monitor-width", "monitor-height",
+            "monitor-name", "monitor-is-main", "monitor-width", "monitor-height", "monitor-x", "monitor-y",
         ])
     }
 

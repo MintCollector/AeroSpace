@@ -113,6 +113,14 @@ extension Workspace {
             ?? assignedMonitorPoint?.monitorApproximation
             ?? mainMonitorInfo
     }
+
+    /// The monitor an invisible workspace shows on next. split-monitors: a merged screen and its first column share a
+    /// corner, so splitting the screen gives the workspaces last shown on it their column
+    @MainActor
+    func assignMonitor(_ monitor: MonitorInfo) {
+        check(!isVisible, "\(self) is visible on its monitor")
+        assignedMonitorPoint = monitor.rect.topLeftCorner
+    }
 }
 
 extension MonitorInfo {
@@ -123,10 +131,14 @@ extension MonitorInfo {
         }
         // What if monitor configuration changed? (frame.origin is changed)
         rearrangeWorkspacesOnMonitors()
-        // Normally, recursion should happen only once more because we must take the value from the cache
-        // (Unless, monitor configuration data race happens)
-        return self.activeWorkspace
+        // Still missing: the monitor was captured before the monitors changed (a split screen merged, a monitor
+        // unplugged) while its caller awaited. The workspace of the monitor that is at its place now
+        return screenPointToVisibleWorkspace[rect.topLeftCorner] ?? rect.center.monitorApproximation.activeWorkspace
     }
+
+    /// The visible workspace, or nil: unlike `activeWorkspace`, never rearranges the monitors
+    @MainActor
+    var activeWorkspaceOrNil: Workspace? { screenPointToVisibleWorkspace[rect.topLeftCorner] }
 
     @MainActor
     func setActiveWorkspace(_ workspace: Workspace) -> Bool {
@@ -136,7 +148,8 @@ extension MonitorInfo {
 
 @MainActor
 func gcMonitors() {
-    if screenPointToVisibleWorkspace.count != monitorInfos.count {
+    // Not only the count: splitting a monitor differently (split-monitors) moves columns, the count can stay
+    if Set(screenPointToVisibleWorkspace.keys) != Set(monitorInfos.map(\.rect.topLeftCorner)) {
         rearrangeWorkspacesOnMonitors()
     }
 }

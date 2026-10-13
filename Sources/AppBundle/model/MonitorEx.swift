@@ -8,17 +8,21 @@ extension MonitorInfo {
         } else {
             config.gaps
         }
-        let topLeft = visibleRect.topLeftCorner
         let gaps = ResolvedGaps(gaps: gapsConfig, monitor: self)
+        // A seam between two columns of a split screen (split-monitors) looks like the gap between two windows
+        let seam = gaps.inner.horizontal.toDouble() / 2
+        let left = rect.minX > screen.rect.minX ? seam : gaps.outer.left.toDouble()
+        let right = rect.maxX < screen.rect.maxX ? seam : gaps.outer.right.toDouble()
+        let topLeft = visibleRect.topLeftCorner
         return Rect(
-            topLeftX: topLeft.x + gaps.outer.left.toDouble(),
+            topLeftX: topLeft.x + left,
             topLeftY: topLeft.y + gaps.outer.top.toDouble(),
-            width: visibleRect.width - gaps.outer.left.toDouble() - gaps.outer.right.toDouble(),
+            width: visibleRect.width - left - right,
             height: visibleRect.height - gaps.outer.top.toDouble() - gaps.outer.bottom.toDouble(),
         )
     }
 
-    var monitorId_oneBased: Int? {
+    @MainActor var monitorId_oneBased: Int? {
         let sorted = sortedMonitorInfos
         let origin = self.rect.topLeftCorner
         return sorted.firstIndex { $0.rect.topLeftCorner == origin }.map { $0 + 1 }

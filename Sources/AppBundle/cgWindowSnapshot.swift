@@ -30,16 +30,33 @@ func parseCgWindowSnapshot(_ dicts: [NSDictionary]) -> [UInt32: CgWindowInfo] {
         guard let num = dict[kCGWindowNumber] as? NSNumber else { continue }
         let id = num.uint32Value
         let title = dict[kCGWindowName] as? String
-        var rect: Rect? = nil
-        if let b = dict[kCGWindowBounds] as? NSDictionary,
-           let x = (b["X"] as? NSNumber)?.doubleValue,
-           let y = (b["Y"] as? NSNumber)?.doubleValue,
-           let w = (b["Width"] as? NSNumber)?.doubleValue,
-           let h = (b["Height"] as? NSNumber)?.doubleValue
-        {
-            rect = Rect(topLeftX: CGFloat(x), topLeftY: CGFloat(y), width: CGFloat(w), height: CGFloat(h))
-        }
-        result[id] = CgWindowInfo(title: title, rect: rect)
+        result[id] = CgWindowInfo(title: title, rect: parseCgWindowBounds(dict))
     }
     return result
+}
+
+private func parseCgWindowBounds(_ dict: NSDictionary) -> Rect? {
+    guard let b = dict[kCGWindowBounds] as? NSDictionary,
+          let x = (b["X"] as? NSNumber)?.doubleValue,
+          let y = (b["Y"] as? NSNumber)?.doubleValue,
+          let w = (b["Width"] as? NSNumber)?.doubleValue,
+          let h = (b["Height"] as? NSNumber)?.doubleValue
+    else { return nil }
+    return Rect(topLeftX: CGFloat(x), topLeftY: CGFloat(y), width: CGFloat(w), height: CGFloat(h))
+}
+
+/// Whether a normal (layer 0) window is under `point`. A click there isn't a click on the desktop, even when the
+/// window reaches into another monitor, such as the next column of a split screen (split-monitors)
+@MainActor
+func isNormalWindowUnderMouse(_ point: CGPoint) -> Bool {
+    let options = CGWindowListOption([.optionOnScreenOnly, .excludeDesktopElements])
+    guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [NSDictionary] else { return false }
+    return isNormalWindow(at: point, windows)
+}
+
+/// Pure part of `isNormalWindowUnderMouse`: `windows` as CGWindowListCopyWindowInfo returns them
+func isNormalWindow(at point: CGPoint, _ windows: [NSDictionary]) -> Bool {
+    windows.contains { window in
+        (window[kCGWindowLayer] as? NSNumber)?.intValue == 0 && parseCgWindowBounds(window)?.contains(point) == true
+    }
 }

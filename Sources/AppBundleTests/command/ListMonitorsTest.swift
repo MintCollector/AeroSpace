@@ -14,4 +14,17 @@ final class ListMonitorsTest: XCTestCase {
         assertEquals(parseCommand("list-monitors --format '%{monitor-name} %{all}'").errorOrNil, "'%{all}' format option must be used alone and cannot be combined with other variables")
         assertNil(parseCommand("list-monitors --format ' %{all} ' --json").errorOrNil)
     }
+
+    @MainActor
+    func testColumnsAreMonitors() async {
+        setUpWorkspacesForTests()
+        splitTestMonitor()
+        let result = await parseCommand("list-monitors --format '%{monitor-id} %{monitor-name} %{monitor-x} %{monitor-y} %{monitor-width} %{monitor-is-main}'")
+            .cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(result.stdout, [
+            "1 Test Monitor 1 0 0 480 false",
+            "2 Test Monitor 2 480 0 960 true",
+            "3 Test Monitor 3 1440 0 480 false",
+        ])
+    }
 }
