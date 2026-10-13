@@ -251,6 +251,11 @@ final class SplitMonitorsTest: XCTestCase {
         assertNil(testColumns.left.backAndForthWorkspace)
     }
 
+    func testQuitCentersOnTheScreen() {
+        let laptop = Rect(topLeftX: 1764, topLeftY: 1440, width: 1800, height: 1169)
+        assertEquals(terminationTopLeft(size: CGSize(width: 800, height: 600), screenVisibleRect: laptop), CGPoint(x: 2264, y: 1724.5))
+    }
+
     private func runCommand(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }
