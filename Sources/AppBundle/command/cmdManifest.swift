@@ -86,6 +86,8 @@ extension CmdArgs {
                 command = SetGapsCommand(args: self as! SetGapsCmdArgs)
             case .split:
                 command = SplitCommand(args: self as! SplitCmdArgs)
+            case .splitMonitors:
+                command = SplitMonitorsCommand(args: self as! SplitMonitorsCmdArgs)
             case .subscribe:
                 return .failure("subscribe is not supported in the eval", EXIT_CODE_TWO)
             case .summonWorkspace:
