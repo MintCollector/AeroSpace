@@ -128,6 +128,25 @@ final class SplitMonitorsTest: XCTestCase {
         assertNil(MonitorDescription.secondary.resolveMonitor(sortedMonitors: sortedMonitorInfos)) // Three monitors
     }
 
+    func testHiddenWindowsParkAtTheScreensCorner() async throws {
+        splitTestMonitor()
+        let workspace = Workspace.get(byName: "hidden")
+        assertTrue(testColumns.left.setActiveWorkspace(workspace))
+        let window = TestWindow.new(id: 1, parent: workspace.floatingWindowsContainer, rect: Rect(topLeftX: 100, topLeftY: 100, width: 300, height: 200))
+        try await window.hideInCorner(.bottomRightCorner)
+        let hidden = try await window.getAxRect(.nonCancellable).orDie()
+        // The screen's corner: the left column's (480, 1080) is inside the center column
+        assertEquals(hidden.topLeftCorner, CGPoint(x: 1919, y: 1079))
+    }
+
+    func testHideCornerIsPickedForTheScreen() {
+        splitTestMonitor()
+        let workspace = Workspace.get(byName: "hidden")
+        assertTrue(testColumns.left.setActiveWorkspace(workspace))
+        // Scored as a monitor of its own, the left column would pick bottom-left, away from the center column
+        assertEquals(workspace.hideCorner, .bottomRightCorner)
+    }
+
     private func runCommand(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }

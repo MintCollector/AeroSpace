@@ -33,10 +33,12 @@ func setUpWorkspacesForTests() {
         }
     }
     check(Workspace.get(byName: "setUpWorkspacesForTests").focusWorkspace())
+    // Before the GC: focusWorkspace does nothing while the focus is already there, even when a test showed another
+    // workspace in its place, which would then stay visible
+    check(mainMonitorInfo.setActiveWorkspace(focus.workspace))
     Workspace.garbageCollectUnusedWorkspaces()
     check(focus.workspace.isEffectivelyEmpty)
     check(focus.workspace === Workspace.all.singleOrNil(), Workspace.all.map(\.description).joined(separator: ", "))
-    check(mainMonitorInfo.setActiveWorkspace(focus.workspace))
 
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
