@@ -1603,7 +1603,9 @@ Found while planning; each assumes one AeroSpace monitor per NSScreen:
 
 ## Amendments (design stress-test, reported after approval)
 
-Applied during implementation. Each one has a test in `SplitMonitorsTest`.
+Applied during implementation. Items 1–4 have tests in `SplitMonitorsTest`; each failed (or crashed, for 1) against
+the plan's code. Items 5–7 have no test of their own: the unit tests can't start AeroSpace without a visible
+workspace (5), the old detection gives the same answer for every real hide position (6), and 7 is a constant.
 
 1. **No infinite recursion on a stale monitor (Task 4).** `layoutWorkspaces` captures `monitorInfos` and awaits
    between monitors, so a toggle can run in between. `activeWorkspace` on a column that no longer exists rearranged and
