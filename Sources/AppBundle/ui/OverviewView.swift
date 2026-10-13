@@ -23,18 +23,18 @@ public final class OverviewPanel: NSPanelHud {
         model.workspaces = collectOverviewWorkspaces()
         let windowIds = model.workspaces.flatMap(\.windows).map(\.windowId).toSet()
         model.titles = model.titles.filter { windowIds.contains($0.key) } // Don't accumulate titles of closed windows
-        let width = min(maxPanelWidth, mainMonitorInfo.width - 80)
+        let width = min(maxPanelWidth, mainScreenInfo.width - 80)
         let hostingView = NSHostingView(rootView: OverviewView(model: model, width: width))
         hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 0) // fittingSize needs the target width
         hostingView.layoutSubtreeIfNeeded()
-        let height = min(hostingView.fittingSize.height, mainMonitorInfo.height - 60)
+        let height = min(hostingView.fittingSize.height, mainScreenInfo.height - 60)
         hostingView.frame = NSRect(x: 0, y: 0, width: width, height: height)
         self.contentView?.subviews.removeAll()
         self.contentView?.addSubview(hostingView)
         self.setFrame(
             NSRect(
-                x: (mainMonitorInfo.width - width) / 2,
-                y: (mainMonitorInfo.height - height) / 2,
+                x: (mainScreenInfo.width - width) / 2,
+                y: (mainScreenInfo.height - height) / 2,
                 width: width,
                 height: height,
             ),

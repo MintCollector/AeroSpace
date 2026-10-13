@@ -16,6 +16,8 @@ let projectRoot: URL = {
 @MainActor
 func setUpWorkspacesForTests() {
     config = defaultConfig
+    splitMonitorsEnabled = true // A test may turn the split off
+    gcMonitors() // Drop the columns a previous test split the test monitor into
     configUrl = defaultConfigUrl
     config.enableNormalizationFlattenContainers = false // Make layout tests more predictable
     config.enableNormalizationOppositeOrientationForNestedContainers = false // Make layout tests more predictable

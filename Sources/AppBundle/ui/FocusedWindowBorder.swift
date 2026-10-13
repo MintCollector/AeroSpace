@@ -40,7 +40,7 @@ final class FocusedWindowBorderPanel: NSPanel {
         let grow = w - inset // net expansion beyond the window edge on every side
         // AeroSpace Rect is top-left origin (y grows down). Convert back to Cocoa
         // (bottom-left origin) and expand by `grow` on every side.
-        let cocoaY = mainMonitorInfo.height - rect.topLeftY - rect.height
+        let cocoaY = mainScreenInfo.height - rect.topLeftY - rect.height
         let frame = NSRect(
             x: rect.topLeftX - grow,
             y: cocoaY - grow,

@@ -150,7 +150,7 @@ public func check(
 
 // Whether the process is a unit test bundle cannot change during the process
 // lifetime, so resolve it once. `isUnitTest` is read on hot paths (e.g. every
-// `mainMonitorInfo` / `monitorInfos` access via `rearrangeWorkspacesOnMonitors`),
+// `mainScreenInfo` / `screenInfos` access via `rearrangeWorkspacesOnMonitors`),
 // and calling `NSClassFromString` there has been observed to crash with
 // EXC_BAD_ACCESS inside the dyld objc class lookup during display
 // reconfiguration. Caching the value removes that call from the hot path.
