@@ -190,6 +190,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "workspace-gaps": Parser(\.workspaceGaps, parseWorkspaceGaps),
     "overview": Parser(\.overview, parseOverview),
     "workspace-to-monitor-force-assignment": Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
+    "split-monitors": Parser(\.splitMonitors, parseSplitMonitors),
     "on-window-detected": Parser(\.onWindowDetected, parseOnWindowDetectedArray),
 
     // Deprecated

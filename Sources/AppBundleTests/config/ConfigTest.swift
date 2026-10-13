@@ -942,6 +942,53 @@ final class ConfigTest: XCTestCase {
             ["[ERROR] overview.hold-delay-ms: hold-delay-ms must be in [0, 5000] range"],
         )
     }
+
+    func testParseSplitMonitors() {
+        let result = parseConfig(
+            """
+            [split-monitors.C49RG9x]
+                columns = [1, 2, 1]
+                main = 2
+            [split-monitors.dell]
+                columns = [1, 1]
+            """,
+        )
+        assertEquals(result.errors, [])
+        assertEquals(result.config.splitMonitors.map(\.pattern.origin), ["C49RG9x", "dell"])
+        assertEquals(result.config.splitMonitors.map(\.columns), [[1, 2, 1], [1, 1]])
+        assertEquals(result.config.splitMonitors.map(\.main), [2, 1])
+        assertEquals(defaultConfig.splitMonitors, [])
+    }
+
+    func testParseSplitMonitorsErrors() {
+        let result = parseConfig(
+            """
+            [split-monitors.main]
+                columns = [1, 1]
+            [split-monitors.a]
+                columns = [1]
+            [split-monitors.b]
+                columns = [1, 0]
+            [split-monitors.c]
+                columns = [1, 1]
+                main = 3
+            [split-monitors.d]
+                main = 1
+            [split-monitors.e]
+                columns = [1, 1]
+                foo = 1
+            """,
+        )
+        assertEquals(result.strErrors, [
+            "[ERROR] split-monitors.a.columns: Expected at least two column widths",
+            "[ERROR] split-monitors.b.columns[1]: Expected a positive width",
+            "[ERROR] split-monitors.c.main: Expected a column number from 1 to 2",
+            "[ERROR] split-monitors.d.columns: Expected at least two column widths",
+            "[ERROR] split-monitors.e.foo: Unknown key",
+            "[ERROR] split-monitors.main: Expected a monitor name pattern. 'main', 'secondary' and monitor numbers would split whichever monitor has that role",
+        ])
+        assertEquals(result.config.splitMonitors, [])
+    }
 }
 
 extension ParseConfigResult {
