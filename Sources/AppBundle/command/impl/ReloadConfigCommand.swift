@@ -51,8 +51,7 @@ struct ReloadConfigResult {
     if parseResult.allowReloadConfig && !args.dryRun {
         TrayMenuModel.shared.lastReloadConfigContainedWarnings = containsWarnings
         resetHotKeys()
-        config = parseResult.config
-        gcMonitors() // A changed [split-monitors] changes the monitors
+        changeMonitorSplit { config = parseResult.config }
         configUrl = result.configUrl
         await reseedRuleRechecks(MacWindow.allWindows)
         await activateMode_nonCancellable(activeMode)

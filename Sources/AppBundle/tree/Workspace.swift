@@ -113,6 +113,14 @@ extension Workspace {
             ?? assignedMonitorPoint?.monitorApproximation
             ?? mainMonitorInfo
     }
+
+    /// The monitor an invisible workspace shows on next. split-monitors: a merged screen and its first column share a
+    /// corner, so splitting the screen gives the workspaces last shown on it their column
+    @MainActor
+    func assignMonitor(_ monitor: MonitorInfo) {
+        check(!isVisible, "\(self) is visible on its monitor")
+        assignedMonitorPoint = monitor.rect.topLeftCorner
+    }
 }
 
 extension MonitorInfo {

@@ -160,6 +160,97 @@ final class SplitMonitorsTest: XCTestCase {
         assertEquals(rect.topLeftCorner, CGPoint(x: 760, y: 300)) // 480 + (960 - 400) / 2
     }
 
+    func testMergeShowsTheFocusedColumnsWorkspace() {
+        splitTestMonitor()
+        let (left, center, right) = testColumns
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "l")))
+        assertTrue(center.setActiveWorkspace(Workspace.get(byName: "c")))
+        assertTrue(right.setActiveWorkspace(Workspace.get(byName: "r")))
+        assertTrue(Workspace.get(byName: "r").focusWorkspace())
+        changeMonitorSplit { splitMonitorsEnabled = false }
+        assertEquals(monitorInfos.map(\.activeWorkspace.name), ["r"])
+        assertEquals(focus.workspace.name, "r")
+
+        changeMonitorSplit { splitMonitorsEnabled = true }
+        assertEquals(sortedMonitorInfos.map(\.activeWorkspace.name), ["l", "c", "r"]) // Every column back
+        assertEquals(focus.workspace.name, "r")
+    }
+
+    func testMergeShowsThePrimaryColumnWhenFocusIsElsewhere() {
+        splitTestMonitor()
+        let (left, center, _) = testColumns
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "l")))
+        assertTrue(center.setActiveWorkspace(Workspace.get(byName: "c")))
+        changeMonitorSplit { config.splitMonitors = [] } // A reload that drops the rule
+        assertEquals(monitorInfos.map(\.activeWorkspace.name), ["c"])
+    }
+
+    func testSplitPutsTheScreensWorkspaceInThePrimaryColumn() {
+        assertTrue(Workspace.get(byName: "w").focusWorkspace())
+        changeMonitorSplit { config.splitMonitors = [splitMonitorRule("test monitor")] } // A reload that adds the rule
+        let (left, center, right) = testColumns
+        assertEquals(center.activeWorkspace.name, "w")
+        assertEquals(focus.workspace.name, "w")
+        assertTrue(left.activeWorkspace != right.activeWorkspace)
+        assertTrue(left.activeWorkspace != center.activeWorkspace)
+    }
+
+    func testSplitPutsAPinnedWorkspaceInItsColumn() {
+        config.workspaceToMonitorForceAssignment["pinned"] = [.pattern("test monitor 3")!, .main]
+        assertTrue(Workspace.get(byName: "pinned").focusWorkspace()) // Unsplit, the pin falls back to main
+        changeMonitorSplit { config.splitMonitors = [splitMonitorRule("test monitor")] }
+        assertEquals(testColumns.right.activeWorkspace.name, "pinned")
+        assertEquals(focus.workspace.name, "pinned")
+    }
+
+    func testResplitKeepsTheFocusedWorkspaceVisible() {
+        splitTestMonitor()
+        let focused = Workspace.get(byName: "c")
+        assertTrue(testColumns.center.setActiveWorkspace(focused))
+        assertTrue(focused.focusWorkspace())
+        // [1, 2, 1] → [1, 1]: the old center column (480) is as far from the new right one (960) as from the left (0),
+        // and the left one goes to the old left column
+        changeMonitorSplit { config.splitMonitors = [splitMonitorRule("test monitor", columns: [1, 1], main: 1)] }
+        assertTrue(focused.isVisible)
+        assertEquals(focus.workspace.name, "c")
+    }
+
+    func testWorkspacesOfTheMergedScreenGoBackToTheirColumns() {
+        splitTestMonitor()
+        let (left, center, _) = testColumns
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "l-before")))
+        assertTrue(left.setActiveWorkspace(Workspace.get(byName: "l")))
+        assertTrue(center.setActiveWorkspace(Workspace.get(byName: "c")))
+        assertTrue(Workspace.get(byName: "c").focusWorkspace())
+        changeMonitorSplit { splitMonitorsEnabled = false }
+        assertTrue(Workspace.get(byName: "new").focusWorkspace())
+        assertTrue(Workspace.get(byName: "c").focusWorkspace())
+        changeMonitorSplit { splitMonitorsEnabled = true }
+        // The merged screen and the left column share a corner: "new" was last shown there, but it's no left column's
+        assertEquals(Workspace.get(byName: "new").workspaceMonitor.name, "Test Monitor 2")
+        assertEquals(Workspace.get(byName: "l-before").workspaceMonitor.name, "Test Monitor 1")
+        assertEquals(sortedMonitorInfos.map(\.activeWorkspace.name).prefix(2), ["l", "c"])
+    }
+
+    func testMergedScreenGoesBackAndForthLikeTheColumnItShows() {
+        splitTestMonitor()
+        assertTrue(testColumns.left.setActiveWorkspace(Workspace.get(byName: "l")))
+        assertTrue(Workspace.get(byName: "prev").focusWorkspace()) // A new workspace opens in the center column
+        trackVisibleWorkspaces()
+        assertTrue(Workspace.get(byName: "c").focusWorkspace())
+        trackVisibleWorkspaces() // The center column went from "prev" to "c"
+
+        changeMonitorSplit { splitMonitorsEnabled = false }
+        trackVisibleWorkspaces()
+        // Not the left column's history, whose corner the merged screen shares, nor the left column's workspace
+        assertEquals(mainMonitorInfo.backAndForthWorkspace?.name, "prev")
+
+        changeMonitorSplit { splitMonitorsEnabled = true }
+        trackVisibleWorkspaces()
+        assertEquals(testColumns.center.backAndForthWorkspace?.name, "prev")
+        assertNil(testColumns.left.backAndForthWorkspace)
+    }
+
     private func runCommand(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }
