@@ -147,6 +147,19 @@ final class SplitMonitorsTest: XCTestCase {
         assertEquals(workspace.hideCorner, .bottomRightCorner)
     }
 
+    func testFloatingWindowInAnotherColumnCentersInItsOwn() async throws {
+        splitTestMonitor()
+        let (_, center, right) = testColumns
+        let workspace = Workspace.get(byName: "a")
+        assertTrue(center.setActiveWorkspace(workspace))
+        assertTrue(right.setActiveWorkspace(Workspace.get(byName: "b")))
+        // Most of this dialog fell in the right column
+        let dialog = TestWindow.new(id: 1, parent: workspace.floatingWindowsContainer, rect: Rect(topLeftX: 1300, topLeftY: 300, width: 400, height: 200))
+        _ = try await workspace.layoutWorkspace()
+        let rect = try await dialog.getAxRect(.nonCancellable).orDie()
+        assertEquals(rect.topLeftCorner, CGPoint(x: 760, y: 300)) // 480 + (960 - 400) / 2
+    }
+
     private func runCommand(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }
