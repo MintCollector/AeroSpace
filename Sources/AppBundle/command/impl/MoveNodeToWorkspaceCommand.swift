@@ -24,13 +24,23 @@ struct MoveNodeToWorkspaceCommand: Command {
             case .direct(let name):
                 targetWorkspace = Workspace.get(byName: name.raw)
         }
-        return moveWindowToWorkspace(window, targetWorkspace, io, focusFollowsWindow: args.focusFollowsWindow, failIfNoop: args.failIfNoop)
+        if let section = args.section, let error = sectionError(section, targetWorkspace) {
+            return .fail(io.err(error))
+        }
+        return moveWindowToWorkspace(window, targetWorkspace, io, focusFollowsWindow: args.focusFollowsWindow,
+                                     failIfNoop: args.failIfNoop, section: args.section)
     }
 }
 
+/// - Parameter section: workspace-sections: the section a tiled window goes to. Without it, the window keeps its section
 @MainActor
-func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io: CmdIo, focusFollowsWindow: Bool, failIfNoop: Bool, index: Int = INDEX_BIND_LAST) -> BinaryExitCode {
+func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io: CmdIo, focusFollowsWindow: Bool, failIfNoop: Bool,
+                           index: Int = INDEX_BIND_LAST, section: String? = nil) -> BinaryExitCode
+{
     if window.nodeWorkspace == targetWorkspace {
+        if let section, window.parent is TilingContainer {
+            return moveWindowToSection(window, section, io, failIfNoop: failIfNoop)
+        }
         return switch failIfNoop {
             case true: .fail
             case false:
@@ -39,6 +49,9 @@ func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io:
     }
     if window.isFloating {
         window.bind(to: targetWorkspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: index)
+    } else if targetWorkspace.sections != nil {
+        let container = targetWorkspace.sectionForWindows(section ?? window.sectionName ?? window.lastSection)
+        window.bind(to: container, adaptiveWeight: WEIGHT_AUTO, index: index)
     } else if let split = targetWorkspace.prepareAutoTilingSplit() { // enable-auto-tiling
         window.bind(to: split.parent, adaptiveWeight: split.adaptiveWeight, index: split.index)
     } else {

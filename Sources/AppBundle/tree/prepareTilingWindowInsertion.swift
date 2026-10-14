@@ -2,8 +2,17 @@ import Common
 
 extension Workspace {
     // May create a container. The caller must bind the new window before normalization runs.
+    /// - Parameter section: workspace-sections: the section the window goes to (it was in it last); else the default one
     @MainActor
-    func prepareTilingWindowInsertion(autoTile: Bool) -> BindingData {
+    func prepareTilingWindowInsertion(autoTile: Bool, section: String? = nil) -> BindingData {
+        if sections != nil {
+            // After that section's most recent window, as without sections after the workspace's
+            let container = sectionForWindows(section)
+            guard let window = container.mostRecentWindowRecursive, let parent = window.parent as? TilingContainer else {
+                return BindingData(parent: container, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+            }
+            return BindingData(parent: parent, adaptiveWeight: WEIGHT_AUTO, index: window.ownIndex.orDie() + 1)
+        }
         if autoTile, let split = prepareAutoTilingSplit() { return split }
         guard let window = mostRecentWindowRecursive, let parent = window.parent as? TilingContainer else {
             return BindingData(parent: rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)

@@ -268,7 +268,7 @@ private func unbindAndGetBindingDataForNewWindow(_ windowType: AxUiElementWindow
 @MainActor
 private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?, autoTile: Bool = false) -> BindingData {
     window?.unbindFromParent() // It's important to unbind to get correct data from below
-    return workspace.prepareTilingWindowInsertion(autoTile: window == nil || autoTile)
+    return workspace.prepareTilingWindowInsertion(autoTile: window == nil || autoTile, section: window?.lastSection)
 }
 
 @MainActor

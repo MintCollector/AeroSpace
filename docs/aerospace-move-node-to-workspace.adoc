@@ -13,7 +13,7 @@ aerospace move-node-to-workspace [-h|--help] [--focus-follows-window] [--wrap-ar
                                  [--stdin|--no-stdin]
                                  (next|prev)
 aerospace move-node-to-workspace [-h|--help] [--focus-follows-window] [--fail-if-noop]
-                                 [--window-id <window-id>] [--] <workspace-name>
+                                 [--window-id <window-id>] [--section <section>] [--] <workspace-name>
 
 // end::synopsis[]
 
@@ -38,6 +38,11 @@ This flag is a shortcut for manually running `aerospace-workspace`/`aerospace-fo
 
 --window-id <window-id>::
 include::./util/window-id-flag-desc.adoc[]
+
+--section <section>::
+Put the window in this section of the workspace (`[workspace-sections]` in the config).
+Without it, a tiled window keeps its section, or goes to the default one.
+A floating window moves to the workspace and stays floating
 
 --stdin::
 Read the list of workspaces from stdin.

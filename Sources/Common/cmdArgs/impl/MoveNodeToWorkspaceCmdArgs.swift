@@ -8,6 +8,7 @@ public struct MoveNodeToWorkspaceCmdArgs: CmdArgs {
             "--fail-if-noop": trueBoolFlag(\.failIfNoop),
             "--window-id": windowIdSubArgParser(),
             "--focus-follows-window": ArgParser(\.focusFollowsWindow, constSubArgParserFun(true)),
+            "--section": singleValueSubArgParser(\.section, "<section>", { .success($0) }),
 
             "--stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(true)),
             "--no-stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(false)),
@@ -24,6 +25,8 @@ public struct MoveNodeToWorkspaceCmdArgs: CmdArgs {
     public var _wrapAround: Bool?
     public var failIfNoop: Bool = false
     public var focusFollowsWindow: Bool = false
+    /// workspace-sections: the section of the target workspace a tiled window goes to
+    public var section: String? = nil
     public var target: Lateinit<WorkspaceTarget> = .uninitialized
 
     public init(rawArgs: StrArrSlice) {
