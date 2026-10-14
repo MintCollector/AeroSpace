@@ -23,6 +23,11 @@ func initTerminationHandler() {
     unsafe _terminationHandler = AppServerTerminationHandler()
 }
 
+/// Where a window goes when AeroSpace quits: centered on its monitor
+func terminationTopLeft(size: CGSize, visibleRect r: Rect) -> CGPoint {
+    CGPoint(x: r.topLeftX + (r.width - size.width) / 2, y: r.topLeftY + (r.height - size.height) / 2)
+}
+
 private struct AppServerTerminationHandler: TerminationHandler {
     @MainActor
     func beforeTermination() {
@@ -33,10 +38,7 @@ private struct AppServerTerminationHandler: TerminationHandler {
             let monitor = window.macApp.getAxRectForTermination(window.windowId)?.center.monitorApproximation ?? mainMonitorInfo
             let monitorVisibleRect = monitor.visibleRect
             let windowSize = window.lastFloatingSize ?? CGSize(width: monitorVisibleRect.width, height: monitorVisibleRect.height)
-            let point = CGPoint(
-                x: (monitorVisibleRect.width - windowSize.width) / 2,
-                y: (monitorVisibleRect.height - windowSize.height) / 2,
-            )
+            let point = terminationTopLeft(size: windowSize, visibleRect: monitorVisibleRect)
             window.macApp.setAxFrameForTermination(window.windowId, point, windowSize)
         }
         if isDebug {

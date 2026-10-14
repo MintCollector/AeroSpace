@@ -123,9 +123,9 @@ extension MonitorInfo {
         }
         // What if monitor configuration changed? (frame.origin is changed)
         rearrangeWorkspacesOnMonitors()
-        // Normally, recursion should happen only once more because we must take the value from the cache
-        // (Unless, monitor configuration data race happens)
-        return self.activeWorkspace
+        // Still missing: the monitor was captured before the monitors changed (it was unplugged while its caller
+        // awaited). The workspace of the monitor that is in its place now
+        return screenPointToVisibleWorkspace[rect.topLeftCorner] ?? rect.center.monitorApproximation.activeWorkspace
     }
 
     @MainActor
