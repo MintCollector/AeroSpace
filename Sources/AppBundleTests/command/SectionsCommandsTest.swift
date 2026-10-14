@@ -228,6 +228,15 @@ final class SectionsCommandsTest: XCTestCase {
         assertEquals(result.stderr, ["workspace --view-toggle doesn't work with workspace-sections yet"])
     }
 
+    func testWindowSection() async {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        TestWindow.new(id: 2, parent: workspace.floatingWindowsContainer)
+        let result = await run("list-windows --workspace a --format '%{window-section}|%{window-id}'")
+        assertEquals(Set(result.stdout), ["left|1", "|2"])
+    }
+
     private func run(_ command: String) async -> CmdResult {
         await parseCommand(command).cmdOrDie.run(.defaultEnv, .emptyStdin)
     }

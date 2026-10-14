@@ -218,6 +218,7 @@ extension FormatVar {
                     case .windowWidth: .success(.int(w.rect.map { Int($0.width) } ?? 0))
                     case .windowHeight: .success(.int(w.rect.map { Int($0.height) } ?? 0))
                     case .windowTreeIndex: .success(.int(w.window.ownIndex ?? 0))
+                    case .windowSection: .success(.string(w.window.sectionName ?? ""))
                 }
             case (.workspace(let w), .workspace(let f)):
                 return switch f {
