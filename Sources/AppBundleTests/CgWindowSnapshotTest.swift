@@ -34,15 +34,4 @@ final class CgWindowSnapshotTest: XCTestCase {
         let snap = parseCgWindowSnapshot([noNumber as NSDictionary])
         assertEquals(snap.count, 0)
     }
-
-    func testANormalWindowUnderTheMouseIsntTheDesktop() {
-        func window(layer: Int, x: Int, y: Int, width: Int, height: Int) -> NSDictionary {
-            [kCGWindowLayer as String: layer, kCGWindowBounds as String: ["X": x, "Y": y, "Width": width, "Height": height]] as NSDictionary
-        }
-        let dialog = window(layer: 0, x: 1300, y: 300, width: 400, height: 200)
-        let panel = window(layer: 3, x: 0, y: 0, width: 1920, height: 1080) // above everything, e.g. a helper's overlay
-        assertTrue(isNormalWindow(at: CGPoint(x: 1500, y: 400), [panel, dialog]))
-        assertFalse(isNormalWindow(at: CGPoint(x: 1800, y: 900), [panel, dialog]))
-        assertFalse(isNormalWindow(at: CGPoint(x: 1500, y: 400), []))
-    }
 }

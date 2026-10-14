@@ -27,9 +27,9 @@ struct Rect: ConvenienceMutable, AeroAny {
 
 extension CGRect {
     func monitorFrameNormalized() -> Rect {
-        let mainScreenHeight: CGFloat = mainScreenInfo.height
+        let mainMonitorHeight: CGFloat = mainMonitorInfo.height
         let rect = toRect()
-        return rect.copy(\.topLeftY, mainScreenHeight - rect.topLeftY)
+        return rect.copy(\.topLeftY, mainMonitorHeight - rect.topLeftY)
     }
 }
 
@@ -80,7 +80,7 @@ extension Rect {
     var nsRect: NSRect {
         NSRect(
             x: topLeftX,
-            y: mainScreenInfo.height - topLeftY - height,
+            y: mainMonitorInfo.height - topLeftY - height,
             width: width,
             height: height,
         )

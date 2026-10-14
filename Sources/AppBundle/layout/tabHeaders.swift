@@ -45,7 +45,7 @@ final class LayoutContext {
         let monitor = workspace.workspaceMonitor
         let monitors = monitorInfos
         self.workspace = workspace
-        self.hideCorner = workspace.hideCorner
+        self.hideCorner = monitor.optimalHideCorner(monitors: monitors)
         self.suppressScrollingPeek = monitor.hasMonitorInRightSpillBand(monitors: monitors)
         let gapsConfig = config.workspaceGaps[workspace.name] ?? config.gaps
         self.resolvedGaps = ResolvedGaps(gaps: gapsConfig, monitor: monitor)

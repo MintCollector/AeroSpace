@@ -13,17 +13,18 @@ enum DynamicConfigValue<Value: Equatable>: Equatable {
 extension DynamicConfigValue: Sendable where Value: Sendable {}
 
 extension DynamicConfigValue {
-    /// Per-monitor values are gaps, which belong to the physical screen: their `monitor` patterns, `main` and
-    /// `secondary` name screens, and every column of a split screen (split-monitors) gets its screen's value
     @MainActor func getValue(for monitor: any MonitorInfo) -> Value {
         switch self {
             case .constant(let value): return value
             case .perMonitor(let array, let defaultValue):
-                let screens = sortedScreenInfos
-                let screen = monitor.screen.rect.topLeftCorner
+                let sortedMonitors = sortedMonitorInfos
                 return array
                     .lazy
-                    .compactMap { $0.description.resolveMonitor(sortedMonitors: screens)?.rect.topLeftCorner == screen ? $0.value : nil }
+                    .compactMap {
+                        $0.description.resolveMonitor(sortedMonitors: sortedMonitors)?.rect.topLeftCorner == monitor.rect.topLeftCorner
+                            ? $0.value
+                            : nil
+                    }
                     .first ?? defaultValue
         }
     }

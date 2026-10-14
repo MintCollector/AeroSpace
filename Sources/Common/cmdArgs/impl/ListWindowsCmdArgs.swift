@@ -279,8 +279,6 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case monitorIsMain = "monitor-is-main"
         case monitorWidth = "monitor-width"
         case monitorHeight = "monitor-height"
-        case monitorX = "monitor-x"
-        case monitorY = "monitor-y"
     }
 }
 

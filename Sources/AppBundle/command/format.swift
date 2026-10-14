@@ -235,8 +235,6 @@ extension FormatVar {
                     case .monitorIsMain: .success(.bool(m.isMain))
                     case .monitorWidth: .success(.int(Int(m.width)))
                     case .monitorHeight: .success(.int(Int(m.height)))
-                    case .monitorX: .success(.int(Int(m.rect.topLeftX)))
-                    case .monitorY: .success(.int(Int(m.rect.topLeftY)))
                 }
             case (.app(let a), .app(let f)):
                 return switch f {

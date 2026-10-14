@@ -40,7 +40,6 @@ let subcommandDescriptions = [
     ["  scroll", "Scroll the viewport of a workspace whose root container uses the scrolling layout"],
     ["  set-frame", "Set the position and/or size of a floating window"],
     ["  set-gaps", "Set gaps for the focused workspace"],
-    ["  split-monitors", "Turn the split of monitors into columns on or off"],
     ["  split", "Split focused window"],
     ["  subscribe", "Subscribe to AeroSpace events and receive notifications via socket"],
     ["  summon-workspace", "Move the requested workspace to the focused monitor."],

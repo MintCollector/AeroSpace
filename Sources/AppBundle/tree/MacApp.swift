@@ -210,7 +210,7 @@ final class MacApp: AbstractApp {
         // and the app's main window drifts from it on its own — a background window taking a link,
         // an app reordering its own windows. Focusing a window of a multi-window app then activated
         // a different window of the same app, which reads as focus being stolen.
-        if (!NSScreen.screensHaveSeparateSpaces || screenInfos.count == 1) && windowsCount == 1 {
+        if (!NSScreen.screensHaveSeparateSpaces || monitorInfos.count == 1) && windowsCount == 1 {
             nsApp.activate(options: .activateIgnoringOtherApps)
         } else {
             MacApp.focusJob = withWindowAsync(windowId, .cancellable) { [nsApp] window, job in

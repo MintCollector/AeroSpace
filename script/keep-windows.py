@@ -78,8 +78,6 @@ class Tree:
                     self.visible[monitor_id] = name
                 if ws["workspace-is-focused"]:
                     self.focused_workspace = name
-        screens = [m["monitor-appkit-nsscreen-screens-id"] for m in raw["monitors"]]
-        self.split = len(set(screens)) < len(screens)  # columns of one screen (split-monitors)
 
 
 def read_tree():
@@ -128,7 +126,6 @@ def save():
         "saved_at": time.time(),
         "focused_window": tree.focused_window,
         "focused_workspace": tree.focused_workspace,
-        "split": tree.split,
         "visible": tree.visible,
         "workspaces": [{"name": name, "root": tree.roots[name], "monitor": tree.monitor[name],
                         "windows": [[wid, wid in tree.floating] for wid in ids]}
@@ -261,9 +258,6 @@ def restore(force):
     if tree is None:
         print(f"keep-windows: AeroSpace isn't answering; `{sys.argv[0]} restore` once it is")
         return 1
-    if "split" in snapshot and tree.split != snapshot["split"]:
-        # The split is on after a restart: a snapshot saved with it off has other monitor ids
-        change("split-monitors", "on" if snapshot["split"] else "off")
     gone = set(saved) - set(tree.where)
     # A late `aero-helper reset` (or on-window-detected rule) can still move a window: check again
     for attempt in range(3):

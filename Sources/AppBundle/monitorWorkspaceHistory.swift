@@ -13,21 +13,11 @@ import Common
 /// Called in every refresh session (checkOnFocusChangedCallbacks_nonCancellable), so a workspace shown only
 /// in the middle of a command sequence doesn't count; and by workspace-back-and-forth before it goes back
 @MainActor func trackVisibleWorkspaces() {
-    recordVisibleWorkspaces(visibleWorkspaces())
-}
-
-/// The monitors changed (split-monitors) and show other workspaces, but nobody went to them: the history goes on from
-/// what they show now
-@MainActor func forgetVisibleWorkspaceChanges() {
-    lastKnownVisibleWorkspaces = visibleWorkspaces()
-}
-
-@MainActor private func visibleWorkspaces() -> [CGPoint: String] {
     var visible: [CGPoint: String] = [:]
     for monitor in monitorInfos {
         visible[monitor.rect.topLeftCorner] = monitor.activeWorkspace.name
     }
-    return visible
+    recordVisibleWorkspaces(visible)
 }
 
 /// `visible`: the workspace each monitor shows now

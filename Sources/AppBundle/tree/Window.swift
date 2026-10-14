@@ -74,7 +74,7 @@ open class Window: TreeNode, Hashable {
         guard !screenSleepWakeInProgress else { return false }
         guard let workspace = nodeWorkspace else { return false }
         let workspaceRect = workspace.workspaceMonitor.rect
-        let visibleRect = workspace.workspaceMonitor.screen.visibleRect // Where hideInCorner parks windows
+        let visibleRect = workspace.workspaceMonitor.visibleRect
         guard let windowRect = try await getAxRect(.cancellable) else { return false }
         // Check again after the suspension point above. Another hideInCorner/unhideFromCorner
         // cycle may have already saved the correct position while this AX read was awaiting.
@@ -128,12 +128,12 @@ open class Window: TreeNode, Hashable {
                 // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/AeroSpace/issues/527
                 // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
                 let onePixelOffset = app.rawAppBundleId == KnownBundleId.zoom.rawValue ? .zero : CGPoint(x: 1, y: -1)
-                p = nodeMonitor.screen.visibleRect.bottomLeftCorner + onePixelOffset + CGPoint(x: -s.width, y: 0)
+                p = nodeMonitor.visibleRect.bottomLeftCorner + onePixelOffset + CGPoint(x: -s.width, y: 0)
             case .bottomRightCorner:
                 // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/AeroSpace/issues/527
                 // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
                 let onePixelOffset = app.rawAppBundleId == KnownBundleId.zoom.rawValue ? .zero : CGPoint(x: 1, y: 1)
-                p = nodeMonitor.screen.visibleRect.bottomRightCorner - onePixelOffset
+                p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
         }
         lastAppliedLayoutPhysicalRect = nil
         setAxFrame(p, nil)

@@ -165,11 +165,6 @@ let set_gaps_help_generated = """
                     [--outer-left-right <size>] [--outer-top-bottom <size>]
                     [--inner <size>]
     """
-let split_monitors_help_generated = """
-    USAGE: split-monitors [-h|--help] toggle
-       OR: split-monitors [-h|--help] on [--fail-if-noop]
-       OR: split-monitors [-h|--help] off [--fail-if-noop]
-    """
 let split_help_generated = """
     USAGE: split [-h|--help] [--window-id <window-id>] (horizontal|vertical|opposite)
     """

@@ -27,7 +27,6 @@ struct ListTreeCommand: Command {
     static let monitorVars: [FormatVar] = [
         .monitor(.monitorId_oneBased), .monitor(.monitorAppKitNsScreenScreensId),
         .monitor(.monitorName), .monitor(.monitorIsMain), .monitor(.monitorWidth), .monitor(.monitorHeight),
-        .monitor(.monitorX), .monitor(.monitorY),
     ]
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {

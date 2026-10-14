@@ -23,11 +23,6 @@ func initTerminationHandler() {
     unsafe _terminationHandler = AppServerTerminationHandler()
 }
 
-/// Where a window goes when AeroSpace quits: centered on its screen
-func terminationTopLeft(size: CGSize, screenVisibleRect r: Rect) -> CGPoint {
-    CGPoint(x: r.topLeftX + (r.width - size.width) / 2, y: r.topLeftY + (r.height - size.height) / 2)
-}
-
 private struct AppServerTerminationHandler: TerminationHandler {
     @MainActor
     func beforeTermination() {
@@ -36,9 +31,12 @@ private struct AppServerTerminationHandler: TerminationHandler {
             // makeAllWindowsVisibleAndRestoreSize may be invoked when something went wrong (e.g. some windows are unbound)
             // that's why it's not allowed to use `.parent` call in here
             let monitor = window.macApp.getAxRectForTermination(window.windowId)?.center.monitorApproximation ?? mainMonitorInfo
-            let screenVisibleRect = monitor.screen.visibleRect
-            let windowSize = window.lastFloatingSize ?? CGSize(width: screenVisibleRect.width, height: screenVisibleRect.height)
-            let point = terminationTopLeft(size: windowSize, screenVisibleRect: screenVisibleRect)
+            let monitorVisibleRect = monitor.visibleRect
+            let windowSize = window.lastFloatingSize ?? CGSize(width: monitorVisibleRect.width, height: monitorVisibleRect.height)
+            let point = CGPoint(
+                x: (monitorVisibleRect.width - windowSize.width) / 2,
+                y: (monitorVisibleRect.height - windowSize.height) / 2,
+            )
             window.macApp.setAxFrameForTermination(window.windowId, point, windowSize)
         }
         if isDebug {
@@ -101,11 +99,11 @@ extension CGPoint {
 
     var vectorLength: CGFloat { sqrt(x * x + y * y) }
 
-    @MainActor var monitorApproximation: MonitorInfo { monitorInfos.minByOrDie { distance(toOuterFrame: $0.rect) } }
+    var monitorApproximation: MonitorInfo { monitorInfos.minByOrDie { distance(toOuterFrame: $0.rect) } }
 
     var withYAxisFlipped: CGPoint {
         consuming get {
-            self.y = mainScreenInfo.height - self.y
+            self.y = mainMonitorInfo.height - self.y
             return self
         }
     }

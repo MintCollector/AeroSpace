@@ -1,12 +1,6 @@
 import Common
 
 extension Workspace {
-    /// Where windows of this workspace hide while it's invisible: a corner of the physical screen, never a column's
-    /// (split-monitors), whose corners are inside the screen
-    @MainActor var hideCorner: OptimalHideCorner {
-        workspaceMonitor.screen.optimalHideCorner(monitors: screenInfos)
-    }
-
     @MainActor var rootTilingContainer: TilingContainer {
         let containers = children.filterIsInstance(of: TilingContainer.self)
         switch containers.count {

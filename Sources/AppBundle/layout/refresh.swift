@@ -245,7 +245,7 @@ private func layoutWorkspaces() async throws {
     }
     // hide non-sticky windows from non-visible workspaces
     for workspace in Workspace.all where !workspace.isVisible {
-        let corner = workspace.hideCorner
+        let corner = workspace.workspaceMonitor.optimalHideCorner(monitors: monitors)
         for window in workspace.allLeafWindowsRecursive {
             if (window as? MacWindow)?.isSticky == true { continue }
             try await window.hideInCorner(corner)
