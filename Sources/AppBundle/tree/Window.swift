@@ -29,6 +29,9 @@ open class Window: TreeNode, Hashable {
     var noOuterGapsInFullscreen: Bool = false
     var layoutReason: LayoutReason = .standard
     var isExplicitlyUnmanaged: Bool = false
+    /// workspace-sections: the section the window was in when its workspace last normalized. It goes back there when it
+    /// tiles again, and to the same section of another workspace
+    var lastSection: String? = nil
     var lastFocusedAt: UInt64 = 0 // Monotonically increasing value, 0 means never focused
     private var prevUnhiddenProportionalPositionInsideWorkspaceRect: CGPoint?
 

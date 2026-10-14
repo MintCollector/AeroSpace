@@ -5,6 +5,8 @@ final class TilingContainer: TreeNode, NonLeafTreeNodeObject { // todo consider 
     fileprivate var _orientation: Orientation
     var orientation: Orientation { _orientation }
     var layout: Layout
+    /// workspace-sections: the name of the section this container is. Only children of a workspace's root are sections
+    var section: String? = nil
     private var _scrollingIndex: Int = 0
     var scrollingIndex: Int {
         get { _scrollingIndex }

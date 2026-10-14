@@ -37,6 +37,9 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     fileprivate var assignedMonitorPoint: CGPoint? = nil
     /// Active `workspace --view-toggle` merges hosted by this workspace (ephemeral, in-memory only)
     var viewToggledStates: [ViewToggleState] = []
+    /// workspace-sections: the layout `layout --root` gave the sections, for the sections to come.
+    /// nil: default-root-container-layout
+    var newSectionLayout: Layout? = nil
 
     @MainActor
     private init(_ name: String) {
