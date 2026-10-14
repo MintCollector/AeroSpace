@@ -22,6 +22,7 @@ aerospace layout [-h|--help] [--window-id <window-id>|--workspace <workspace>]
 {manpurpose}
 
 By default, the command acts on the focused window's parent container. With `--root`, the command acts on the workspace's root tiling container instead, which lets you toggle the workspace-level layout without flattening nested sub-containers.
+In a workspace with sections (`[workspace-sections]`), `--root` sets every section's layout, and each section keeps its orientation.
 
 If several arguments are supplied then finds the first argument that doesn't describe the currently active layout, and applies the layout.
 

@@ -20,6 +20,7 @@ aerospace flatten-workspace-tree [-h|--help] [--workspace <workspace>]
 {manpurpose}
 
 The command is useful when you messed up with your layout, and it's easier to "reset" it and start again.
+With sections (`[workspace-sections]`), each section flattens on its own.
 
 // =========================================================== Options
 include::./util/conditional-options-header.adoc[]

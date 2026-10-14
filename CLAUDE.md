@@ -70,6 +70,13 @@ bash script/generate-cmd-help.sh
   `runHeavyCompleteRefreshSession`; title notifications (`AxWindow.new`, best effort) check in memory and start a
   refresh (at most every 250 ms) only when a rule would fire. Checks match against `Window.lastKnownTitle` through the
   `knownRuleTitle` task-local, never asking the app. User doc: `docs/guide.adoc`, on-window-detected.
+- `workspace-sections` (fork-only, `[workspace-sections]`, `move-node-to-section`, `move-node-to-workspace --section`):
+  a workspace's root is a row of section containers (`TilingContainer.section`) in config order, each holding windows.
+  `Workspace.normalizeSections()` (`Sources/AppBundle/tree/workspaceSections.swift`, first step of `normalizeContainers`)
+  keeps it so: whatever lands in the root goes to a section, empty sections go, flattening never removes a section or
+  its row. Layout cuts the row by width (`sectionFrames`; collapse or keep an empty slot). Windows keep their section
+  across workspaces (`moveWindowToWorkspace`) and when they tile again (`Window.lastSection`). User doc:
+  `docs/guide.adoc#sections`.
 
 ## Config
 

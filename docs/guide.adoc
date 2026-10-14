@@ -491,6 +491,56 @@ enable-normalization-binary-tree = false
 
 Unless you're hardcore i3 user who knows what they are doing, it's recommended to keep the normalizations enabled.
 
+[#sections]
+=== Sections
+
+`[workspace-sections]` makes workspaces rows of side-by-side sections, such as a narrow strip on each side of a wide
+main area.
+The sections are containers of the workspace's tree, so switching workspaces switches them too.
+
+[source,toml]
+----
+[workspace-sections]
+    default = 'main'      # New windows go here
+    sections = [          # Left to right
+        { name = 'left', width = 1 },
+        { name = 'main', width = 2, collapse = false },
+        { name = 'right', width = 1 }
+    ]
+    # workspaces = ['1', '2']   # Optional: only these workspaces have sections
+----
+
+* `width` is relative to the other sections' widths.
+* Without windows, a section gives its width to the others (`collapse = true`, the default), or keeps an empty slot
+(`collapse = false`).
+* Inside a section, windows tile like in any container.
+* New windows go to the `default` section.
+A window keeps its section when it moves to another workspace or monitor, and when it tiles again after floating,
+minimized or a hidden app.
+* Window rules put windows in sections:
++
+[source,toml]
+----
+[[on-window-detected]]
+    if.app-id = 'com.tinyspeck.slackmacgap'
+    run = 'move-node-to-section left'                   # Of the workspace it opened on
+
+[[on-window-detected]]
+    if.app-id = 'com.spotify.client'
+    run = 'move-node-to-workspace 2 --section right'    # Of another workspace
+----
+* `focus` and `move` go across sections.
+A window that moves to a section without windows brings the section back.
+Past the outer sections, and up or down, the section is the workspace's edge.
+* `join-with` doesn't join windows of different sections, and `resize` doesn't resize sections: their widths are the
+config's.
+* `layout --root`, `flatten-workspace-tree` and `balance-sizes` act on every section.
+`layout --root` keeps each section's orientation, and `%{workspace-root-container-layout}` is the default section's
+layout.
+* `%{window-section}` (`list-windows`, `list-tree`) is the window's section.
+* Sections don't work with `enable-normalization-binary-tree`, `enable-auto-tiling`,
+`default-root-container-layout = 'scrolling'` or `workspace --view-toggle`.
+
 [#floating-windows]
 === Floating windows
 
