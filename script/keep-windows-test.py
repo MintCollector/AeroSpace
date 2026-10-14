@@ -58,6 +58,19 @@ def show(s, ws):
     s["focused_workspace"] = ws
 
 
+ORDER = ["left", "main", "right"]  # the fake's sections, left to right (workspace-sections)
+
+
+def section_of(s, wid):
+    """'' without sections, or for a floating window"""
+    return "" if wid in s["floating"] else s.get("sections", {}).get(str(wid), "")
+
+
+def tree_order(s, w):
+    """A workspace's windows as list-tree gives them: section by section"""
+    return sorted(w["windows"], key=lambda wid: ORDER.index(section_of(s, wid)) if section_of(s, wid) in ORDER else len(ORDER))
+
+
 def fake_aerospace(args):
     s = load()
     if args == ["list-tree"]:
@@ -67,8 +80,9 @@ def fake_aerospace(args):
                     "workspace-is-visible": s["visible"].get(str(m)) == name,
                     "workspace-is-focused": s["focused_workspace"] == name,
                     "windows": [{"window-id": wid, "app-name": "app",
-                                 "window-layout": "floating" if wid in s["floating"] else w["root"]}
-                                for wid in w["windows"]]}
+                                 "window-layout": "floating" if wid in s["floating"] else w["root"],
+                                 "window-section": section_of(s, wid)}
+                                for wid in tree_order(s, w)]}
                    for name, w in s["workspaces"].items() if w["monitor"] == m]
             monitors.append({"monitor-id": m, "workspaces": wss})
         print(json.dumps({"focused-window-id": s["focused_window"], "monitors": monitors}))
@@ -76,17 +90,29 @@ def fake_aerospace(args):
     log("aerospace", *args)
     if args[:2] == ["move-node-to-workspace", "--window-id"]:
         wid, ws = int(args[2]), args[3]
+        section = args[5] if args[4:5] == ["--section"] else None
         src = where(s, wid)
-        if src == ws:
+        if src == ws and section in (None, section_of(s, wid)):
             print("noop")
             return 0
+        if section is not None:
+            s.setdefault("sections", {})[str(wid)] = section
         s["workspaces"][src]["windows"].remove(wid)
         ensure(s, ws)["windows"].append(wid)
+    elif args[:2] == ["move-node-to-section", "--window-id"]:
+        wid, section = int(args[2]), args[3]
+        ws = where(s, wid)
+        s.setdefault("sections", {})[str(wid)] = section
+        s["workspaces"][ws]["windows"].remove(wid)
+        s["workspaces"][ws]["windows"].append(wid)
     elif args[:2] == ["layout", "--workspace"] and args[3] == "--root":
         if args[2] not in s["workspaces"]:
             print("no such workspace", file=sys.stderr)
             return 1
-        s["workspaces"][args[2]]["root"] = args[4]
+        w = s["workspaces"][args[2]]
+        sectioned = any(section_of(s, wid) for wid in w["windows"])
+        # As in AeroSpace: a bare tiles|accordion keeps the orientation, and with sections each section keeps its own
+        w["root"] = w["root"].split("_")[0] + "_" + args[4].split("_")[-1] if sectioned or "_" not in args[4] else args[4]
     elif args[:2] == ["layout", "--window-id"] and args[3] == "floating":
         s["floating"].append(int(args[2]))
     elif args[:2] == ["move-workspace-to-monitor", "--workspace"]:
@@ -211,6 +237,8 @@ def restart(s, scramble=None):
     for w in s["workspaces"].values():
         w["root"] = "h_tiles"
     s["floating"] = []
+    if "sections" in s:
+        s["sections"] = {wid: "main" for wid in s["sections"]}  # Every window is new: the default section
     gc(s)
     for name in list(s["labels"]):
         if re.fullmatch(r"CC\d+", name) and not s["workspaces"].get(name, {}).get("windows"):
@@ -232,15 +260,22 @@ def differences(env, saved, gone=()):
         if not want:
             continue
         have = now["workspaces"].get(name)
-        if not have or have["windows"] != want:
+        if not have or tree_order(now, have) != [wid for wid in tree_order(saved, w) if wid not in gone]:
             problems.append(f"{name}: windows {have and have['windows']} != {want}")
             continue
-        if any(wid not in saved["floating"] for wid in want) and have["root"] != w["root"]:
+        # With sections, layout --root sets tiles or accordion: each section keeps its orientation
+        sectioned = any(saved.get("sections", {}).get(str(wid)) for wid in want)
+        kind = (lambda root: root.split("_")[-1]) if sectioned else (lambda root: root)
+        if any(wid not in saved["floating"] for wid in want) and kind(have["root"]) != kind(w["root"]):
             problems.append(f"{name}: root {have['root']} != {w['root']}")
         if have["monitor"] != w["monitor"]:
             problems.append(f"{name}: monitor {have['monitor']} != {w['monitor']}")
     if sorted(set(now["floating"])) != sorted(set(saved["floating"]) - set(gone)):
         problems.append(f"floating {now['floating']} != {saved['floating']}")
+    off = {wid: section for wid, section in saved.get("sections", {}).items()
+           if int(wid) not in gone and int(wid) not in saved["floating"] and now.get("sections", {}).get(wid) != section}
+    if off:
+        problems.append(f"sections {off}")
     if now["visible"] != saved["visible"]:
         problems.append(f"visible {now['visible']} != {saved['visible']}")
     if now["focused_window"] != saved["focused_window"]:
@@ -338,8 +373,20 @@ def test_dry_run(root):
     return problems + differences(env, BASE)[0] + exit_ok(code, out)
 
 
+def test_sections(root):
+    s = copy.deepcopy(BASE)
+    s["sections"] = {"20100": "main", "27623": "main", "28169": "left", "29014": "right",
+                     "28325": "main", "28940": "right", "500": "left", "501": "main", "29304": "main"}
+    env = Env(root, s)
+    env.run("save")
+    env.put(restart(s))
+    code, out = env.run("restore")
+    return differences(env, s)[0] + exit_ok(code, out)
+
+
 TESTS = [
     ("no-op: nothing moved, nothing changed", test_no_op),
+    ("sections: each window back in its section, in order", test_sections),
     ("restart: everything back (order, layouts, floating, monitors, labels, visible, focus)", test_restart),
     ("a window already there out of order goes back in order", test_out_of_order),
     ("closed windows are reported, their emptied workspace's label left alone", test_window_gone),

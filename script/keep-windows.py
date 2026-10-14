@@ -6,7 +6,8 @@ windows of every hidden workspace (parked in a screen corner) pile onto a visibl
 workspace layouts go back to the default. aero-helper then runs `reset` (after-startup-command)
 and clears the label of each Claude session workspace (CC<N>) it sees empty.
 
-    keep-windows.py save              before the restart: each window's workspace and tree order,
+    keep-windows.py save              before the restart: each window's workspace, section
+                                      (workspace-sections) and tree order,
                                       each workspace's root layout and monitor, floating windows,
                                       the visible workspaces, focus, and aero-helper's workspace labels
     keep-windows.py restore [--force] after: waits for AeroSpace to know every saved window, then
@@ -62,6 +63,7 @@ class Tree:
         self.roots = {}     # workspace -> root container layout
         self.monitor = {}   # workspace -> monitor id
         self.visible = {}   # monitor id -> workspace
+        self.section = {}   # window id -> its section ('' when in none)
         self.floating = set()
         for monitor in raw["monitors"]:
             monitor_id = str(monitor["monitor-id"])  # str: it's a JSON key in the snapshot
@@ -72,6 +74,7 @@ class Tree:
                 self.order[name] = [w["window-id"] for w in ws["windows"]]
                 for w in ws["windows"]:
                     self.where[w["window-id"]] = name
+                    self.section[w["window-id"]] = w.get("window-section", "")
                     if w["window-layout"] == "floating":
                         self.floating.add(w["window-id"])
                 if ws["workspace-is-visible"]:
@@ -128,7 +131,8 @@ def save():
         "focused_workspace": tree.focused_workspace,
         "visible": tree.visible,
         "workspaces": [{"name": name, "root": tree.roots[name], "monitor": tree.monitor[name],
-                        "windows": [[wid, wid in tree.floating] for wid in ids]}
+                        "windows": [[wid, wid in tree.floating] for wid in ids],
+                        "sections": {str(wid): tree.section[wid] for wid in ids if tree.section.get(wid)}}
                        for name, ids in tree.order.items() if ids],
         "labels": read_labels(),
     }
@@ -161,15 +165,34 @@ def wait_for_reset(settle):
         time.sleep(0.5)
 
 
+def section_flag(ws, wid):
+    """`--section <name>` for a window that was in a section (workspace-sections)"""
+    section = ws.get("sections", {}).get(str(wid))
+    return ["--section", section] if section else []
+
+
+def root_kind(ws, layout):
+    """With sections (workspace-sections), `layout --root` sets tiles or accordion: each section keeps its orientation"""
+    return layout.rsplit("_", 1)[-1] if layout and ws.get("sections") else layout
+
+
 def put_back(snapshot, gone):
     """One pass over the saved workspaces; returns whether it changed anything"""
     changed = False
     tree = tree_now()
     for ws in snapshot["workspaces"]:
-        # A move appends to the workspace's root container, so saved order rebuilds the tree order
+        # A move appends to the workspace's root container (or the window's section), so saved order rebuilds the tree order
         for wid, _ in ws["windows"]:
             if wid not in gone and tree.where.get(wid) != ws["name"]:
-                changed |= change("move-node-to-workspace", "--window-id", str(wid), ws["name"])
+                changed |= change("move-node-to-workspace", "--window-id", str(wid), ws["name"], *section_flag(ws, wid))
+    tree = tree_now()
+    for ws in snapshot["workspaces"]:
+        # Already on its workspace, in another section
+        for wid, floating in ws["windows"]:
+            section = ws.get("sections", {}).get(str(wid))
+            if section and not floating and wid not in gone and tree.where.get(wid) == ws["name"] \
+                    and tree.section.get(wid) != section:
+                changed |= change("move-node-to-section", "--window-id", str(wid), section)
     tree = tree_now()
     for ws in snapshot["workspaces"]:
         tiled = [wid for wid, floating in ws["windows"] if not floating and wid not in gone]
@@ -178,14 +201,14 @@ def put_back(snapshot, gone):
             for wid in tiled:
                 change("move-node-to-workspace", "--window-id", str(wid), STAGING)
             for wid in tiled:
-                change("move-node-to-workspace", "--window-id", str(wid), ws["name"])
+                change("move-node-to-workspace", "--window-id", str(wid), ws["name"], *section_flag(ws, wid))
             changed = True
     tree = tree_now()
     for ws in snapshot["workspaces"]:
         name = ws["name"]
         if any(not floating and wid not in gone for wid, floating in ws["windows"]) \
-                and tree.roots.get(name) != ws["root"]:
-            changed |= change("layout", "--workspace", name, "--root", ws["root"])
+                and root_kind(ws, tree.roots.get(name)) != root_kind(ws, ws["root"]):
+            changed |= change("layout", "--workspace", name, "--root", root_kind(ws, ws["root"]))
         for wid, floating in ws["windows"]:
             if floating and wid not in gone and wid not in tree.floating:
                 changed |= change("layout", "--window-id", str(wid), "floating")
@@ -276,7 +299,10 @@ def restore(force):
     off = {wid: ws for wid, ws in saved.items() if wid not in gone and tree.where.get(wid) != ws}
     layouts_off = [ws["name"] for ws in snapshot["workspaces"]
                    if any(not floating and wid not in gone for wid, floating in ws["windows"])
-                   and tree.roots.get(ws["name"]) != ws["root"]]
+                   and root_kind(ws, tree.roots.get(ws["name"])) != root_kind(ws, ws["root"])]
+    sections_off = [wid for ws in snapshot["workspaces"] for wid, floating in ws["windows"]
+                    if not floating and wid not in gone
+                    and ws.get("sections", {}).get(str(wid), tree.section.get(wid)) != tree.section.get(wid)]
     print(f"keep-windows: {len(saved) - len(gone) - len(off)}/{len(saved)} windows back, "
           f"focus on {tree.focused_window}")
     if gone:
@@ -286,9 +312,11 @@ def restore(force):
                                                   for wid, ws in off.items()))
     if layouts_off:
         print(f"  ! root layout not restored on {', '.join(layouts_off)}")
+    if sections_off:
+        print(f"  ! not back in their sections: {sections_off}")
     if labels_off:
         print(f"  ! labels not restored: {labels_off}")
-    if off or layouts_off or labels_off:
+    if off or layouts_off or sections_off or labels_off:
         print(f"  the snapshot stays at {SNAPSHOT}: `{sys.argv[0]} restore` to try again")
         return 2
     os.replace(SNAPSHOT, LAST)
