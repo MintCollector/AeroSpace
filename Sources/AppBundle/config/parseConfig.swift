@@ -190,7 +190,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "workspace-gaps": Parser(\.workspaceGaps, parseWorkspaceGaps),
     "overview": Parser(\.overview, parseOverview),
     "workspace-to-monitor-force-assignment": Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
-    "split-monitors": Parser(\.splitMonitors, parseSplitMonitors),
+    "workspace-sections": Parser(\.workspaceSections, parseWorkspaceSections),
     "on-window-detected": Parser(\.onWindowDetected, parseOnWindowDetectedArray),
 
     // Deprecated
@@ -341,6 +341,18 @@ struct ParseConfigResult {
             )]
         }
     }
+    if config.workspaceSections != nil {
+        // Each changes the root, which is the row of sections
+        let conflicts = [
+            config.enableNormalizationBinaryTree ? "enable-normalization-binary-tree = true" : nil,
+            config.enableAutoTiling ? "enable-auto-tiling = true" : nil,
+            config.defaultRootContainerLayout == .scrolling ? "default-root-container-layout = 'scrolling'" : nil,
+        ].compactMap { $0 }
+        if !conflicts.isEmpty {
+            c.errors += [.init(.rootKey("workspace-sections"), "Sections don't work with \(conflicts.joined(separator: ", "))")]
+            config.workspaceSections = nil
+        }
+    }
     if config.configVersion < .max {
         let msg = "The current 'config-version = \(config.configVersion)' is outdated. " +
             "Please consider migrating to 'config-version = \(ConfigVersion.max)'. " +
@@ -437,7 +449,7 @@ private func parsePersistentWorkspaces(_ raw: OrderedJson, _ backtrace: ConfigBa
         }
 }
 
-private func parseArrayOfStrings(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<[String]> {
+func parseArrayOfStrings(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<[String]> {
     parseTomlArray(raw, backtrace)
         .flatMap { arr in
             arr.enumerated().mapAllOrFailure { (index, elem) in

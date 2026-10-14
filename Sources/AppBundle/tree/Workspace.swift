@@ -37,6 +37,9 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     fileprivate var assignedMonitorPoint: CGPoint? = nil
     /// Active `workspace --view-toggle` merges hosted by this workspace (ephemeral, in-memory only)
     var viewToggledStates: [ViewToggleState] = []
+    /// workspace-sections: the layout `layout --root` gave the sections, for the sections to come.
+    /// nil: default-root-container-layout
+    var newSectionLayout: Layout? = nil
 
     @MainActor
     private init(_ name: String) {
@@ -113,14 +116,6 @@ extension Workspace {
             ?? assignedMonitorPoint?.monitorApproximation
             ?? mainMonitorInfo
     }
-
-    /// The monitor an invisible workspace shows on next. split-monitors: a merged screen and its first column share a
-    /// corner, so splitting the screen gives the workspaces last shown on it their column
-    @MainActor
-    func assignMonitor(_ monitor: MonitorInfo) {
-        check(!isVisible, "\(self) is visible on its monitor")
-        assignedMonitorPoint = monitor.rect.topLeftCorner
-    }
 }
 
 extension MonitorInfo {
@@ -131,14 +126,10 @@ extension MonitorInfo {
         }
         // What if monitor configuration changed? (frame.origin is changed)
         rearrangeWorkspacesOnMonitors()
-        // Still missing: the monitor was captured before the monitors changed (a split screen merged, a monitor
-        // unplugged) while its caller awaited. The workspace of the monitor that is at its place now
+        // Still missing: the monitor was captured before the monitors changed (it was unplugged while its caller
+        // awaited). The workspace of the monitor that is in its place now
         return screenPointToVisibleWorkspace[rect.topLeftCorner] ?? rect.center.monitorApproximation.activeWorkspace
     }
-
-    /// The visible workspace, or nil: unlike `activeWorkspace`, never rearranges the monitors
-    @MainActor
-    var activeWorkspaceOrNil: Workspace? { screenPointToVisibleWorkspace[rect.topLeftCorner] }
 
     @MainActor
     func setActiveWorkspace(_ workspace: Workspace) -> Bool {
@@ -148,8 +139,7 @@ extension MonitorInfo {
 
 @MainActor
 func gcMonitors() {
-    // Not only the count: splitting a monitor differently (split-monitors) moves columns, the count can stay
-    if Set(screenPointToVisibleWorkspace.keys) != Set(monitorInfos.map(\.rect.topLeftCorner)) {
+    if screenPointToVisibleWorkspace.count != monitorInfos.count {
         rearrangeWorkspacesOnMonitors()
     }
 }

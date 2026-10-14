@@ -34,6 +34,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case move = "move"
     case moveMouse = "move-mouse"
     case moveNodeToMonitor = "move-node-to-monitor"
+    case moveNodeToSection = "move-node-to-section"
     case moveNodeToWorkspace = "move-node-to-workspace"
     case moveWorkspaceToMonitor = "move-workspace-to-monitor"
     case reloadConfig = "reload-config"
@@ -43,7 +44,6 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case setFrame = "set-frame"
     case setGaps = "set-gaps"
     case split
-    case splitMonitors = "split-monitors"
     case subscribe
     case summonWorkspace = "summon-workspace"
     case swap
@@ -126,6 +126,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseMoveMouseCmdArgs)
             case .moveNodeToMonitor:
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToMonitorCmdArgs)
+            case .moveNodeToSection:
+                result[kind.rawValue] = SubCommandParser(parseMoveNodeToSectionCmdArgs)
             case .moveNodeToWorkspace:
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToWorkspaceCmdArgs)
             case .moveWorkspaceToMonitor:
@@ -146,8 +148,6 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseSetGapsCmdArgs)
             case .split:
                 result[kind.rawValue] = SubCommandParser(parseSplitCmdArgs)
-            case .splitMonitors:
-                result[kind.rawValue] = SubCommandParser(parseSplitMonitorsCmdArgs)
             case .subscribe:
                 result[kind.rawValue] = SubCommandParser(parseSubscribeCmdArgs)
             case .summonWorkspace:

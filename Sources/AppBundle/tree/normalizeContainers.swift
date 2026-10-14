@@ -1,5 +1,6 @@
 extension Workspace {
     @MainActor func normalizeContainers() {
+        normalizeSections()
         rootTilingContainer.unbindEmptyAndAutoFlatten() // Beware! rootTilingContainer may change after this line of code
         if config.enableNormalizationBinaryTree {
             rootTilingContainer.normalizeBinaryTree(rect: workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: name))
@@ -11,8 +12,11 @@ extension Workspace {
 
 extension TilingContainer {
     @MainActor fileprivate func unbindEmptyAndAutoFlatten() {
-        // The scrolling root owns the viewport even when only one page remains.
-        if let child = children.singleOrNil(), config.enableNormalizationFlattenContainers && !isScrollingRoot && (child is TilingContainer || !isRootContainer) {
+        // The scrolling root owns the viewport even when only one page remains. Sections and their row stay with one
+        // child (workspace-sections)
+        if let child = children.singleOrNil(), config.enableNormalizationFlattenContainers && !isScrollingRoot &&
+            section == nil && rowSections == nil && (child is TilingContainer || !isRootContainer)
+        {
             child.unbindFromParent()
             let mru = parent?.mostRecentChild
             let previousBinding = unbindFromParent()
@@ -23,6 +27,9 @@ extension TilingContainer {
             } else {
                 child.markAsMostRecentChild()
             }
+        } else if section != nil, config.enableNormalizationFlattenContainers, let child = children.singleOrNil() as? TilingContainer {
+            absorb(child)
+            unbindEmptyAndAutoFlatten()
         } else {
             for child in children {
                 (child as? TilingContainer)?.unbindEmptyAndAutoFlatten()
@@ -30,6 +37,24 @@ extension TilingContainer {
             if children.isEmpty && !isRootContainer {
                 unbindFromParent()
             }
+        }
+    }
+
+    /// A section with a single container takes its children, layout and orientation instead: the section can't be
+    /// replaced (workspace-sections)
+    @MainActor private func absorb(_ child: TilingContainer) {
+        let mru = parent?.mostRecentChild
+        let childMru = child.mostRecentChild
+        layout = child.layout
+        setOrientation(child.orientation)
+        for grandchild in child.children {
+            let binding = grandchild.unbindFromParent()
+            grandchild.bind(to: self, adaptiveWeight: binding.adaptiveWeight, index: INDEX_BIND_LAST)
+        }
+        child.unbindFromParent()
+        childMru?.markAsMostRecentChild()
+        if mru != self {
+            mru?.markAsMostRecentChild()
         }
     }
 

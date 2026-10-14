@@ -943,51 +943,66 @@ final class ConfigTest: XCTestCase {
         )
     }
 
-    func testParseSplitMonitors() {
+    func testParseWorkspaceSections() {
         let result = parseConfig(
             """
-            [split-monitors.C49RG9x]
-                columns = [1, 2, 1]
-                main = 2
-            [split-monitors.dell]
-                columns = [1, 1]
+            [workspace-sections]
+                default = 'main'
+                workspaces = ['1-A', '2-S']
+                sections = [
+                    { name = 'left', width = 1 },
+                    { name = 'main', width = 2, collapse = false },
+                    { name = 'right', width = 1 }
+                ]
             """,
         )
         assertEquals(result.errors, [])
-        assertEquals(result.config.splitMonitors.map(\.pattern.origin), ["C49RG9x", "dell"])
-        assertEquals(result.config.splitMonitors.map(\.columns), [[1, 2, 1], [1, 1]])
-        assertEquals(result.config.splitMonitors.map(\.main), [2, 1])
-        assertEquals(defaultConfig.splitMonitors, [])
+        let sections = result.config.workspaceSections
+        assertEquals(sections?.sections.map(\.name), ["left", "main", "right"])
+        assertEquals(sections?.sections.map(\.width), [1, 2, 1])
+        assertEquals(sections?.sections.map(\.collapse), [true, false, true])
+        assertEquals(sections?.defaultSection, "main")
+        assertEquals(sections?.workspaces, ["1-A", "2-S"])
+        assertNil(defaultConfig.workspaceSections)
     }
 
-    func testParseSplitMonitorsErrors() {
+    func testParseWorkspaceSectionsAsArrayOfTables() {
+        // How aero-helper writes it from profiles.toml
         let result = parseConfig(
             """
-            [split-monitors.main]
-                columns = [1, 1]
-            [split-monitors.a]
-                columns = [1]
-            [split-monitors.b]
-                columns = [1, 0]
-            [split-monitors.c]
-                columns = [1, 1]
-                main = 3
-            [split-monitors.d]
-                main = 1
-            [split-monitors.e]
-                columns = [1, 1]
-                foo = 1
+            [workspace-sections]
+            default = 'main'
+            [[workspace-sections.sections]]
+            name = 'main'
+            [[workspace-sections.sections]]
+            name = 'right'
+            collapse = false
             """,
         )
-        assertEquals(result.strErrors, [
-            "[ERROR] split-monitors.a.columns: Expected at least two column widths",
-            "[ERROR] split-monitors.b.columns[1]: Expected a positive width",
-            "[ERROR] split-monitors.c.main: Expected a column number from 1 to 2",
-            "[ERROR] split-monitors.d.columns: Expected at least two column widths",
-            "[ERROR] split-monitors.e.foo: Unknown key",
-            "[ERROR] split-monitors.main: Expected a monitor name pattern. 'main', 'secondary' and monitor numbers would split whichever monitor has that role",
-        ])
-        assertEquals(result.config.splitMonitors, [])
+        assertEquals(result.errors, [])
+        assertEquals(result.config.workspaceSections?.sections.map(\.name), ["main", "right"])
+        assertEquals(result.config.workspaceSections?.sections.map(\.collapse), [true, false])
+        assertNil(result.config.workspaceSections?.workspaces)
+    }
+
+    func testParseWorkspaceSectionsErrors() {
+        func errors(_ toml: String) -> [String] {
+            let result = parseConfig(toml)
+            assertNil(result.config.workspaceSections)
+            return result.strErrors
+        }
+        assertEquals(errors("[workspace-sections]\ndefault = 'main'\nsections = [{ name = 'main' }]"),
+                     ["[ERROR] workspace-sections.sections: Expected at least two sections"])
+        assertEquals(errors("[workspace-sections]\ndefault = 'middle'\nsections = [{ name = 'left' }, { name = 'main' }]"),
+                     ["[ERROR] workspace-sections.default: Expected the name of a section: left, main"])
+        assertEquals(errors("[workspace-sections]\ndefault = 'main'\nsections = [{ name = 'left', width = 0 }, { name = 'main' }]"),
+                     ["[ERROR] workspace-sections.sections[0].width: Expected a positive width"])
+        assertEquals(errors("[workspace-sections]\ndefault = 'main'\nsections = [{ name = 'main' }, { name = 'main' }]"),
+                     ["[ERROR] workspace-sections.sections: Expected each section to have its own name"])
+        assertEquals(errors("[workspace-sections]\ndefault = 'main'\nsections = [{ name = 'left side' }, { name = 'main' }]"),
+                     ["[ERROR] workspace-sections.sections[0].name: Expected a name without spaces"])
+        assertEquals(errors("enable-normalization-binary-tree = true\n[workspace-sections]\ndefault = 'main'\nsections = [{ name = 'left' }, { name = 'main' }]"),
+                     ["[ERROR] workspace-sections: Sections don't work with enable-normalization-binary-tree = true"])
     }
 }
 

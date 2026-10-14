@@ -24,17 +24,10 @@ protocol MonitorInfo: AeroAny {
     var width: CGFloat { get }
     var height: CGFloat { get }
     var isMain: Bool { get }
-    /// The physical screen the monitor is on: the whole screen for a column of a split screen (split-monitors),
-    /// otherwise the monitor itself
-    var screen: MonitorInfo { get }
-}
-
-extension MonitorInfo {
-    var screen: MonitorInfo { self }
 }
 
 final class LazyMonitorInfo: MonitorInfo {
-    private let nsScreen: NSScreen
+    private let screen: NSScreen
     let monitorAppKitNsScreenScreensId: Int
     let name: String
     let width: CGFloat
@@ -46,18 +39,18 @@ final class LazyMonitorInfo: MonitorInfo {
     init(monitorAppKitNsScreenScreensId: Int, isMain: Bool, _ screen: NSScreen) {
         self.monitorAppKitNsScreenScreensId = monitorAppKitNsScreenScreensId
         self.name = screen.localizedName
-        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainScreenInfo init
-        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainScreenInfo init
-        self.nsScreen = screen
+        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainMonitor init
+        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainMonitor init
+        self.screen = screen
         self.isMain = isMain
     }
 
     var rect: Rect {
-        _rect ?? nsScreen.rect.also { _rect = $0 }
+        _rect ?? screen.rect.also { _rect = $0 }
     }
 
     var visibleRect: Rect {
-        _visibleRect ?? nsScreen.visibleRect.also { _visibleRect = $0 }
+        _visibleRect ?? screen.visibleRect.also { _visibleRect = $0 }
     }
 }
 
@@ -101,9 +94,7 @@ private let testMonitorInfo = MonitorInfoImpl(
     isMain: true,
 )
 
-/// The physical main screen (at the origin, with the menu bar), never one of its columns. Coordinate conversions
-/// use its height, so it must not depend on `monitorInfos`, whose rects are converted through it
-var mainScreenInfo: MonitorInfo {
+var mainMonitorInfo: MonitorInfo {
     if isUnitTest { return testMonitorInfo }
     let screens = NSScreen.screens
     // Fallback: If main screen can't be found (e.g., during display reconfiguration),
@@ -113,26 +104,12 @@ var mainScreenInfo: MonitorInfo {
     return LazyMonitorInfo(monitorAppKitNsScreenScreensId: screen.index + 1, isMain: true, screen.value)
 }
 
-/// The physical screens, unsplit
-var screenInfos: [MonitorInfo] {
+var monitorInfos: [MonitorInfo] {
     isUnitTest
         ? [testMonitorInfo]
         : NSScreen.screens.enumerated().map { $0.element.toMonitorInfo(monitorAppKitNsScreenScreensId: $0.offset + 1) }
 }
 
-/// The monitors workspaces show on: the screens, each split screen as its columns (split-monitors)
-@MainActor var monitorInfos: [MonitorInfo] { splitScreens(screenInfos) }
-
-/// The main screen, or its primary column when it's split
-@MainActor var mainMonitorInfo: MonitorInfo {
-    let monitors = monitorInfos
-    return monitors.first(where: \.isMain) ?? monitors.first ?? mainScreenInfo
-}
-
-@MainActor var sortedMonitorInfos: [MonitorInfo] {
+var sortedMonitorInfos: [MonitorInfo] {
     monitorInfos.sortedBy([\.rect.minX, \.rect.minY])
-}
-
-var sortedScreenInfos: [MonitorInfo] {
-    screenInfos.sortedBy([\.rect.minX, \.rect.minY])
 }

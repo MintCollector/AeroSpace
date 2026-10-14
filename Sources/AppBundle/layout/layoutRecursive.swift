@@ -48,6 +48,14 @@ extension TreeNode {
             case .tilingContainer(let container):
                 lastAppliedLayoutPhysicalRect = physicalRect
                 lastAppliedLayoutVirtualRect = virtual
+                if let sections = container.rowSections {
+                    for f in container.sectionFrames(point, height: height, virtual: virtual,
+                                                     gaps: context.resolvedGaps, sections: sections)
+                    {
+                        try await f.child.layoutRecursive(f.point, width: f.width, height: f.height, virtual: f.virtual, context)
+                    }
+                    return
+                }
                 // Restore every page/tab as overlapping windows without changing their saved layout or weights.
                 let layout = !TrayMenuModel.shared.isEnabled && (container.layout == .scrolling || container.layout == .tabs)
                     ? Layout.accordion : container.layout
@@ -83,15 +91,9 @@ extension Window {
             let xProportion = (windowTopLeftCorner.x - currentMonitor.visibleRect.topLeftX) / currentMonitor.visibleRect.width
             let yProportion = (windowTopLeftCorner.y - currentMonitor.visibleRect.topLeftY) / currentMonitor.visibleRect.height
 
-            let workspaceMonitor = workspace.workspaceMonitor
-            let workspaceRect = workspaceMonitor.visibleRect
-            // Another column of the same screen (split-monitors): the app centered its window on the screen
-            let isOtherColumn = currentMonitor.screen.rect.topLeftCorner == workspaceMonitor.screen.rect.topLeftCorner &&
-                currentMonitor.rect.topLeftCorner != workspaceMonitor.rect.topLeftCorner
-            var newX = isOtherColumn
-                ? workspaceRect.topLeftX + (workspaceRect.width - windowRect.width) / 2
-                : workspaceRect.topLeftX + xProportion * workspaceRect.width
-            var newY = isOtherColumn ? windowTopLeftCorner.y : workspaceRect.topLeftY + yProportion * workspaceRect.height
+            let workspaceRect = workspace.workspaceMonitor.visibleRect
+            var newX = workspaceRect.topLeftX + xProportion * workspaceRect.width
+            var newY = workspaceRect.topLeftY + yProportion * workspaceRect.height
 
             let windowWidth = windowRect.width
             let windowHeight = windowRect.height
@@ -192,6 +194,36 @@ extension TilingContainer {
             }
         }
         return frames
+    }
+
+    /// Where each section of the row of sections goes (workspace-sections). The row is cut by the sections' widths. An
+    /// empty section that collapses gives its width to the others, one that doesn't keeps an empty slot. Slots are apart
+    /// by the inner gap, like tiles. The row's width is `virtual`'s. Pure
+    @MainActor
+    func sectionFrames(_ point: CGPoint, height: CGFloat, virtual: Rect, gaps: ResolvedGaps,
+                       sections: WorkspaceSections) -> [ChildFrame]
+    {
+        var shown: [String: TilingContainer] = [:]
+        for case let container as TilingContainer in children where !container.layoutChildren.isEmpty {
+            if let name = container.section { shown[name] = container }
+        }
+        let slots = sections.sections.filter { shown[$0.name] != nil || !$0.collapse }
+        let rawGap = gaps.inner.get(.h).toDouble()
+        let rects = virtual.sliced(along: .h, weights: slots.map { CGFloat($0.width) })
+        return slots.indices.compactMap { i in
+            guard let container = shown[slots[i].name] else { return nil }
+            let left = i == 0 ? 0 : rawGap / 2
+            let right = i == slots.indices.last ? 0 : rawGap / 2
+            let slot = rects[i]
+            return ChildFrame(
+                child: container,
+                point: CGPoint(x: point.x + slot.topLeftX - virtual.topLeftX + left, y: point.y),
+                width: slot.width - left - right,
+                height: height,
+                virtual: slot,
+                weight: slot.width,
+            )
+        }
     }
 
     /// Where each child of an `accordion` container goes. Pure.

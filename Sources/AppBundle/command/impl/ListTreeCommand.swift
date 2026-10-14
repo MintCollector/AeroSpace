@@ -9,7 +9,7 @@ struct ListTreeCommand: Command {
     // Window app-* vars resolve against the window's app via expandFormatVar's (.window, .app) bridge.
     static let windowVars: [FormatVar] = [
         .window(.windowId), .window(.windowTitle), .window(.windowIsFullscreen), .window(.windowLayout),
-        .window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight),
+        .window(.windowX), .window(.windowY), .window(.windowWidth), .window(.windowHeight), .window(.windowSection),
         .app(.appName), .app(.appBundleId), .app(.appPid), .app(.appExecPath), .app(.appBundlePath),
     ]
     /// List-tree-only keys: where the window sits in its workspace's layout, relative to the top-left
@@ -27,7 +27,6 @@ struct ListTreeCommand: Command {
     static let monitorVars: [FormatVar] = [
         .monitor(.monitorId_oneBased), .monitor(.monitorAppKitNsScreenScreensId),
         .monitor(.monitorName), .monitor(.monitorIsMain), .monitor(.monitorWidth), .monitor(.monitorHeight),
-        .monitor(.monitorX), .monitor(.monitorY),
     ]
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {

@@ -254,6 +254,7 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case windowWidth = "window-width"
         case windowHeight = "window-height"
         case windowTreeIndex = "window-tree-index"
+        case windowSection = "window-section"
     }
 
     public enum WorkspaceFormatVar: String, Equatable, CaseIterable, Sendable {
@@ -279,8 +280,6 @@ public enum FormatVar: RawRepresentable, Equatable, CaseIterable, Sendable {
         case monitorIsMain = "monitor-is-main"
         case monitorWidth = "monitor-width"
         case monitorHeight = "monitor-height"
-        case monitorX = "monitor-x"
-        case monitorY = "monitor-y"
     }
 }
 

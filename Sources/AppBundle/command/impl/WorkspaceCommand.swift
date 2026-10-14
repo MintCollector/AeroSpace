@@ -36,6 +36,11 @@ struct WorkspaceCommand: Command {
                     if focusedWs.name == workspaceName {
                         return .succ // Noop: can't view-toggle your own workspace
                     }
+                    // Toggling off still works: it puts back what toggling on moved
+                    let isToggledOn = focusedWs.viewToggledStates.contains { $0.donorWorkspaceName == workspaceName }
+                    if !isToggledOn && (focusedWs.sections != nil || config.workspaceSections?.applies(to: workspaceName) == true) {
+                        return .fail(io.err("workspace --view-toggle doesn't work with workspace-sections yet"))
+                    }
                     performViewToggle(hostWorkspace: focusedWs, donorWorkspaceName: workspaceName)
                     return .succ
                 }

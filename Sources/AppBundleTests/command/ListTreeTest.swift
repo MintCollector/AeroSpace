@@ -12,7 +12,7 @@ final class ListTreeTest: XCTestCase {
     func testFieldVarKeysMatchHelperContract() {
         assertEquals(Set(ListTreeCommand.windowVars.map { $0.rawValue }), [
             "window-id", "window-title", "window-is-fullscreen", "window-layout",
-            "window-x", "window-y", "window-width", "window-height",
+            "window-x", "window-y", "window-width", "window-height", "window-section",
             "app-name", "app-bundle-id", "app-pid", "app-exec-path", "app-bundle-path",
         ])
         assertEquals(Set(ListTreeCommand.workspaceVars.map { $0.rawValue }), [
@@ -20,7 +20,7 @@ final class ListTreeTest: XCTestCase {
         ])
         assertEquals(Set(ListTreeCommand.monitorVars.map { $0.rawValue }), [
             "monitor-id", "monitor-appkit-nsscreen-screens-id",
-            "monitor-name", "monitor-is-main", "monitor-width", "monitor-height", "monitor-x", "monitor-y",
+            "monitor-name", "monitor-is-main", "monitor-width", "monitor-height",
         ])
     }
 

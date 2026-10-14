@@ -15,6 +15,10 @@ struct JoinWithCommand: Command {
             return .fail(io.err("No windows in the specified direction"))
         }
         let joinWithTarget = parent.children[ownIndex + direction.focusOffset]
+        // workspace-sections: the next node over is another section
+        if (joinWithTarget as? TilingContainer)?.section != nil {
+            return .fail(io.err("join-with doesn't join windows of different sections. Use move or move-node-to-section"))
+        }
         let prevBinding = joinWithTarget.unbindFromParent()
         let newParent = TilingContainer(
             parent: parent,

@@ -124,12 +124,15 @@ let move_node_to_monitor_help_generated = """
        OR: move-node-to-monitor [-h|--help] [--window-id <window-id>] [--focus-follows-window]
                                 [--fail-if-noop] [--] <monitor-pattern>...
     """
+let move_node_to_section_help_generated = """
+    USAGE: move-node-to-section [-h|--help] [--fail-if-noop] [--window-id <window-id>] <section>
+    """
 let move_node_to_workspace_help_generated = """
     USAGE: move-node-to-workspace [-h|--help] [--focus-follows-window] [--wrap-around]
                                   [--stdin|--no-stdin]
                                   (next|prev)
        OR: move-node-to-workspace [-h|--help] [--focus-follows-window] [--fail-if-noop]
-                                  [--window-id <window-id>] [--] <workspace-name>
+                                  [--window-id <window-id>] [--section <section>] [--] <workspace-name>
     """
 let move_workspace_to_monitor_help_generated = """
     USAGE: move-workspace-to-monitor [-h|--help] [--workspace <workspace>] [--wrap-around] (left|down|up|right)
@@ -164,11 +167,6 @@ let set_gaps_help_generated = """
     USAGE: set-gaps [-h|--help] [--workspace <workspace>]
                     [--outer-left-right <size>] [--outer-top-bottom <size>]
                     [--inner <size>]
-    """
-let split_monitors_help_generated = """
-    USAGE: split-monitors [-h|--help] toggle
-       OR: split-monitors [-h|--help] on [--fail-if-noop]
-       OR: split-monitors [-h|--help] off [--fail-if-noop]
     """
 let split_help_generated = """
     USAGE: split [-h|--help] [--window-id <window-id>] (horizontal|vertical|opposite)

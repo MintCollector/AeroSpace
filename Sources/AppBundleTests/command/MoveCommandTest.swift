@@ -418,29 +418,23 @@ final class MoveCommandTest: XCTestCase {
 
 extension TreeNode {
     var layoutDescription: LayoutDescription {
-        return switch nodeCases {
-            case .window(let window): .window(window.windowId)
-            case .workspace(let workspace): .workspace(workspace.children.map(\.layoutDescription))
-            case .floatingWindowsContainer(let container): .floatingWindowsContainer(container.children.map(\.layoutDescription))
-            case .macosMinimizedWindowsContainer: .macosMinimized
-            case .macosFullscreenWindowsContainer: .macosFullscreen
-            case .macosHiddenAppsWindowsContainer: .macosHiddeAppWindow
-            case .macosPopupWindowsContainer: .macosPopupWindowsContainer
+        switch nodeCases {
+            case .window(let window): return .window(window.windowId)
+            case .workspace(let workspace): return .workspace(workspace.children.map(\.layoutDescription))
+            case .floatingWindowsContainer(let container): return .floatingWindowsContainer(container.children.map(\.layoutDescription))
+            case .macosMinimizedWindowsContainer: return .macosMinimized
+            case .macosFullscreenWindowsContainer: return .macosFullscreen
+            case .macosHiddenAppsWindowsContainer: return .macosHiddeAppWindow
+            case .macosPopupWindowsContainer: return .macosPopupWindowsContainer
             case .tilingContainer(let container):
-                switch container.layout {
-                    case .tiles:
-                        container.orientation == .h
-                            ? .h_tiles(container.children.map(\.layoutDescription))
-                            : .v_tiles(container.children.map(\.layoutDescription))
-                    case .accordion:
-                        container.orientation == .h
-                            ? .h_accordion(container.children.map(\.layoutDescription))
-                            : .v_accordion(container.children.map(\.layoutDescription))
-                    case .scrolling:
-                        .scrolling(container.children.map(\.layoutDescription))
-                    case .tabs:
-                        .tabs(container.children.map(\.layoutDescription))
+                let children = container.children.map(\.layoutDescription)
+                let description: LayoutDescription = switch container.layout {
+                    case .tiles: container.orientation == .h ? .h_tiles(children) : .v_tiles(children)
+                    case .accordion: container.orientation == .h ? .h_accordion(children) : .v_accordion(children)
+                    case .scrolling: .scrolling(children)
+                    case .tabs: .tabs(children)
                 }
+                return container.section.map { .section($0, description) } ?? description
         }
     }
 }
@@ -454,6 +448,8 @@ enum LayoutDescription: Equatable {
     case floatingWindowsContainer([LayoutDescription])
     case scrolling([LayoutDescription])
     case tabs([LayoutDescription])
+    /// A section of a workspace (workspace-sections) and its layout
+    indirect case section(String, LayoutDescription)
     case window(UInt32)
     case macosPopupWindowsContainer
     case macosMinimized

@@ -68,6 +68,8 @@ extension CmdArgs {
                 command = MoveMouseCommand(args: self as! MoveMouseCmdArgs)
             case .moveNodeToMonitor:
                 command = MoveNodeToMonitorCommand(args: self as! MoveNodeToMonitorCmdArgs)
+            case .moveNodeToSection:
+                command = MoveNodeToSectionCommand(args: self as! MoveNodeToSectionCmdArgs)
             case .moveNodeToWorkspace:
                 command = MoveNodeToWorkspaceCommand(args: self as! MoveNodeToWorkspaceCmdArgs)
             case .moveWorkspaceToMonitor:
@@ -86,8 +88,6 @@ extension CmdArgs {
                 command = SetGapsCommand(args: self as! SetGapsCmdArgs)
             case .split:
                 command = SplitCommand(args: self as! SplitCmdArgs)
-            case .splitMonitors:
-                command = SplitMonitorsCommand(args: self as! SplitMonitorsCmdArgs)
             case .subscribe:
                 return .failure("subscribe is not supported in the eval", EXIT_CODE_TWO)
             case .summonWorkspace:

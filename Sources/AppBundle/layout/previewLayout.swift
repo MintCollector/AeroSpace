@@ -40,20 +40,26 @@ extension TreeNode {
                     result[window.windowId] = Rect(topLeftX: point.x, topLeftY: point.y, width: width, height: height)
                 }
             case .tilingContainer(let container):
-                let layout: Layout = if context.asTiles {
-                    .tiles
-                } else if !TrayMenuModel.shared.isEnabled && (container.layout == .scrolling || container.layout == .tabs) {
-                    .accordion // Same layout substitution as layoutRecursive's .tilingContainer case
+                let frames: [TilingContainer.ChildFrame]
+                if let sections = container.rowSections {
+                    frames = container.sectionFrames(point, height: height, virtual: virtual,
+                                                     gaps: context.resolvedGaps, sections: sections)
                 } else {
-                    container.layout
-                }
-                let frames: [TilingContainer.ChildFrame] = switch layout {
-                    case .tiles: container.tileFrames(point, width: width, height: height, virtual: virtual,
-                                                      gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth)
-                    case .accordion: container.accordionFrames(point, width: width, height: height, virtual: virtual)
-                    case .scrolling, .tabs: container.children.map {
-                            .init(child: $0, point: point, width: width, height: height, virtual: virtual, weight: 0)
-                        }
+                    let layout: Layout = if context.asTiles {
+                        .tiles
+                    } else if !TrayMenuModel.shared.isEnabled && (container.layout == .scrolling || container.layout == .tabs) {
+                        .accordion // Same layout substitution as layoutRecursive's .tilingContainer case
+                    } else {
+                        container.layout
+                    }
+                    frames = switch layout {
+                        case .tiles: container.tileFrames(point, width: width, height: height, virtual: virtual,
+                                                          gaps: context.resolvedGaps, maxWindowWidth: context.maxWindowWidth)
+                        case .accordion: container.accordionFrames(point, width: width, height: height, virtual: virtual)
+                        case .scrolling, .tabs: container.children.map {
+                                .init(child: $0, point: point, width: width, height: height, virtual: virtual, weight: 0)
+                            }
+                    }
                 }
                 for f in frames {
                     f.child.preview(f.point, width: f.width, height: f.height, virtual: f.virtual, context, into: &result)
