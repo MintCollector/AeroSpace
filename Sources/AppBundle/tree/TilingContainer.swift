@@ -102,7 +102,8 @@ extension TilingContainer {
     }
 
     func normalizeOppositeOrientationForNestedContainers() {
-        if orientation == (parent as? TilingContainer)?.orientation {
+        // A section's orientation is its own: the row of sections is always side by side (workspace-sections)
+        if section == nil && orientation == (parent as? TilingContainer)?.orientation {
             _orientation = orientation.opposite
         }
         for child in children {

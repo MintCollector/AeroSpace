@@ -51,4 +51,102 @@ final class WorkspaceSectionsTest: XCTestCase {
         TestWindow.new(id: 2, parent: workspace.makeSection("main"))
         assertEquals(workspace.rootLayoutContainer.section, "main")
     }
+
+    func testWindowsInTheRootGoToASection() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        TestWindow.new(id: 1, parent: workspace.rootTilingContainer) // e.g. dragged onto the empty part of a monitor
+        TestWindow.new(id: 2, parent: workspace.rootTilingContainer).lastSection = "right"
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
+            .section("main", .h_tiles([.window(1)])),
+            .section("right", .h_tiles([.window(2)])),
+        ]))
+    }
+
+    func testASectionKeepsItsOnlyWindowAndTheRowItsOnlySection() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.section("left", .h_tiles([.window(1)]))]))
+    }
+
+    func testAnEmptySectionGoes() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        _ = workspace.makeSection("left")
+        TestWindow.new(id: 1, parent: workspace.makeSection("main"))
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.section("main", .h_tiles([.window(1)]))]))
+    }
+
+    func testASectionTakesOverItsOnlyContainer() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        workspace.makeSection("main").apply {
+            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
+                TestWindow.new(id: 1, parent: $0)
+                TestWindow.new(id: 2, parent: $0)
+            }
+        }
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
+            .section("main", .v_tiles([.window(1), .window(2)])),
+        ]))
+    }
+
+    func testSectionsKeepTheirOrientation() {
+        // Opposite orientations would make every section of the side-by-side row vertical
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        workspace.makeSection("main").apply {
+            TestWindow.new(id: 1, parent: $0)
+            TestWindow.new(id: 2, parent: $0)
+        }
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
+            .section("main", .h_tiles([.window(1), .window(2)])),
+        ]))
+    }
+
+    func testSectionsFollowTheConfigOrderAndMerge() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        let root = workspace.rootTilingContainer
+        for (id, name) in [(3, "right"), (1, "left"), (2, "left")] as [(UInt32, String)] {
+            // As the closed-windows cache or a view toggle could leave them
+            TilingContainer.newHTiles(parent: root, adaptiveWeight: 1).apply {
+                $0.section = name
+                TestWindow.new(id: id, parent: $0)
+            }
+        }
+        workspace.normalizeContainers()
+        assertEquals(root.layoutDescription, .h_tiles([
+            .section("left", .h_tiles([.window(1), .window(2)])),
+            .section("right", .h_tiles([.window(3)])),
+        ]))
+    }
+
+    func testWithoutSectionsTheyAreOrdinaryContainers() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        workspace.makeSection("main").apply {
+            TestWindow.new(id: 2, parent: $0)
+            TestWindow.new(id: 3, parent: $0)
+        }
+        config.workspaceSections = nil
+        workspace.normalizeContainers()
+        // main was side by side in the side-by-side row: its windows join the row instead of turning vertical
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.window(1), .window(2), .window(3)]))
+    }
+
+    func testWindowsRememberTheirSection() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        let window = TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        workspace.normalizeContainers()
+        assertEquals(window.lastSection, "left")
+    }
 }
