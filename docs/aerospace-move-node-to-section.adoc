@@ -1,0 +1,46 @@
+= aerospace-move-node-to-section(1)
+include::util/man-attributes.adoc[]
+:manname: aerospace-move-node-to-section
+// tag::purpose[]
+:manpurpose: Move the focused window to a section of its workspace
+// end::purpose[]
+
+// =========================================================== Synopsis
+== Synopsis
+[verse]
+// tag::synopsis[]
+aerospace move-node-to-section [-h|--help] [--fail-if-noop] [--window-id <window-id>] <section>
+
+// end::synopsis[]
+
+// =========================================================== Description
+== Description
+
+// tag::body[]
+{manpurpose}
+
+`[workspace-sections]` in the config makes workspaces rows of side-by-side sections.
+The window goes to the end of the section.
+A section without windows comes back when a window goes to it.
+Only tiled windows are in sections.
+
+To move a window to a section of another workspace: `move-node-to-workspace <workspace-name> --section <section>`
+
+// =========================================================== Options
+include::./util/conditional-options-header.adoc[]
+
+-h, --help:: Print help
+--fail-if-noop:: Exit with non-zero code if the window is already in the section
+
+--window-id <window-id>::
+include::./util/window-id-flag-desc.adoc[]
+
+// =========================================================== Arguments
+include::./util/conditional-arguments-header.adoc[]
+
+<section>:: The name of a section in `[workspace-sections]`
+
+// end::body[]
+
+// =========================================================== Footer
+include::util/man-footer.adoc[]

@@ -1,5 +1,16 @@
 import Common
 
+struct MoveNodeToSectionCommand: Command {
+    let args: MoveNodeToSectionCmdArgs
+    /*conforms*/ let shouldResetClosedWindowsCache = true
+
+    func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode {
+        guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
+        guard let window = target.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
+        return moveWindowToSection(window, args.section.val, io, failIfNoop: args.failIfNoop)
+    }
+}
+
 /// Why `name` isn't a section of `workspace`, or nil (workspace-sections)
 @MainActor
 func sectionError(_ name: String, _ workspace: Workspace) -> String? {
