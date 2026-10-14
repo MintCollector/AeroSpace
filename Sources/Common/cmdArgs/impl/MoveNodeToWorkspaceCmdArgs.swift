@@ -8,7 +8,7 @@ public struct MoveNodeToWorkspaceCmdArgs: CmdArgs {
             "--fail-if-noop": trueBoolFlag(\.failIfNoop),
             "--window-id": windowIdSubArgParser(),
             "--focus-follows-window": ArgParser(\.focusFollowsWindow, constSubArgParserFun(true)),
-            "--section": singleValueSubArgParser(\.section, "<section>", { .success($0) }),
+            "--section": singleValueSubArgParser(\.section, "<section>") { .success($0) },
 
             "--stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(true)),
             "--no-stdin": ArgParser(\.commonState.explicitStdinFlag, constSubArgParserFun(false)),
