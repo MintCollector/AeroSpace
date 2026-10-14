@@ -149,4 +149,54 @@ final class WorkspaceSectionsTest: XCTestCase {
         workspace.normalizeContainers()
         assertEquals(window.lastSection, "left")
     }
+
+    func testSectionsCutTheRowByTheirWidths() {
+        setUpSections()
+        let rects = sectionedWorkspace(["left", "main", "right"]).previewLayoutRects()
+        assertEquals(ids.map { rects[$0]?.topLeftX }, [0, 480, 1440])
+        assertEquals(ids.map { rects[$0]?.width }, [480, 960, 480])
+    }
+
+    func testAnEmptySectionGivesItsWidthAway() {
+        setUpSections()
+        let rects = sectionedWorkspace(["main"]).previewLayoutRects()
+        assertEquals(rects[2]?.topLeftX, 0)
+        assertEquals(rects[2]?.width, 1920)
+    }
+
+    func testAnEmptySectionThatDoesntCollapseKeepsItsSlot() {
+        setUpSections(collapse: ["right": false])
+        let rects = sectionedWorkspace(["main"]).previewLayoutRects()
+        assertEquals(rects[2]?.topLeftX, 0)
+        assertEquals(rects[2]?.width, 1280) // main 2, right 1 of the 1920
+    }
+
+    func testSectionsAreApartByTheInnerGap() {
+        setUpSections()
+        config.gaps = Gaps(inner: .init(vertical: 10, horizontal: 10), outer: .init(left: 0, bottom: 0, top: 0, right: 0))
+        let rects = sectionedWorkspace(["left", "main", "right"]).previewLayoutRects()
+        assertEquals(ids.map { rects[$0]?.topLeftX }, [0, 485, 1445])
+        assertEquals(ids.map { rects[$0]?.width }, [475, 950, 475])
+    }
+
+    func testLayoutPutsWindowsInTheirSections() async throws {
+        setUpSections()
+        let workspace = sectionedWorkspace(["main", "right"])
+        _ = try await workspace.layoutWorkspace()
+        let right = try await Window.get(byId: 3).orDie().getAxRect(.nonCancellable).orDie()
+        assertEquals(right.topLeftX, 1280)
+        assertEquals(right.width, 640)
+    }
+
+    /// Windows 1, 2, 3 in left, main, right
+    private let ids: [UInt32] = [1, 2, 3]
+
+    /// Workspace "a" with a window in each of `sections`: 1 in left, 2 in main, 3 in right
+    private func sectionedWorkspace(_ sections: [String]) -> Workspace {
+        let workspace = Workspace.get(byName: "a")
+        for (id, name) in [(1, "left"), (2, "main"), (3, "right")] as [(UInt32, String)] where sections.contains(name) {
+            TestWindow.new(id: id, parent: workspace.makeSection(name))
+        }
+        return workspace
+    }
 }
