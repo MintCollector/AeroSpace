@@ -100,6 +100,7 @@ func restoreTreeRecursive(
         frozenContainer.layout,
         index: index,
     )
+    container.section = frozenContainer.section
 
     // boundIndex advances only on an actual bind. Windows that aren't alive yet (staggered
     // reappearance after unlock/relaunch) are skipped, not aborted on — the frozen cache isn't

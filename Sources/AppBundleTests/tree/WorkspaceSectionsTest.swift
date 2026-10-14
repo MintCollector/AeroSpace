@@ -188,6 +188,20 @@ final class WorkspaceSectionsTest: XCTestCase {
         assertEquals(right.width, 640)
     }
 
+    func testTheClosedWindowsCacheKeepsSections() {
+        setUpSections()
+        let workspace = Workspace.get(byName: "a")
+        let left = TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        let main = TestWindow.new(id: 2, parent: workspace.makeSection("main"))
+        let frozen = FrozenContainer(workspace.rootTilingContainer)
+        workspace.rootTilingContainer.unbindFromParent()
+        restoreTreeRecursive(frozenContainer: frozen, parent: workspace, index: INDEX_BIND_LAST, lookup: { [1: left, 2: main][$0] })
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
+            .section("left", .h_tiles([.window(1)])),
+            .section("main", .h_tiles([.window(2)])),
+        ]))
+    }
+
     /// Windows 1, 2, 3 in left, main, right
     private let ids: [UInt32] = [1, 2, 3]
 

@@ -11,6 +11,8 @@ struct FrozenContainer: Sendable {
     let layout: Layout
     let orientation: Orientation
     let weight: CGFloat
+    /// workspace-sections
+    let section: String?
 
     @MainActor init(_ container: TilingContainer) {
         children = container.children.map {
@@ -28,6 +30,7 @@ struct FrozenContainer: Sendable {
         }
         layout = container.layout
         orientation = container.orientation
+        section = container.section
         weight = getWeightOrNil(container) ?? 1
     }
 }
