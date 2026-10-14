@@ -59,6 +59,7 @@ struct MoveCommand: Command {
     }
 }
 
+/// - Parameter section: workspace-sections: the section that is the workspace's edge, which gets an implicit container
 @MainActor private func hitWorkspaceBoundaries(
     _ window: Window,
     _ workspace: Workspace,
@@ -66,6 +67,7 @@ struct MoveCommand: Command {
     _ args: MoveCmdArgs,
     _ direction: CardinalDirection,
     _ env: CmdEnv,
+    section: TilingContainer? = nil,
 ) -> BinaryExitCode {
     switch args.boundaries {
         case .workspace:
@@ -73,9 +75,9 @@ struct MoveCommand: Command {
                 case .stop: return .succ
                 case .fail: return .fail
                 case .createImplicitContainer:
-                    return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io))
+                    return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io, section: section))
                 case .createImplicitContainerOrFail:
-                    return createImplicitContainerAndMoveWindowOrFail(window, workspace, direction, io)
+                    return createImplicitContainerAndMoveWindowOrFail(window, workspace, direction, io, section: section)
             }
         case .allMonitorsOuterFrame:
             guard let (monitors, index) = window.nodeMonitor?.findRelativeMonitor(inDirection: direction) else {
@@ -89,7 +91,7 @@ struct MoveCommand: Command {
 
                 return MoveNodeToMonitorCommand(args: moveNodeToMonitorArgs).run(env, io)
             } else {
-                return hitAllMonitorsOuterFrameBoundaries(window, workspace, args, direction, io)
+                return hitAllMonitorsOuterFrameBoundaries(window, workspace, args, direction, io, section: section)
             }
     }
 }
@@ -100,14 +102,15 @@ struct MoveCommand: Command {
     _ args: MoveCmdArgs,
     _ direction: CardinalDirection,
     _ io: CmdIo,
+    section: TilingContainer? = nil,
 ) -> BinaryExitCode {
     switch args.boundariesAction {
         case .stop: return .succ
         case .fail: return .fail
         case .createImplicitContainer:
-            return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io))
+            return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io, section: section))
         case .createImplicitContainerOrFail:
-            return createImplicitContainerAndMoveWindowOrFail(window, workspace, direction, io)
+            return createImplicitContainerAndMoveWindowOrFail(window, workspace, direction, io, section: section)
     }
 }
 
@@ -121,6 +124,8 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
     _ env: CmdEnv,
 ) -> BinaryExitCode {
     let innerMostTilingContainer = window.parents.first(where: {
+        // workspace-sections: a window moves out of its section only to the next section
+        if ($0 as? TilingContainer)?.section != nil { return true }
         return switch $0.parent?.cases {
             case .tilingContainer(let parent): parent.orientation == direction.orientation
             // Stop searching: we have hit the workspace
@@ -134,6 +139,9 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
         }
     }) as? TilingContainer
     guard let innerMostTilingContainer else { return .fail(io.err(bugPrompt())) } // Impossible
+    if innerMostTilingContainer.section != nil {
+        return moveOutOfSection(window, innerMostTilingContainer, direction, io, args, env)
+    }
     switch innerMostTilingContainer.tilingContainerParentCases {
         case .unbound: return .fail
         case .tilingContainer(let parent):
@@ -146,15 +154,54 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
     }
 }
 
+/// workspace-sections: across the row, the window goes to the next section, and starts it if it holds no windows. Past
+/// the outer sections, and up or down, the section is the workspace's edge
+@MainActor private func moveOutOfSection(
+    _ window: Window,
+    _ section: TilingContainer,
+    _ direction: CardinalDirection,
+    _ io: CmdIo,
+    _ args: MoveCmdArgs,
+    _ env: CmdEnv,
+) -> BinaryExitCode {
+    guard let workspace = section.nodeWorkspace, let sections = workspace.sections,
+          let index = section.section.flatMap(sections.index(of:))
+    else { return .fail(io.err(bugPrompt())) }
+    let next = index + direction.focusOffset
+    if direction.orientation == .h, sections.sections.indices.contains(next) {
+        let name = sections.sections[next].name
+        if let container = workspace.sectionContainer(named: name) {
+            if container.orientation == direction.orientation {
+                // Side by side: at the end the window crossed. deepMoveIn would put it at index 0, the far end of a
+                // section to the left
+                window.bind(to: container, adaptiveWeight: WEIGHT_AUTO, index: direction.isPositive ? 0 : INDEX_BIND_LAST)
+                return .succ
+            }
+            return deepMoveIn(window: window, into: container, moveDirection: direction, io)
+        }
+        window.bind(to: workspace.makeSection(name), adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        return .succ
+    }
+    return hitWorkspaceBoundaries(window, workspace, io, args, direction, env, section: section)
+}
+
 @MainActor private func createImplicitContainerAndMoveWindowOrFail(
     _ window: Window,
     _ workspace: Workspace,
     _ direction: CardinalDirection,
     _ io: CmdIo,
+    section: TilingContainer? = nil,
 ) -> BinaryExitCode {
     if !config.enableNormalizationFlattenContainers {
         io.out("Tip: create-implicit-container-or-fail will never cause the move command to fail since enable-normalization-flatten-containers is disabled")
-        return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io))
+        return .from(bool: createImplicitContainerAndMoveWindow(window, workspace, direction, io, section: section))
+    }
+    if let section {
+        let prevOrientation = section.orientation
+        let prevChildren = section.children
+        createImplicitContainer(in: section, window, direction)
+        workspace.normalizeContainers()
+        return section.orientation == prevOrientation && section.children == prevChildren ? .fail : .succ
     }
     let prevRoot = workspace.rootTilingContainer
     let prevOrientation = prevRoot.orientation
@@ -173,7 +220,12 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
     _ workspace: Workspace,
     _ direction: CardinalDirection,
     _ io: CmdIo,
+    section: TilingContainer? = nil,
 ) -> Bool {
+    if let section {
+        createImplicitContainer(in: section, window, direction)
+        return true
+    }
     let prevRoot = workspace.rootTilingContainer
     if prevRoot.layout == .scrolling {
         io.err("move --boundaries-action create-implicit-container doesn't support the scrolling layout")
@@ -186,6 +238,19 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
     prevRoot.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: 0)
     window.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: direction.insertionOffset)
     return true
+}
+
+/// workspace-sections: the section is the workspace's edge. It gets the new level the root would get, in place: a
+/// section is never replaced
+@MainActor private func createImplicitContainer(in section: TilingContainer, _ window: Window, _ direction: CardinalDirection) {
+    let content = TilingContainer(parent: section, adaptiveWeight: WEIGHT_AUTO, section.orientation, section.layout, index: 0)
+    for child in section.children where child != content {
+        let binding = child.unbindFromParent()
+        child.bind(to: content, adaptiveWeight: binding.adaptiveWeight, index: INDEX_BIND_LAST)
+    }
+    section.layout = .tiles // Like a new root
+    section.setOrientation(direction.orientation)
+    window.bind(to: section, adaptiveWeight: WEIGHT_AUTO, index: direction.insertionOffset)
 }
 
 @MainActor private func deepMoveIn(window: Window, into container: TilingContainer, moveDirection: CardinalDirection, _ io: CmdIo) -> BinaryExitCode {
