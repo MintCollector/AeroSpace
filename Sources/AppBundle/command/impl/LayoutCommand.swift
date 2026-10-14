@@ -7,6 +7,9 @@ struct LayoutCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
         guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
+        if args.root && target.workspace.sections != nil {
+            return changeSectionsLayout(target.workspace, args, io)
+        }
 
         // `matchesDescription` needs the window itself for `.sticky`, which is a property of the
         // window rather than of its parent container.
@@ -146,6 +149,43 @@ struct LayoutCommand: Command {
                 parent.clampScrollingIndex()
             }
             return .succ
+    }
+}
+
+/// workspace-sections: `layout --root` sets every section's layout, and the layout of the sections to come. Each section
+/// keeps its orientation, so only the layout (tiles, accordion, tabs) counts
+@MainActor private func changeSectionsLayout(_ workspace: Workspace, _ args: LayoutCmdArgs, _ io: CmdIo) -> BinaryExitCode {
+    let current = workspace.sectionsLayout
+    let targetDescription = args.toggleBetween.val.first(where: { sectionLayout(of: $0) != current })
+        ?? args.toggleBetween.val.first.orDie()
+    guard let layout = sectionLayout(of: targetDescription) else {
+        let msg = targetDescription == .horizontal || targetDescription == .vertical
+            ? "Each section keeps its orientation (workspace-sections). Run 'layout horizontal|vertical' on a window of the section"
+            : "'layout --root \(targetDescription.rawValue)' doesn't work with workspace-sections"
+        return .fail(io.err(msg))
+    }
+    let sections = workspace.sectionContainers
+    if (workspace.newSectionLayout ?? config.defaultRootContainerLayout) == layout && sections.allSatisfy({ $0.layout == layout }) {
+        switch args.failIfNoop {
+            case true: return .fail
+            case false:
+                return .succ(io.err("Already in the requested \(targetDescription.rawValue) mode. Tip: use --fail-if-noop to exit with non-zero exit code"))
+        }
+    }
+    workspace.newSectionLayout = layout
+    for section in sections {
+        section.layout = layout
+    }
+    return .succ
+}
+
+/// The layout `layout --root <description>` gives every section (workspace-sections), or nil when it can't
+private func sectionLayout(of description: LayoutCmdArgs.LayoutDescription) -> Layout? {
+    switch description {
+        case .tiles, .h_tiles, .v_tiles: .tiles
+        case .accordion, .h_accordion, .v_accordion: .accordion
+        case .tabs: .tabs
+        case .horizontal, .vertical, .scrolling, .tiling, .floating, .unmanaged, .sticky: nil
     }
 }
 

@@ -224,8 +224,12 @@ extension FormatVar {
                     case .workspaceName: .success(.string(w.name))
                     case .workspaceVisible: .success(.bool(w.isVisible))
                     case .workspaceFocused: .success(.bool(focus.workspace == w))
-                    case .workspaceRootContainerLayout: .success(.string(toLayoutString(tc: w.rootTilingContainer)))
-                    case .workspaceRootContainerOrientation: .success(.string(toOrientationString(w.rootTilingContainer.orientation)))
+                    case .workspaceRootContainerLayout:
+                        // workspace-sections: the sections' layout, in the default section's orientation
+                        .success(.string(w.sections == nil
+                                ? toLayoutString(tc: w.rootTilingContainer)
+                                : toLayoutString(w.sectionsLayout, w.rootLayoutContainer.orientation)))
+                    case .workspaceRootContainerOrientation: .success(.string(toOrientationString(w.rootLayoutContainer.orientation)))
                 }
             case (.monitor(let m), .monitor(let f)):
                 return switch f {
@@ -304,8 +308,10 @@ private func toOrientationString(_ orientation: Orientation) -> String {
     }
 }
 
-private func toLayoutString(tc: TilingContainer) -> String {
-    switch (tc.layout, tc.orientation) {
+private func toLayoutString(tc: TilingContainer) -> String { toLayoutString(tc.layout, tc.orientation) }
+
+private func toLayoutString(_ layout: Layout, _ orientation: Orientation) -> String {
+    switch (layout, orientation) {
         case (.tiles, .h): return LayoutCmdArgs.LayoutDescription.h_tiles.rawValue
         case (.tiles, .v): return LayoutCmdArgs.LayoutDescription.v_tiles.rawValue
         case (.accordion, .h): return LayoutCmdArgs.LayoutDescription.h_accordion.rawValue

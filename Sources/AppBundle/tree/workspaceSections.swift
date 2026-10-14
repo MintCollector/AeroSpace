@@ -49,6 +49,12 @@ extension Workspace {
         return sectionContainer(named: sections.defaultSection) ?? sectionContainers.first ?? rootTilingContainer
     }
 
+    /// The sections' layout: the default section's (else the first's). While no section holds windows, the one
+    /// `layout --root` gave the sections to come
+    @MainActor var sectionsLayout: Layout {
+        rootLayoutContainer.takeIf { $0.section != nil }?.layout ?? newSectionLayout ?? config.defaultRootContainerLayout
+    }
+
     /// default-root-container-orientation, with 'auto' going by the section's share of the monitor
     @MainActor private func newSectionOrientation(_ section: WorkspaceSection, _ sections: WorkspaceSections) -> Orientation {
         let monitor = workspaceMonitor.visibleRect

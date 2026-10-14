@@ -76,7 +76,8 @@ struct ResizeCommand: Command {
         }
 
         let candidates = target.windowOrNil?.parentsWithSelf
-            .filter { ($0.parent as? TilingContainer)?.layout == .tiles }
+            // workspace-sections: a section's width is the config's
+            .filter { ($0.parent as? TilingContainer)?.layout == .tiles && ($0 as? TilingContainer)?.section == nil }
             ?? []
 
         if let direction = args.dimension.val.splitDirection {
@@ -107,6 +108,9 @@ struct ResizeCommand: Command {
                 return .fail(io.err(bugPrompt())) // Handled above
         }
         guard let parent else {
+            if target.windowOrNil?.containingSection != nil {
+                return .fail(io.err("Can't resize a section: section widths come from workspace-sections in the config"))
+            }
             return .fail(io.err("resize command doesn't support floating windows yet https://github.com/nikitabobko/AeroSpace/issues/9"))
         }
         guard let orientation else { return .fail }
