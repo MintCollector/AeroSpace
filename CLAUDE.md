@@ -27,6 +27,11 @@ Tests (fake `aerospace`/`aero-helper`, no AeroSpace needed): `./script/keep-wind
 Install uses `rsync --delete` (not `rm -rf` + `cp`) to preserve the directory inode — TCC
 invalidates Accessibility grants when the app bundle gets a new inode.
 
+Install copies the app **before** quitting AeroSpace. On 2026-10-14 something relaunched AeroSpace within the
+quit-then-copy gap, the old binary kept running, and the new code looked broken. `script/check-running-build.sh`
+then fails the install unless the running process is the installed build. It compares the running executable's inode
+(`lsof`) with the file's, because `rsync -a` keeps the build's mtime.
+
 ### Code signing (stable local identity)
 
 Builds are signed with a **self-signed `AeroSpace Local` identity** (not ad-hoc), giving the app a
