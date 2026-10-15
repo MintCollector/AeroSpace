@@ -189,17 +189,16 @@ final class SectionsCommandsTest: XCTestCase {
 
     func testLayoutRootSetsEverySection() async {
         setUpSections()
+        config.defaultRootContainerOrientation = .auto // By their slots: left and right stacked, main side by side
         let workspace = Workspace.get(byName: "a")
-        config.defaultRootContainerOrientation = .vertical
         TestWindow.new(id: 1, parent: workspace.makeSection("left"))
-        config.defaultRootContainerOrientation = .horizontal
-        assertTrue(TestWindow.new(id: 2, parent: workspace.makeSection("main")).focusWindow())
+        assertTrue(TestWindow.new(id: 2, parent: workspace.sectionForWindows("main")).focusWindow())
         assertEquals(await run("layout --root tiles accordion").exitCode.rawValue, 0) // aero-helper's toggle-accordion
         TestWindow.new(id: 3, parent: workspace.sectionForWindows("right")) // A section to come
         assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
             .section("left", .v_accordion([.window(1)])), // Each keeps its orientation
             .section("main", .h_accordion([.window(2)])),
-            .section("right", .h_accordion([.window(3)])),
+            .section("right", .v_accordion([.window(3)])),
         ]))
         assertTrue(await workspaceLayouts().contains("a h_accordion")) // The default section's
         assertEquals(await run("layout --root vertical").stderr,

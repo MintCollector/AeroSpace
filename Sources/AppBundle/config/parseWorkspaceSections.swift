@@ -12,14 +12,13 @@ struct WorkspaceSections: ConvenienceMutable, Equatable, Sendable {
 
     func applies(to workspace: String) -> Bool { workspaces?.contains(workspace) ?? true }
     func index(of section: String) -> Int? { sections.firstIndex { $0.name == section } }
-    var totalWidth: Int { sections.reduce(0) { $0 + $1.width } }
 }
 
 struct WorkspaceSection: ConvenienceMutable, Equatable, Sendable {
     var name: String = ""
     /// Relative to the other sections' widths
     var width: Int = 1
-    /// Without windows, the section gives its width to the others. Otherwise it keeps an empty slot
+    /// Without windows, the section gives its width to the default section. Otherwise it keeps an empty slot
     var collapse: Bool = true
 }
 

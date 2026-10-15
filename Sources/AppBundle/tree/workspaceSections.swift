@@ -23,10 +23,11 @@ extension Workspace {
         let position = root.children.firstIndex { child in
             ((child as? TilingContainer)?.section).flatMap(sections.index(of:)).map { $0 > index } ?? false
         } ?? root.children.count
+        let shown = Set(sectionContainers.filter { !$0.children.isEmpty }.compactMap(\.section)).union([name])
         let container = TilingContainer(
             parent: root,
             adaptiveWeight: WEIGHT_AUTO,
-            newSectionOrientation(sections.sections[index], sections),
+            sectionOrientation(name, shown: shown, sections),
             newSectionLayout ?? config.defaultRootContainerLayout,
             index: position,
         )
@@ -55,15 +56,29 @@ extension Workspace {
         rootLayoutContainer.takeIf { $0.section != nil }?.layout ?? newSectionLayout ?? config.defaultRootContainerLayout
     }
 
-    /// default-root-container-orientation, with 'auto' going by the section's share of the monitor
-    @MainActor private func newSectionOrientation(_ section: WorkspaceSection, _ sections: WorkspaceSections) -> Orientation {
-        let monitor = workspaceMonitor.visibleRect
-        let width = monitor.width * CGFloat(section.width) / CGFloat(sections.totalWidth)
-        return switch config.defaultRootContainerOrientation {
-            case .horizontal: .h
-            case .vertical: .v
-            case .auto: width >= monitor.height ? .h : .v
+    /// default-root-container-orientation. With 'auto', the shape of the section's slot while the sections in `shown`
+    /// hold windows: side by side in a wide slot, stacked in a narrow one
+    @MainActor private func sectionOrientation(_ section: String, shown: Set<String>, _ sections: WorkspaceSections) -> Orientation {
+        switch config.defaultRootContainerOrientation {
+            case .horizontal: return .h
+            case .vertical: return .v
+            case .auto:
+                let row = workspaceMonitor.visibleRectPaddedByOuterGaps(forWorkspace: name)
+                let slot = sections.slots(in: row, shown: shown).first { $0.section.name == section }?.rect
+                return slot.map { $0.width >= $0.height ? Orientation.h : .v } ?? .h
         }
+    }
+}
+
+extension WorkspaceSections {
+    /// The row's slots, left to right: the sections that hold windows (`shown`) and the empty ones that don't collapse.
+    /// An empty section that collapses gives its width to the default section, or to every slot when the default
+    /// section is empty and collapses too
+    func slots(in row: Rect, shown: Set<String>) -> [(section: WorkspaceSection, rect: Rect)] {
+        let slots = sections.filter { shown.contains($0.name) || !$0.collapse }
+        let freed = sections.filter { !shown.contains($0.name) && $0.collapse }.reduce(0) { $0 + $1.width }
+        let weights = slots.map { CGFloat($0.width + ($0.name == defaultSection ? freed : 0)) }
+        return zip(slots, row.sliced(along: .h, weights: weights)).map { (section: $0, rect: $1) }
     }
 }
 
@@ -128,6 +143,12 @@ extension Workspace {
             // A bind makes what it moved the most recent: the window that was keeps focus history's lead. Only then, or
             // the row would outrank floating windows on every refresh
             mruWindow?.markAsMostRecentChild()
+        }
+        // A section with one window takes the orientation a new one would: its slot's, here and now. One made on another
+        // monitor, or in a narrower slot, would otherwise stack the next window
+        let shown = Set(sectionContainers.filter { !$0.children.isEmpty }.compactMap(\.section))
+        for section in sectionContainers where section.children.count == 1 && section.children.first is Window {
+            section.setOrientation(sectionOrientation(section.section ?? sections.defaultSection, shown: shown, sections))
         }
         for section in sectionContainers {
             for window in section.allLeafWindowsRecursive {

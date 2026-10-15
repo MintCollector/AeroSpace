@@ -33,13 +33,31 @@ final class WorkspaceSectionsTest: XCTestCase {
         assertEquals(workspace.sectionForWindows("gone").section, "main") // A section the config dropped
     }
 
-    func testANewSectionIsOrientedByItsShareOfTheMonitor() {
+    func testANewSectionIsOrientedByItsSlot() {
         setUpSections()
         config.defaultRootContainerOrientation = .auto
         let workspace = Workspace.get(byName: "a")
-        assertEquals(workspace.makeSection("main").orientation, .v) // 960 wide on the 1920x1080 test monitor
-        config.workspaceSections?.sections[1].width = 3
-        assertEquals(workspace.makeSection("main").orientation, .h) // 1152 wide
+        TestWindow.new(id: 1, parent: workspace.makeSection("left"))
+        // On the 1920x1080 test monitor, with right empty: left 480 | main 1440
+        assertEquals(workspace.makeSection("main").orientation, .h)
+        TestWindow.new(id: 2, parent: workspace.sectionForWindows("main"))
+        assertEquals(workspace.makeSection("right").orientation, .v) // 480 wide
+    }
+
+    func testASectionWithOneWindowTakesItsSlotsOrientation() {
+        // e.g. made on the laptop, where main was narrow, then shown on the ultrawide
+        setUpSections()
+        config.defaultRootContainerOrientation = .vertical
+        let workspace = Workspace.get(byName: "a")
+        TestWindow.new(id: 1, parent: workspace.makeSection("main"))
+        config.defaultRootContainerOrientation = .auto
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.section("main", .h_tiles([.window(1)]))]))
+        // With two windows, the arrangement is the user's: it stays
+        workspace.sectionForWindows("main").setOrientation(.v)
+        TestWindow.new(id: 2, parent: workspace.sectionForWindows("main"))
+        workspace.normalizeContainers()
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.section("main", .v_tiles([.window(1), .window(2)]))]))
     }
 
     func testTheWorkspacesLayoutIsTheDefaultSections() {
@@ -168,7 +186,22 @@ final class WorkspaceSectionsTest: XCTestCase {
         setUpSections(collapse: ["right": false])
         let rects = sectionedWorkspace(["main"]).previewLayoutRects()
         assertEquals(rects[2]?.topLeftX, 0)
-        assertEquals(rects[2]?.width, 1280) // main 2, right 1 of the 1920
+        assertEquals(rects[2]?.width, 1440) // main 2 + left's 1, right keeps its 1
+    }
+
+    func testAnEmptySectionsWidthGoesToTheDefaultSection() {
+        // The side sections keep their width: main takes what an empty one gives away
+        setUpSections()
+        let rects = sectionedWorkspace(["left", "main"]).previewLayoutRects()
+        assertEquals([1, 2].map { rects[$0]?.topLeftX }, [0, 480])
+        assertEquals([1, 2].map { rects[$0]?.width }, [480, 1440])
+    }
+
+    func testWithoutTheDefaultSectionTheWidthIsShared() {
+        setUpSections()
+        let rects = sectionedWorkspace(["left", "right"]).previewLayoutRects()
+        assertEquals([1, 3].map { rects[$0]?.topLeftX }, [0, 960])
+        assertEquals([1, 3].map { rects[$0]?.width }, [960, 960])
     }
 
     func testSectionsAreApartByTheInnerGap() {
@@ -184,8 +217,8 @@ final class WorkspaceSectionsTest: XCTestCase {
         let workspace = sectionedWorkspace(["main", "right"])
         _ = try await workspace.layoutWorkspace()
         let right = try await Window.get(byId: 3).orDie().getAxRect(.nonCancellable).orDie()
-        assertEquals(right.topLeftX, 1280)
-        assertEquals(right.width, 640)
+        assertEquals(right.topLeftX, 1440) // main 2 + left's 1
+        assertEquals(right.width, 480)
     }
 
     func testTheClosedWindowsCacheKeepsSections() {
