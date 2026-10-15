@@ -197,8 +197,8 @@ extension TilingContainer {
     }
 
     /// Where each section of the row of sections goes (workspace-sections). The row is cut by the sections' widths. An
-    /// empty section that collapses gives its width to the others, one that doesn't keeps an empty slot. Slots are apart
-    /// by the inner gap, like tiles. The row's width is `virtual`'s. Pure
+    /// empty section that collapses gives its width to the default section, one that doesn't keeps an empty slot
+    /// (`WorkspaceSections.slots`). Slots are apart by the inner gap, like tiles. The row's width is `virtual`'s. Pure
     @MainActor
     func sectionFrames(_ point: CGPoint, height: CGFloat, virtual: Rect, gaps: ResolvedGaps,
                        sections: WorkspaceSections) -> [ChildFrame]
@@ -207,14 +207,13 @@ extension TilingContainer {
         for case let container as TilingContainer in children where !container.layoutChildren.isEmpty {
             if let name = container.section { shown[name] = container }
         }
-        let slots = sections.sections.filter { shown[$0.name] != nil || !$0.collapse }
+        let slots = sections.slots(in: virtual, shown: Set(shown.keys))
         let rawGap = gaps.inner.get(.h).toDouble()
-        let rects = virtual.sliced(along: .h, weights: slots.map { CGFloat($0.width) })
         return slots.indices.compactMap { i in
-            guard let container = shown[slots[i].name] else { return nil }
+            guard let container = shown[slots[i].section.name] else { return nil }
             let left = i == 0 ? 0 : rawGap / 2
             let right = i == slots.indices.last ? 0 : rawGap / 2
-            let slot = rects[i]
+            let slot = slots[i].rect
             return ChildFrame(
                 child: container,
                 point: CGPoint(x: point.x + slot.topLeftX - virtual.topLeftX + left, y: point.y),

@@ -511,9 +511,12 @@ The sections are containers of the workspace's tree, so switching workspaces swi
 ----
 
 * `width` is relative to the other sections' widths.
-* Without windows, a section gives its width to the others (`collapse = true`, the default), or keeps an empty slot
-(`collapse = false`).
+* Without windows, a section gives its width to the default section (`collapse = true`, the default), or keeps an
+empty slot (`collapse = false`).
+When the default section is empty and collapses too, the other sections share the width.
 * Inside a section, windows tile like in any container.
+With `default-root-container-orientation = 'auto'`, a section that holds one window takes the shape of its slot:
+side by side in a wide slot, stacked in a narrow one.
 * New windows go to the `default` section.
 A window keeps its section when it moves to another workspace or monitor, and when it tiles again after floating,
 minimized or a hidden app.
