@@ -22,14 +22,26 @@ import Common
 
 /// `visible`: the workspace each monitor shows now
 @MainActor func recordVisibleWorkspaces(_ visible: [CGPoint: String]) {
+    var known: [CGPoint: String] = [:]
     for (point, name) in visible {
+        let old = lastKnownVisibleWorkspaces[point]
         // Dot workspaces (.scratchpad) hold stashed windows. One shows only for the moment
-        // aero-helper takes a window out of it, and is never a place to go back to
-        guard let old = lastKnownVisibleWorkspaces[point], old != name, !old.starts(with: ".") else { continue }
+        // aero-helper takes a window out of it: never a place to go back to, and the monitor still
+        // counts as showing the workspace before it
+        if name.starts(with: ".") {
+            known[point] = old
+            continue
+        }
+        known[point] = name
+        guard let old, old != name else { continue }
         monitorWorkspaceHistory[point] = [old] + (monitorWorkspaceHistory[point] ?? []).filter { $0 != old }
     }
-    lastKnownVisibleWorkspaces = visible
+    lastKnownVisibleWorkspaces = known
 }
+
+/// The workspaces on a screen at the last refresh session. Going to one of them (focusing another
+/// monitor) isn't arriving at it: its floating windows aren't raised or focused
+@MainActor var workspacesOnScreen: Set<String> { Set(lastKnownVisibleWorkspaces.values) }
 
 @MainActor func resetMonitorWorkspaceHistory() {
     monitorWorkspaceHistory = [:]

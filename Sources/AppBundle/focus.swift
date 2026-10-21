@@ -105,7 +105,9 @@ extension Window {
     @MainActor func toLiveFocusOrNil() -> LiveFocus? { visualWorkspace.map { LiveFocus(windowOrNil: self, workspace: $0) } }
 }
 extension Workspace {
-    @MainActor func focusWorkspace() -> Bool { setFocus(to: toLiveFocusOnArrival()) }
+    @MainActor func focusWorkspace() -> Bool {
+        setFocus(to: workspacesOnScreen.contains(name) ? toLiveFocus() : toLiveFocusOnArrival())
+    }
 
     func toLiveFocus() -> LiveFocus {
         // todo unfortunately mostRecentWindowRecursive may recursively reach empty rootTilingContainer
@@ -117,8 +119,8 @@ extension Workspace {
         }
     }
 
-    // When arriving at a workspace (switch / summon / focus), prefer the most-recently-focused
-    // floating window if any exist. Floating windows can't be kept above the focused window across
+    // When arriving at a workspace that wasn't on screen (switch / summon; focusWorkspace() doesn't call
+    // this for focusing another monitor), prefer the most-recently-focused floating window if any exist. Floating windows can't be kept above the focused window across
     // apps via the AX API — app activation always wins — so the only way to guarantee they're
     // visible on arrival (rather than buried behind the focused tiled window) is to focus one.
     // Composes with the floating-raise pass in layoutWorkspaces(): that lifts every float above the
@@ -156,6 +158,7 @@ extension Workspace {
     if refreshSessionEvent?.isStartup == true {
         return
     }
+    let onScreenBefore = workspacesOnScreen
     trackVisibleWorkspaces()
     let focus = focus
     let frozenFocus = focus.frozen
@@ -182,7 +185,8 @@ extension Workspace {
         _ = await onFocusChanged(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, focus)
     }
     if let _prevFocusedWorkspaceName, hasFocusedWorkspaceChanged {
-        onWorkspaceChanged(_prevFocusedWorkspaceName, frozenFocus.workspaceName, focus)
+        onWorkspaceChanged(_prevFocusedWorkspaceName, frozenFocus.workspaceName, focus,
+                           arrived: !onScreenBefore.contains(frozenFocus.workspaceName))
     }
     if hasFocusedMonitorChanged {
         _ = await onFocusedMonitorChanged(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, focus)
@@ -205,13 +209,13 @@ extension Workspace {
     return await config.onFocusChanged.run(env.withFocus(focus), io)
 }
 
-// Workspaces that just became focused and whose floating windows should be raised to the top on the
-// next layout pass, so they're visible on arrival instead of buried behind tiled windows.
-// Consumed (one-shot per switch) by layoutWorkspaces().
+// Workspaces that just came on screen and whose floating windows should be raised to the top on the
+// next layout pass, so they're visible on arrival instead of buried behind tiled windows. Not one that
+// was already on screen (focusing another monitor). Consumed (one-shot per switch) by layoutWorkspaces().
 @MainActor var workspacesNeedingFloatingRaise: Set<String> = []
 
-@MainActor private func onWorkspaceChanged(_ oldWorkspace: String, _ newWorkspace: String, _ focus: LiveFocus) {
-    workspacesNeedingFloatingRaise.insert(newWorkspace)
+@MainActor private func onWorkspaceChanged(_ oldWorkspace: String, _ newWorkspace: String, _ focus: LiveFocus, arrived: Bool) {
+    if arrived { workspacesNeedingFloatingRaise.insert(newWorkspace) }
     broadcastEvent(.workspaceChanged(
         workspace: newWorkspace,
         prevWorkspace: oldWorkspace,
