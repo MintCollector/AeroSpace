@@ -63,7 +63,8 @@ bash script/generate-cmd-help.sh
 - `workspace-back-and-forth` is per monitor (fork-only, `--monitor <monitor-id>|main|secondary|mouse|focused`;
   `workspace --auto-back-and-forth` uses it too): `Sources/AppBundle/monitorWorkspaceHistory.swift` records the workspaces
   each monitor showed, in every refresh session (`checkOnFocusChangedCallbacks_nonCancellable`), skipping dot workspaces
-  (`.scratchpad`). aero-helper has no back-and-forth of its own: ctrl-enter's `aero-helper workspace-back-and-forth`
+  (`.scratchpad`); `workspace`/`move-node-to-workspace` `next|prev` skip them too (`getNextPrevWorkspace`, unless the
+  list comes from stdin). aero-helper has no back-and-forth of its own: ctrl-enter's `aero-helper workspace-back-and-forth`
   reaches this command through `aero-helper run`.
 - `recheck` rules (fork-only, `recheck = until-matched|every-match|every-change` on an `on-window-detected` rule):
   `Sources/AppBundle/windowRuleRecheck.swift`. Rules run only in the check pass at the end of

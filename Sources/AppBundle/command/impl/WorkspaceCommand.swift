@@ -69,9 +69,12 @@ struct WorkspaceCommand: Command {
             .get()
             ?? []
         let currentMonitor = current.workspaceMonitor
+        // Dot workspaces (.scratchpad, .slack) hold stashed windows: never a stop on the way, only a place to
+        // leave. A list from stdin is followed as given
         let workspaces: [Workspace] = stdin != nil
             ? stdinWorkspaces.map { Workspace.get(byName: $0.raw) }
             : Workspace.all.filter { $0.workspaceMonitor.rect.topLeftCorner == currentMonitor.rect.topLeftCorner }
+                .filter { !$0.name.starts(with: ".") }
                 .toSet()
                 .union([current])
                 .sorted()

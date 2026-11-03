@@ -145,6 +145,34 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(focus.workspace.name, "a")
     }
 
+    func testRelativePrev_skipsDotWorkspaces() async {
+        _ = Workspace.get(byName: ".scratchpad")
+        assertTrue(Workspace.get(byName: "a").focusWorkspace())
+
+        // ".scratchpad" sorts before "a", but it's no stop: "a" is the first
+        let result = await parseCommand("workspace prev").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 2)
+        assertEquals(focus.workspace.name, "a")
+    }
+
+    func testRelativeNext_fromDotWorkspace_goesToARegularOne() async {
+        _ = Workspace.get(byName: ".slack")
+        _ = Workspace.get(byName: "a")
+        assertTrue(Workspace.get(byName: ".akiflow").focusWorkspace())
+
+        let result = await parseCommand("workspace next").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(focus.workspace.name, "a")
+    }
+
+    func testRelativeNext_stdin_keepsDotWorkspaces() async {
+        assertTrue(Workspace.get(byName: "a").focusWorkspace())
+
+        let result = await parseCommand("workspace --stdin next").cmdOrDie.run(.defaultEnv, CmdStdin("a\n.scratchpad\n"))
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(focus.workspace.name, ".scratchpad")
+    }
+
     func testRelativeNext_emptyStdin_fails() async {
         assertTrue(Workspace.get(byName: "a").focusWorkspace())
 
