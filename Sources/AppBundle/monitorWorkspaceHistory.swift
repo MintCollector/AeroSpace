@@ -25,9 +25,9 @@ import Common
     var known: [CGPoint: String] = [:]
     for (point, name) in visible {
         let old = lastKnownVisibleWorkspaces[point]
-        // Dot workspaces (.scratchpad) hold stashed windows. One shows only for the moment
-        // aero-helper takes a window out of it: never a place to go back to, and the monitor still
-        // counts as showing the workspace before it
+        // Dot workspaces (.scratchpad, .slack) hold stashed windows. One shows only while you look
+        // at its window (.scratchpad just for the moment aero-helper pulls a window out of it):
+        // never a place to go back to, and the monitor still counts as showing the workspace before it
         if name.starts(with: ".") {
             known[point] = old
             continue

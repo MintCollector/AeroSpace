@@ -28,7 +28,8 @@ aerospace workspace [-h|--help] --view-toggle <workspace-name>
 Focuses next or previous workspace in *the list*.
 
 * If `--stdin` is specified, then *the list* is taken from stdin
-* Otherwise, *the list* is defined as all workspaces (even empty ones) on focused monitor in alphabetical order
+* Otherwise, *the list* is defined as all workspaces (even empty ones) on focused monitor in alphabetical order,
+leaving out the ones whose name starts with a dot (like `.scratchpad`): from one of those, `next` and `prev` go to a regular workspace
 
 // =========================================================== Options
 include::util/conditional-options-header.adoc[]
